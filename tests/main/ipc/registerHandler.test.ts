@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { createHandlerRegistrar, IpcFailure } from '@main/ipc/registerHandler'
 import type { InvokeEventLike } from '@main/security/senderGuard'
+import type { CallerContext } from '@main/ipc/CallerContext'
 
 const OK_EVENT = {
   senderFrame: { url: 'app://ok/' },
@@ -109,6 +110,24 @@ describe('createHandlerRegistrar', () => {
       harness.invoke('math:double', { n: 1, origin: 'user' }),
     ).rejects.toThrow(IpcFailure)
     expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('핸들러가 받는 컨텍스트는 페이로드 내용과 무관하게 main이 결정한다', async () => {
+    const harness = createHarness(true)
+    let received: CallerContext | undefined
+    harness.register(
+      'math:double',
+      z.object({ n: z.number() }),
+      (input, context) => {
+        received = context
+        return Promise.resolve(input.n * 2)
+      },
+    )
+
+    // 페이로드 안에 source: 'ai'를 심어도 핸들러가 받는 컨텍스트는 영향받지 않아야 한다.
+    await harness.invoke('math:double', { n: 21, source: 'ai' })
+
+    expect(received).toEqual({ source: 'renderer-ui' })
   })
 
   it('거부 오류에 코드를 담는다', async () => {
