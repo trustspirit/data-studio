@@ -185,6 +185,52 @@ describe('createSecretStore — 암호화 사용 가능', () => {
   })
 })
 
+describe('createSecretStore — AI 읽기 전용 계정 비밀번호', () => {
+  it('같은 커넥션의 일반 비밀번호와 AI 읽기 전용 비밀번호가 서로 덮어쓰지 않는다', async () => {
+    const store = createSecretStore({
+      safeStorage: workingSafeStorage(),
+      filePath,
+      platform: 'darwin',
+      logger,
+    })
+
+    const ownerPasswordRef: SecretRef = { kind: 'db-password', ownerId: 'conn-1' }
+    const aiReadOnlyPasswordRef: SecretRef = {
+      kind: 'db-password-ai-readonly',
+      ownerId: 'conn-1',
+    }
+
+    await store.set(ownerPasswordRef, 'owner-secret')
+    await store.set(aiReadOnlyPasswordRef, 'ai-readonly-secret')
+
+    await expect(store.get(ownerPasswordRef)).resolves.toBe('owner-secret')
+    await expect(store.get(aiReadOnlyPasswordRef)).resolves.toBe('ai-readonly-secret')
+  })
+
+  it('AI 읽기 전용 비밀번호를 나중에 저장해도 일반 비밀번호가 지워지지 않는다', async () => {
+    const store = createSecretStore({
+      safeStorage: workingSafeStorage(),
+      filePath,
+      platform: 'darwin',
+      logger,
+    })
+
+    const ownerPasswordRef: SecretRef = { kind: 'db-password', ownerId: 'conn-1' }
+    const aiReadOnlyPasswordRef: SecretRef = {
+      kind: 'db-password-ai-readonly',
+      ownerId: 'conn-1',
+    }
+
+    await store.set(ownerPasswordRef, 'owner-secret')
+    await store.set(aiReadOnlyPasswordRef, 'ai-readonly-secret')
+
+    await store.delete(aiReadOnlyPasswordRef)
+
+    await expect(store.get(ownerPasswordRef)).resolves.toBe('owner-secret')
+    await expect(store.get(aiReadOnlyPasswordRef)).resolves.toBeNull()
+  })
+})
+
 describe('createSecretStore — 암호화 불가', () => {
   it('암호화를 못 쓰면 비영속 저장소를 만든다', () => {
     const store = createSecretStore({
