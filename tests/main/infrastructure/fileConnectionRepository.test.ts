@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { FileConnectionRepository } from '@main/infrastructure/FileConnectionRepository'
@@ -108,5 +108,67 @@ describe('FileConnectionRepository', () => {
       'connections.invalid_entry',
       expect.objectContaining({ index: 1 }),
     )
+  })
+
+  it('get()으로 받은 객체를 변경해도 이후 get() 결과에 영향을 주지 않는다', async () => {
+    const repo = new FileConnectionRepository(filePath, logger)
+    await repo.save(PG)
+
+    const first = await repo.get('conn-1')
+    first!.name = 'Tampered'
+
+    await expect(repo.get('conn-1')).resolves.toMatchObject({ name: 'Production' })
+  })
+
+  it('list()로 받은 객체를 변경해도 이후 list() 결과에 영향을 주지 않는다', async () => {
+    const repo = new FileConnectionRepository(filePath, logger)
+    await repo.save(PG)
+
+    const first = await repo.list()
+    first[0]!.name = 'Tampered'
+
+    const second = await repo.list()
+    expect(second[0]?.name).toBe('Production')
+  })
+
+  it('반환된 설정의 maskedColumnPatterns 배열을 변경해도 캐시에 영향을 주지 않는다', async () => {
+    const repo = new FileConnectionRepository(filePath, logger)
+    await repo.save(PG)
+
+    const first = await repo.get('conn-1')
+    first!.maskedColumnPatterns.push('ssn')
+
+    const second = await repo.get('conn-1')
+    expect(second?.maskedColumnPatterns).toEqual(['email', 'phone'])
+  })
+
+  it('get()으로 받은 설정을 변경한 뒤 무관한 설정을 save()해도 변경 사항이 디스크에 반영되지 않는다', async () => {
+    const repo = new FileConnectionRepository(filePath, logger)
+    await repo.save(PG)
+
+    const first = await repo.get('conn-1')
+    first!.name = 'Tampered'
+    first!.maskedColumnPatterns.push('ssn')
+
+    const other: ConnectionConfig = { ...PG, id: 'conn-2', name: 'Staging' }
+    await repo.save(other)
+
+    const raw = await readFile(filePath, 'utf8')
+    expect(raw).not.toContain('Tampered')
+    expect(raw).not.toContain('ssn')
+  })
+
+  it('save()에 전달한 객체를 이후에 변경해도 get() 결과에 영향을 주지 않는다', async () => {
+    const repo = new FileConnectionRepository(filePath, logger)
+    const mutable: ConnectionConfig = { ...PG, maskedColumnPatterns: [...PG.maskedColumnPatterns] }
+
+    await repo.save(mutable)
+    mutable.name = 'Tampered'
+    mutable.maskedColumnPatterns.push('ssn')
+
+    await expect(repo.get('conn-1')).resolves.toMatchObject({
+      name: 'Production',
+      maskedColumnPatterns: ['email', 'phone'],
+    })
   })
 })
