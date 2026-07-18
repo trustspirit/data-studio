@@ -62,6 +62,33 @@ describe('createHandlerRegistrar', () => {
     )
   })
 
+  it('sender 검증과 스키마 검증이 모두 실패해도 forbidden_sender로 거부한다', async () => {
+    const harness = createHarness(false)
+    const handler = vi.fn()
+    harness.register('math:double', z.strictObject({ n: z.number() }), handler)
+
+    await expect(
+      harness.invoke('math:double', { n: 'not a number' }),
+    ).rejects.toMatchObject({ code: 'forbidden_sender' })
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('sender 검증과 스키마 검증이 모두 실패하면 forbidden_sender만 로그에 남긴다', async () => {
+    const harness = createHarness(false)
+    harness.register('math:double', z.strictObject({ n: z.number() }), async () => 0)
+
+    await harness.invoke('math:double', { n: 'not a number' }).catch(() => undefined)
+
+    expect(harness.logger.warn).toHaveBeenCalledWith(
+      'ipc.forbidden_sender',
+      expect.objectContaining({ channel: 'math:double' }),
+    )
+    expect(harness.logger.warn).not.toHaveBeenCalledWith(
+      'ipc.invalid_input',
+      expect.anything(),
+    )
+  })
+
   it('스키마에 맞지 않는 입력을 거부한다', async () => {
     const harness = createHarness(true)
     const handler = vi.fn()
