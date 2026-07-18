@@ -1,12 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createSecretStore } from '@main/infrastructure/createSecretStore'
 import type { SafeStorageLike } from '@main/infrastructure/createSecretStore'
+import { EncryptedFileSecretStore } from '@main/infrastructure/EncryptedFileSecretStore'
 import type { SecretRef } from '@main/core/ports/SecretStore'
 
 const REF: SecretRef = { kind: 'db-password', ownerId: 'conn-1' }
+const PLAINTEXT_CANARY = 'PLAINTEXT-CANARY-9f3ac71b'
+
+/** dir 안의 모든 파일을 읽어 평문 카나리가 어디에도 없는지 확인한다. */
+async function assertNoFileContainsPlaintext(dir: string, plaintext: string): Promise<void> {
+  const entries = await readdir(dir)
+  for (const entry of entries) {
+    const contents = await readFile(path.join(dir, entry), 'utf8')
+    expect(contents).not.toContain(plaintext)
+  }
+}
 
 /** 실제 safeStorage 대신 쓰는 가역 변환. 암호화 강도가 아니라 배선을 검증한다. */
 function workingSafeStorage(backend = 'gnome_libsecret'): SafeStorageLike {
@@ -93,6 +105,27 @@ describe('createSecretStore — 암호화 사용 가능', () => {
     await store.delete(REF)
 
     await expect(store.get(REF)).resolves.toBeNull()
+  })
+
+  it('삭제는 메모리 캐시가 아니라 디스크에 실제로 반영된다', async () => {
+    const store = createSecretStore({
+      safeStorage: workingSafeStorage(),
+      filePath,
+      platform: 'darwin',
+      logger,
+    })
+
+    await store.set(REF, PLAINTEXT_CANARY)
+    await store.delete(REF)
+
+    const rawOnDisk = await readFile(filePath, 'utf8')
+    const parsed = JSON.parse(rawOnDisk) as Record<string, string>
+    expect(Object.keys(parsed)).not.toContain('db-password:conn-1')
+
+    // 같은 인스턴스가 아니라 새 인스턴스로 확인해서, 메모리 캐시가 아니라
+    // 디스크에 쓰인 결과를 검증한다.
+    const freshStore = new EncryptedFileSecretStore(filePath, workingSafeStorage(), logger)
+    await expect(freshStore.get(REF)).resolves.toBeNull()
   })
 
   it('종류가 다르면 별개의 비밀로 취급한다', async () => {
@@ -229,5 +262,59 @@ describe('createSecretStore — 암호화 불가', () => {
     })
 
     expect(getSelectedStorageBackend).not.toHaveBeenCalled()
+  })
+
+  it('암호화를 못 쓰면 비밀을 저장해도 파일이 생기지 않는다', async () => {
+    const store = createSecretStore({
+      safeStorage: {
+        isEncryptionAvailable: () => false,
+        encryptString: () => Buffer.alloc(0),
+        decryptString: () => '',
+      },
+      filePath,
+      platform: 'linux',
+      logger,
+    })
+
+    await store.set(REF, PLAINTEXT_CANARY)
+
+    expect(existsSync(filePath)).toBe(false)
+    await expect(readdir(dir)).resolves.toEqual([])
+    await assertNoFileContainsPlaintext(dir, PLAINTEXT_CANARY)
+  })
+
+  it('Linux basic_text 백엔드에서 비밀을 저장해도 파일이 생기지 않는다', async () => {
+    const store = createSecretStore({
+      safeStorage: workingSafeStorage('basic_text'),
+      filePath,
+      platform: 'linux',
+      logger,
+    })
+
+    await store.set(REF, PLAINTEXT_CANARY)
+
+    expect(existsSync(filePath)).toBe(false)
+    await expect(readdir(dir)).resolves.toEqual([])
+    await assertNoFileContainsPlaintext(dir, PLAINTEXT_CANARY)
+  })
+
+  it('Linux에서 백엔드를 알 수 없으면 비밀을 저장해도 파일이 생기지 않는다', async () => {
+    const store = createSecretStore({
+      safeStorage: {
+        isEncryptionAvailable: () => true,
+        encryptString: (s) => Buffer.from(`enc:${s}`, 'utf8'),
+        decryptString: (b) => b.toString('utf8').replace(/^enc:/, ''),
+        // getSelectedStorageBackend 자체를 제공하지 않는 경우
+      },
+      filePath,
+      platform: 'linux',
+      logger,
+    })
+
+    await store.set(REF, PLAINTEXT_CANARY)
+
+    expect(existsSync(filePath)).toBe(false)
+    await expect(readdir(dir)).resolves.toEqual([])
+    await assertNoFileContainsPlaintext(dir, PLAINTEXT_CANARY)
   })
 })
