@@ -113,6 +113,88 @@ describe('applyWindowPolicy', () => {
 
     expect(event.preventDefault).toHaveBeenCalledOnce()
   })
+
+  it('userinfo에 허용된 호스트를 심어 실제 호스트(evil.com)를 위장하는 시도를 차단한다', () => {
+    const fake = createFakeWindow()
+    applyWindowPolicy(fake.window, {
+      allowedUrls: ['http://localhost:5173/'],
+      openExternal: vi.fn(),
+    })
+
+    const event = { preventDefault: vi.fn() }
+    fake.fire('will-navigate', event, 'http://localhost:5173@evil.com/')
+
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+  })
+
+  it('백슬래시로 userinfo를 위장하는 시도를 차단한다', () => {
+    const fake = createFakeWindow()
+    applyWindowPolicy(fake.window, {
+      allowedUrls: ['http://localhost:5173/'],
+      openExternal: vi.fn(),
+    })
+
+    const event = { preventDefault: vi.fn() }
+    fake.fire('will-navigate', event, 'http://localhost:5173\\@evil.com/')
+
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+  })
+
+  it('그리스 오미크론으로 유사 표기한 호스트(호모그래프)를 차단한다', () => {
+    const fake = createFakeWindow()
+    applyWindowPolicy(fake.window, {
+      allowedUrls: ['http://localhost:5173/'],
+      openExternal: vi.fn(),
+    })
+
+    const event = { preventDefault: vi.fn() }
+    // 'localhost'의 'o'를 그리스 문자 오미크론(U+03BF)으로 치환
+    fake.fire('will-navigate', event, 'http://lοcalhost:5173/')
+
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+  })
+
+  it('허용된 URL을 접두사로 갖는 서브도메인/호스트 접미사 위장을 차단한다', () => {
+    const fake = createFakeWindow()
+    applyWindowPolicy(fake.window, {
+      allowedUrls: ['http://localhost:5173/'],
+      openExternal: vi.fn(),
+    })
+
+    const suffixEvent = { preventDefault: vi.fn() }
+    fake.fire('will-navigate', suffixEvent, 'http://localhost:5173.evil.com/')
+    expect(suffixEvent.preventDefault).toHaveBeenCalledOnce()
+
+    const subdomainEvent = { preventDefault: vi.fn() }
+    fake.fire('will-navigate', subdomainEvent, 'http://localhost.evil.com/')
+    expect(subdomainEvent.preventDefault).toHaveBeenCalledOnce()
+  })
+
+  it('스킴/호스트 대소문자가 다른 동일 URL은 정상적으로 허용한다', () => {
+    const fake = createFakeWindow()
+    applyWindowPolicy(fake.window, {
+      allowedUrls: ['http://localhost:5173/'],
+      openExternal: vi.fn(),
+    })
+
+    const event = { preventDefault: vi.fn() }
+    fake.fire('will-navigate', event, 'HTTP://LOCALHOST:5173/')
+
+    expect(event.preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('trailing slash가 없는 동일 URL은 정상적으로 허용한다', () => {
+    const fake = createFakeWindow()
+    applyWindowPolicy(fake.window, {
+      allowedUrls: ['http://localhost:5173/'],
+      openExternal: vi.fn(),
+    })
+
+    const event = { preventDefault: vi.fn() }
+    fake.fire('will-navigate', event, 'http://localhost:5173')
+
+    expect(event.preventDefault).not.toHaveBeenCalled()
+  })
 })
 
 describe('isExternalNavigationAllowed', () => {
