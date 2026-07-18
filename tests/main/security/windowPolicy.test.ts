@@ -14,9 +14,9 @@ function createFakeWindow() {
 
   const window: WindowLike = {
     webContents: {
-      on: ((event: string, handler: AnyHandler) => {
+      on: (event: string, handler: AnyHandler) => {
         handlers.set(event, handler)
-      }) as WindowLike['webContents']['on'],
+      },
       setWindowOpenHandler(handler) {
         openHandler = handler
       },

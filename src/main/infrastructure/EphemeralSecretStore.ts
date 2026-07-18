@@ -15,15 +15,17 @@ export class EphemeralSecretStore implements SecretStore {
     return false
   }
 
-  async set(ref: SecretRef, value: string): Promise<void> {
+  set(ref: SecretRef, value: string): Promise<void> {
     this.values.set(secretKey(ref), value)
+    return Promise.resolve()
   }
 
-  async get(ref: SecretRef): Promise<string | null> {
-    return this.values.get(secretKey(ref)) ?? null
+  get(ref: SecretRef): Promise<string | null> {
+    return Promise.resolve(this.values.get(secretKey(ref)) ?? null)
   }
 
-  async delete(ref: SecretRef): Promise<void> {
+  delete(ref: SecretRef): Promise<void> {
     this.values.delete(secretKey(ref))
+    return Promise.resolve()
   }
 }

@@ -36,7 +36,7 @@ function createHarness(guardResult: boolean) {
 describe('createHandlerRegistrar', () => {
   it('검증을 통과한 입력을 핸들러에 넘긴다', async () => {
     const harness = createHarness(true)
-    harness.register('math:double', z.object({ n: z.number() }), async ({ n }) => n * 2)
+    harness.register('math:double', z.object({ n: z.number() }), ({ n }) => Promise.resolve(n * 2))
 
     await expect(harness.invoke('math:double', { n: 21 })).resolves.toBe(42)
   })
@@ -52,7 +52,7 @@ describe('createHandlerRegistrar', () => {
 
   it('sender 검증 실패를 로그에 남긴다', async () => {
     const harness = createHarness(false)
-    harness.register('math:double', z.object({ n: z.number() }), async () => 0)
+    harness.register('math:double', z.object({ n: z.number() }), () => Promise.resolve(0))
 
     await harness.invoke('math:double', { n: 1 }).catch(() => undefined)
 
@@ -75,7 +75,7 @@ describe('createHandlerRegistrar', () => {
 
   it('sender 검증과 스키마 검증이 모두 실패하면 forbidden_sender만 로그에 남긴다', async () => {
     const harness = createHarness(false)
-    harness.register('math:double', z.strictObject({ n: z.number() }), async () => 0)
+    harness.register('math:double', z.strictObject({ n: z.number() }), () => Promise.resolve(0))
 
     await harness.invoke('math:double', { n: 'not a number' }).catch(() => undefined)
 
@@ -113,7 +113,7 @@ describe('createHandlerRegistrar', () => {
 
   it('거부 오류에 코드를 담는다', async () => {
     const harness = createHarness(true)
-    harness.register('math:double', z.object({ n: z.number() }), async () => 0)
+    harness.register('math:double', z.object({ n: z.number() }), () => Promise.resolve(0))
 
     await expect(harness.invoke('math:double', {})).rejects.toMatchObject({
       code: 'invalid_input',
