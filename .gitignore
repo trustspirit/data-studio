@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-electron/
+.vite/
+*.log
+
+.DS_Store
+.openai/
+.vinext/
+.wrangler/
+
+# 설계 문서 · 구현 계획은 로컬에만 유지
+docs/superpowers/
+
+# SDD 진행 레저 (로컬 전용)
+.superpowers/

@@ -1,0 +1,38 @@
+{
+  "name": "datacon",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Database Studio — multi-engine database and broker client",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev:renderer": "vite",
+    "dev:main": "tsup --watch",
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"wait-on http://localhost:5173 dist/main/index.js && electron .\"",
+    "build:renderer": "vite build",
+    "build:main": "tsup",
+    "build": "npm run build:renderer && npm run build:main",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "styled-components": "^6.4.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^10.0.3",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3",
+    "tsup": "^8.5.1",
+    "typescript": "^7.0.2",
+    "vite": "^6.4.3",
+    "vitest": "^3.2.7",
+    "wait-on": "^9.0.10"
+  }
+}
