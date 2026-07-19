@@ -457,8 +457,8 @@ const DEFAULT_SEED: MemorySeed = {
       name: 'contract_probe',
       kind: 'table',
       columns: [
-        { name: 'id', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: true },
-        { name: 'label', type: 'text', nullable: true, defaultValue: null, isPrimaryKey: false },
+        { name: 'id', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
+        { name: 'label', type: 'text', nullable: true, defaultValue: null, primaryKeyOrdinal: null },
       ],
       rows: [
         [1, 'one'],
@@ -473,7 +473,7 @@ const DEFAULT_SEED: MemorySeed = {
       name: 'contract_probe',
       kind: 'table',
       columns: [
-        { name: 'bucket', type: 'text', nullable: false, defaultValue: null, isPrimaryKey: true },
+        { name: 'bucket', type: 'text', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
       ],
       rows: [['a'], ['b']],
       indexes: [],

@@ -32,7 +32,15 @@ export interface ColumnInfo {
   readonly type: string
   readonly nullable: boolean
   readonly defaultValue: string | null
-  readonly isPrimaryKey: boolean
+  /**
+   * 복합 기본키에서 이 컬럼의 위치(1부터). 기본키가 아니면 null.
+   *
+   * boolean이 아닌 이유: 복합 PK는 **순서가 의미를 갖는다.** 행 편집이 만드는
+   * `WHERE` 절과 keyset 페이지네이션의 정렬이 둘 다 키 순서를 따라야 하는데,
+   * boolean만 있으면 그 순서를 복원할 방법이 없다. 나중에 바꾸면 모든 드라이버를
+   * 건드려야 하므로 드라이버가 하나뿐인 지금 정한다.
+   */
+  readonly primaryKeyOrdinal: number | null
 }
 
 export interface TableDetail {

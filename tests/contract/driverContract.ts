@@ -894,9 +894,21 @@ export function describeDriverContract(name: string, factory: DriverContractFact
           expect(column.name.length).toBeGreaterThan(0)
           expect(typeof column.type).toBe('string')
           expect(typeof column.nullable).toBe('boolean')
-          expect(typeof column.isPrimaryKey).toBe('boolean')
+          expect(
+            column.primaryKeyOrdinal === null || typeof column.primaryKeyOrdinal === 'number',
+          ).toBe(true)
           expect(column.defaultValue === null || typeof column.defaultValue === 'string').toBe(true)
         }
+
+        // 기본키 순서는 1부터 빈 곳 없이 이어져야 한다. 여기가 흔들리면 행 편집의
+        // WHERE 절과 keyset 페이지네이션의 정렬이 서로 다른 순서를 쓰게 되고,
+        // 증상은 "가끔 잘못된 행이 수정된다"는 형태로 나온다.
+        const ordinals = detail.columns
+          .map((column) => column.primaryKeyOrdinal)
+          .filter((ordinal): ordinal is number => ordinal !== null)
+          .sort((a, b) => a - b)
+
+        expect(ordinals).toEqual(ordinals.map((_, index) => index + 1))
       })
 
       /**
