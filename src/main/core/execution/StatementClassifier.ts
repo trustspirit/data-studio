@@ -1,3 +1,4 @@
+import type { SqlEngineId } from '../../../shared/types/connection'
 import type { StatementClassification } from '../driver/capabilities/SqlCapability'
 
 /**
@@ -46,6 +47,22 @@ interface DialectLexicon {
   /** 진단·테스트용 이름. 로직에 쓰이지 않는다. */
   readonly name: string
   /**
+   * 이 읽기가 **어떤 실재 엔진을 대변하는가**.
+   *
+   * 위 건전성 논증("목록이 지원 엔진을 전부 담으면 미탐이 없다")은 표의
+   * **완전성**에 의존하는데, 그 완전성이 지금까지 사람 눈으로만 지켜졌다.
+   * 실제로 한 번 깨졌다 — `mariadb`가 `EngineId`에 있는데 표에는 없었고
+   * (MySQL과 "같겠지"라고 유추한 결과) `/*M!` 실행 주석 미탐이 18종 생겼다.
+   *
+   * 그래서 완전성을 **데이터로 표현**한다. 테스트가 `SQL_ENGINE_IDS`의 모든
+   * 엔진이 최소 한 항목에 나타나는지 기계적으로 검사하므로, 다음번 표류는
+   * 리뷰가 아니라 테스트가 잡는다.
+   *
+   * 빈 배열은 "지원 엔진은 아니지만 방어적으로 더 보는 읽기"를 뜻한다
+   * (아래 `sqlserver` 항목).
+   */
+  readonly engines: readonly SqlEngineId[]
+  /**
    * 문자열 리터럴 안에서 `\`가 이스케이프인가?
    * MySQL/MariaDB 기본값은 그렇다(`NO_BACKSLASH_ESCAPES` 미설정).
    * PostgreSQL은 9.1부터 `standard_conforming_strings=on`이 기본이라 아니다
@@ -76,6 +93,16 @@ interface DialectLexicon {
   readonly nestedBlockComments: boolean
   /** `/*! ... *\/` 안의 SQL을 실제로 실행하는가? MySQL/MariaDB만 그렇다. */
   readonly versionedComments: boolean
+  /**
+   * `/*M! ... *\/`(선택적으로 `/*M!100000 ... *\/`) 안의 SQL을 실행하는가?
+   *
+   * **MariaDB만 그렇다.** MySQL은 `/*M!`을 알지 못해 평범한 블록 주석으로
+   * 무시한다 — 즉 이것은 MySQL과 MariaDB가 갈리는 실제 어휘 지점이고,
+   * "MariaDB는 MySQL과 같다"는 유추가 틀리는 정확히 그 지점이다.
+   * (MariaDB는 호환을 위해 `/*!`도 함께 실행하므로 MariaDB 항목은
+   * `versionedComments`도 참이다.)
+   */
+  readonly mariadbVersionedComments: boolean
 }
 
 /**
@@ -83,16 +110,30 @@ interface DialectLexicon {
  * 의존한다 — 지원 엔진을 늘리면 여기도 늘려야 한다.
  *
  * 의도적으로 `"..."`에 대한 플래그는 두지 않았다. MySQL 기본 모드에서 `"..."`는
- * 문자열 리터럴이고 PostgreSQL/SQLite/SQL Server에서는 인용 식별자이지만,
- * **마스킹 관점에서는 두 해석이 정확히 같은 구간을 같은 방식으로 소비한다**
- * (여는 `"`부터 짝이 되는 `"`까지, `""`는 이스케이프, MySQL에서는 `\`도 이스케이프).
- * 실질적 차이는 "그 안의 이름이 함수 이름일 수 있는가"뿐이고 그것은 마스킹이 아니라
- * `QUOTED_CALL_LIKE`가 **원문**을 훑어서 처리한다. 읽기를 하나 늘려도 결과가
- * 달라질 수 없으므로 늘리지 않았다.
+ * 문자열 리터럴이고 PostgreSQL/MariaDB/SQLite/SQL Server에서는 인용 식별자다.
+ *
+ * **주의 — 흔한 오해**: "두 해석이 같은 구간을 소비하므로 읽기를 늘릴 필요가
+ * 없다"는 것은 **거짓**이다. 마스커는 문자열 리터럴에서만 `backslashEscapes`를
+ * 적용하므로, `\`가 끼면 두 해석의 소비 구간이 실제로 갈린다:
+ * `"a\"` 는 MySQL(문자열 해석 + 백슬래시)에서는 `\"`가 이스케이프라 닫히지 않고,
+ * 식별자 해석에서는 두 번째 `"`에서 닫힌다. 이 전제로 추론하면 틀린 결론에 이른다.
+ *
+ * 읽기를 늘리지 않는 **진짜 이유**는 표가 이미 두 경우를 모두 담고 있다는 것이다.
+ * `"` 처리에서 갈리는 유일한 변수는 `backslashEscapes`인데, `mysql`(참)과
+ * `mysql-no-backslash-escapes`(거짓) 쌍이 그 두 값을 모두 돌리고, 나머지 엔진
+ * 항목들도 마찬가지로 양쪽을 덮는다. 따라서 "`\"`가 이스케이프인 읽기"와
+ * "아닌 읽기"가 이미 각각 평가되며, 별도의 `"`-식별자 플래그는 새로운 소비
+ * 구간을 만들어내지 못한다. 남는 실질 차이는 "그 안의 이름이 함수 이름일 수
+ * 있는가"뿐이고, 그것은 마스킹이 아니라 `QUOTED_CALL_LIKE`가 **원문**을 훑어서
+ * 처리한다.
+ *
+ * (이 전제가 깨지는 순간 — 예컨대 식별자 인용에만 적용되는 플래그가 새로 생기면
+ * — 위 논증도 함께 무효가 되므로 그때는 읽기를 늘려야 한다.)
  */
 const LEXICAL_DIALECTS: readonly DialectLexicon[] = [
   {
     name: 'postgres',
+    engines: ['postgres'],
     backslashEscapes: false,
     dollarQuoting: true,
     backtickIdentifiers: false,
@@ -101,11 +142,13 @@ const LEXICAL_DIALECTS: readonly DialectLexicon[] = [
     lineCommentRequiresSpace: false,
     nestedBlockComments: true,
     versionedComments: false,
+    mariadbVersionedComments: false,
   },
   {
     // standard_conforming_strings=off 이거나 `E'...'` 이스케이프 문자열.
     // PostgreSQL에서 `\`가 이스케이프로 동작하는 실재 모드다.
     name: 'postgres-escape-strings',
+    engines: ['postgres'],
     backslashEscapes: true,
     dollarQuoting: true,
     backtickIdentifiers: false,
@@ -114,9 +157,11 @@ const LEXICAL_DIALECTS: readonly DialectLexicon[] = [
     lineCommentRequiresSpace: false,
     nestedBlockComments: true,
     versionedComments: false,
+    mariadbVersionedComments: false,
   },
   {
     name: 'mysql',
+    engines: ['mysql'],
     backslashEscapes: true,
     dollarQuoting: false,
     backtickIdentifiers: true,
@@ -125,10 +170,12 @@ const LEXICAL_DIALECTS: readonly DialectLexicon[] = [
     lineCommentRequiresSpace: true,
     nestedBlockComments: false,
     versionedComments: true,
+    mariadbVersionedComments: false,
   },
   {
-    // sql_mode=NO_BACKSLASH_ESCAPES. 실재하는 MySQL/MariaDB 모드다.
+    // sql_mode=NO_BACKSLASH_ESCAPES. 실재하는 MySQL 모드다.
     name: 'mysql-no-backslash-escapes',
+    engines: ['mysql'],
     backslashEscapes: false,
     dollarQuoting: false,
     backtickIdentifiers: true,
@@ -137,9 +184,40 @@ const LEXICAL_DIALECTS: readonly DialectLexicon[] = [
     lineCommentRequiresSpace: true,
     nestedBlockComments: false,
     versionedComments: true,
+    mariadbVersionedComments: false,
+  },
+  {
+    // MariaDB는 "MySQL과 같다"가 **아니다**. `/*M! ... */`는 MariaDB에서만
+    // 실행되고 MySQL은 평범한 주석으로 지나친다. 그래서 별도 항목이다.
+    name: 'mariadb',
+    engines: ['mariadb'],
+    backslashEscapes: true,
+    dollarQuoting: false,
+    backtickIdentifiers: true,
+    bracketIdentifiers: false,
+    hashLineComment: true,
+    lineCommentRequiresSpace: true,
+    nestedBlockComments: false,
+    versionedComments: true,
+    mariadbVersionedComments: true,
+  },
+  {
+    // sql_mode=NO_BACKSLASH_ESCAPES 인 MariaDB.
+    name: 'mariadb-no-backslash-escapes',
+    engines: ['mariadb'],
+    backslashEscapes: false,
+    dollarQuoting: false,
+    backtickIdentifiers: true,
+    bracketIdentifiers: false,
+    hashLineComment: true,
+    lineCommentRequiresSpace: true,
+    nestedBlockComments: false,
+    versionedComments: true,
+    mariadbVersionedComments: true,
   },
   {
     name: 'sqlite',
+    engines: ['sqlite'],
     backslashEscapes: false,
     dollarQuoting: false,
     backtickIdentifiers: true,
@@ -148,9 +226,18 @@ const LEXICAL_DIALECTS: readonly DialectLexicon[] = [
     lineCommentRequiresSpace: false,
     nestedBlockComments: false,
     versionedComments: false,
+    mariadbVersionedComments: false,
   },
   {
+    // **지원 엔진이 아니다** (`EngineId`에 `sqlserver`는 없다). 그럼에도 남겨
+    // 두는 이유: 이 층은 붙여 넣은 임의의 SQL을 본다. T-SQL로 작성된 텍스트가
+    // 들어올 수 있고, 최엄격 규칙에서 읽기를 하나 더 보는 비용은 "여기서만
+    // 코드로 보이는 구간이 있으면 승인을 요구한다"는 안전한 방향의 오탐뿐이다.
+    // 실제로 이 읽기만이 드러내는 케이스가 테스트에 있다(중첩 블록 주석 +
+    // 대괄호 식별자 조합). 유지 판단이며, 지원 엔진 목록과 헷갈리지 않도록
+    // `engines`를 빈 배열로 둔다.
     name: 'sqlserver',
+    engines: [],
     backslashEscapes: false,
     dollarQuoting: false,
     backtickIdentifiers: false,
@@ -159,11 +246,17 @@ const LEXICAL_DIALECTS: readonly DialectLexicon[] = [
     lineCommentRequiresSpace: false,
     nestedBlockComments: true,
     versionedComments: false,
+    mariadbVersionedComments: false,
   },
 ]
 
+/** 커버리지 테스트용. 로직에 쓰이지 않는다 (§ DialectLexicon.engines). */
+export const LEXICON_ENGINE_COVERAGE: readonly (readonly SqlEngineId[])[] =
+  LEXICAL_DIALECTS.map((d) => d.engines)
+
 const POSTGRES_LEXICON: DialectLexicon = LEXICAL_DIALECTS[0] ?? {
   name: 'postgres',
+  engines: ['postgres'],
   backslashEscapes: false,
   dollarQuoting: true,
   backtickIdentifiers: false,
@@ -172,6 +265,7 @@ const POSTGRES_LEXICON: DialectLexicon = LEXICAL_DIALECTS[0] ?? {
   lineCommentRequiresSpace: false,
   nestedBlockComments: true,
   versionedComments: false,
+  mariadbVersionedComments: false,
 }
 
 const MYSQL_LEXICON: DialectLexicon = LEXICAL_DIALECTS[2] ?? POSTGRES_LEXICON
@@ -204,6 +298,18 @@ interface MaskResult {
    */
   readonly unterminated: boolean
 }
+
+/**
+ * 실행되는 버전 조건부 주석의 여는 마커.
+ *
+ * `\d*`가 버전 숫자를 삼키므로 `/*!`(맨몸)과 `/*!50000`(버전 지정) 둘 다,
+ * 그리고 숫자가 키워드에 바로 붙은 `/*!50000DROP` 형태까지 본문 시작을 정확히
+ * 집는다. 버전 숫자의 **값은 보지 않는다** — 접속한 서버 버전을 알 수 없으니
+ * "실행될 수 있다"를 가정하는 것이 최엄격 규칙이다.
+ */
+const VERSIONED_OPENER = /^\/\*!\d*/
+/** MariaDB용. `/*!`에 더해 MariaDB 전용 `/*M!`(예: `/*M!100000`)도 실행된다. */
+const VERSIONED_OPENER_MARIADB = /^\/\*M?!\d*/
 
 /** 식별자에 쓰일 수 있는 문자. 달러 인용의 시작 판정에 쓴다. */
 const IDENT_CHAR = /[A-Za-z0-9_$-￿]/
@@ -328,8 +434,13 @@ function maskSql(sql: string, d: DialectLexicon): MaskResult {
       // 마스킹 상태를 닫는 `*/` **바깥으로 흘려보내지** 못하게 하기 위해서다.
       // (본문을 그대로 코드로 되돌리면 `SELECT 1 /*!' */; DROP TABLE x`
       // 에서 본문의 `'`가 뒤의 `; DROP`까지 리터럴로 삼켜 미탐이 된다.)
+      //
+      // MariaDB는 여기에 더해 `/*M!...*/`(자기 전용 마커)도 실행하고 MySQL은
+      // 그것을 모른 채 지나친다. 그래서 여는 마커 패턴만 방언에서 고른다 —
+      // 새 분기가 아니라 §방언 어휘 모델이 요구하는 "플래그 하나 + 삼항 하나"다.
       if (d.versionedComments) {
-        const versioned = /^\/\*!\d*/.exec(sql.slice(i, stop))
+        const opener = d.mariadbVersionedComments ? VERSIONED_OPENER_MARIADB : VERSIONED_OPENER
+        const versioned = opener.exec(sql.slice(i, stop))
         if (versioned !== null) {
           const bodyStart = i + versioned[0].length
           const bodyEnd = end === -1 ? sql.length : end
@@ -539,10 +650,10 @@ const READ_HEADED_SIDE_EFFECTS: readonly {
  *   - `left` `right` — PostgreSQL/MySQL의 실재 내장 함수다. `LEFT JOIN`에는
  *     괄호가 붙지 않으므로 제외해도 오탐이 늘지 않는다.
  *
- * 여기에 **내장 함수는 넣지 않는다**. `count()`, `now()`, `sum()`도
- * `unknown`으로 남는다 — 내장 함수 허용 목록은 그 자체가 우회면이 되고
- * (동명의 사용자 정의 함수로 가릴 수 있다), 이 층의 목적은 확신할 수 없는
- * 것을 확신하지 않는 것이다.
+ * 여기에 **내장 함수는 넣지 않는다**. 내장 함수는 별도의
+ * `PURE_BUILTIN_FUNCTIONS` 허용 목록이 다룬다 — 두 목록은 판정 기준이 다르므로
+ * (여기는 "문법상 호출일 수 없는가", 저기는 "부작용이 없는 문서화된 내장인가")
+ * 섞지 않는다.
  */
 const NON_CALL_KEYWORDS = new Set([
   'in', 'and', 'or', 'not', 'where', 'on', 'values', 'case', 'when',
@@ -551,6 +662,92 @@ const NON_CALL_KEYWORDS = new Set([
   'any', 'some', 'is', 'null', 'as', 'join', 'inner', 'outer',
   'full', 'cross', 'lateral', 'using', 'limit', 'offset', 'fetch', 'returning',
   'distinct', 'with', 'into', 'table', 'asc', 'desc', 'for',
+])
+
+/**
+ * # 부작용이 없는 문서화된 내장 함수 허용 목록
+ *
+ * ## 왜 허용 목록을 두는가 (이전 결정의 번복)
+ *
+ * 원래 이 파일은 내장 함수도 전부 `unknown`으로 두었다. "확신할 수 없으면
+ * 확신하지 않는다"는 원칙에 충실해 보였지만, 측정해 보니 **현실적인 분석
+ * 쿼리 코퍼스의 39%가 승인 대기**에 걸렸다. 분석이란 곧 집계이고, 집계는
+ * `count(*)`·`sum`·`avg`·`date_trunc` 없이는 쓰이지 않기 때문이다.
+ *
+ * 그리고 그 `unknown`은 **실제로 지키는 것이 거의 없었다**. 논거 두 가지:
+ *
+ * 1. **보호 범위가 비어 있다.** 이 검사가 막고 싶은 것은 모르는 함수의 부작용인데,
+ *    모르는 이름은 `count`를 알아보든 말든 여전히 `unknown`이다. `count`를
+ *    `unknown`으로 두는 것이 추가로 막는 입력은 "이름이 `count`인 사용자 정의
+ *    함수"뿐이고, 그것은 아래 §반론에서 따로 다룬다.
+ * 2. **부작용은 여기가 아니라 2층이 막는다.** 실행 경로는 DB 수준의 read-only
+ *    트랜잭션 안에서 돈다. 함수가 무엇을 하든 쓰기는 거기서 거부된다. 이 층은
+ *    read-only 트랜잭션이 **막지 못하는 것**(다중 문장, 명백한 DDL/DML, 서버
+ *    파일 쓰기, 잠금)에 집중하는 편이 실효가 크다.
+ *
+ * ## 목록에 이름을 추가하려면 (미래의 유지보수자에게)
+ *
+ * 아래 네 조건을 **전부** 만족해야 한다. 하나라도 확인되지 않으면 넣지 않는다.
+ *
+ * 1. **문서화된 내장**이어야 한다. 지원 엔진(§ SQL_ENGINE_IDS)의 공식 문서에
+ *    있는 이름만. 확장(extension)이 제공하는 이름은 안 된다.
+ * 2. **부작용이 없어야 한다.** 쓰기·서버 파일 읽기/쓰기·네트워크·대기(sleep)·
+ *    세션 상태 변경 중 어느 것도 하지 않아야 한다. 그래서 다음은 **의도적으로
+ *    빠져 있다**: `pg_sleep`(대기), `pg_read_file`/`load_file`(서버 파일 읽기),
+ *    `lo_import`/`lo_export`(라지오브젝트 I/O), `dblink`(네트워크),
+ *    `sys_exec`/`xp_cmdshell`(셸 실행), `setval`(시퀀스 변경),
+ *    `pg_terminate_backend`(세션 종료).
+ * 3. **모든 엔진에서 순수해야 한다.** 한 엔진에서 순수하고 다른 엔진에서
+ *    부작용이 있으면 **부작용 쪽으로 판정한다** — 이 파일 전체를 지배하는
+ *    최엄격 원칙과 같다. 이 층은 어느 엔진으로 갈지 모른 채 판정하기 때문이다.
+ * 4. **SQL 키워드와 동명이 아니어야 한다.** `left`/`right`/`insert`/`replace`
+ *    처럼 키워드이면서 함수이기도 한 이름은 넣지 않는다. 넣으면 `NON_CALL_KEYWORDS`
+ *    쪽 가드와 판정이 얽혀 어느 쪽이 무엇을 막는지 테스트로 분리할 수 없게 되고
+ *    (이 코드베이스의 대표적 결함 유형), 키워드/함수 중의성이 `read` 쪽으로
+ *    풀리게 된다. 그래서 `SELECT left(a,1)`은 지금도 `unknown`이다.
+ *
+ * ## 반론: 동명의 사용자 정의 함수로 가릴 수 있지 않은가
+ *
+ * 가릴 수 있다. `count`라는 이름의 UDF를 만들어 스키마 검색 경로 앞에 두면
+ * `SELECT count(x)`가 그 UDF를 부른다. 다만 (a) 그것은 서버에 이미 쓰기 권한을
+ * 가진 자가 미리 심어 둔 경우에만 성립하고, (b) 그 UDF의 부작용도 결국 2층의
+ * read-only 트랜잭션이 막으며, (c) 이 위험은 허용 목록 유무와 무관하게
+ * `NON_CALL_KEYWORDS`에도 이미 존재한다. 받아들일 수 있는 잔여 위험으로 본다.
+ */
+const PURE_BUILTIN_FUNCTIONS = new Set([
+  // 집계 (ANSI + 널리 구현된 확장)
+  'count', 'sum', 'avg', 'min', 'max', 'total',
+  'stddev', 'stddev_pop', 'stddev_samp', 'variance', 'var_pop', 'var_samp',
+  'corr', 'covar_pop', 'covar_samp',
+  'bool_and', 'bool_or', 'every', 'bit_and', 'bit_or', 'bit_xor',
+  'string_agg', 'array_agg', 'group_concat', 'listagg',
+  'percentile_cont', 'percentile_disc', 'mode',
+  // 윈도 함수 (ANSI)
+  'row_number', 'rank', 'dense_rank', 'percent_rank', 'cume_dist', 'ntile',
+  'lag', 'lead', 'first_value', 'last_value', 'nth_value',
+  // 조건·널 처리 (ANSI)
+  'coalesce', 'nullif', 'ifnull', 'nvl', 'greatest', 'least',
+  // 타입 변환 (ANSI 문법이지만 스캐너에는 호출로 보인다)
+  'cast', 'extract', 'overlay',
+  // 문자열 (ANSI + 널리 구현된 확장)
+  'upper', 'lower', 'initcap', 'length', 'char_length', 'character_length',
+  'octet_length', 'bit_length', 'substr', 'substring', 'trim', 'ltrim', 'rtrim',
+  'btrim', 'lpad', 'rpad', 'concat', 'concat_ws', 'reverse', 'repeat',
+  'position', 'strpos', 'instr', 'split_part', 'ascii', 'chr', 'translate',
+  'md5', 'quote_literal', 'quote_ident',
+  // 수치 (ANSI + 널리 구현된 확장)
+  'abs', 'ceil', 'ceiling', 'floor', 'round', 'trunc', 'sign', 'mod',
+  'power', 'sqrt', 'cbrt', 'exp', 'ln', 'log', 'log10', 'log2',
+  'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'degrees', 'radians', 'pi',
+  // 날짜·시간 (ANSI + 널리 구현된 확장). 세션 시각을 읽을 뿐 바꾸지 않는다.
+  'now', 'current_date', 'current_time', 'current_timestamp',
+  'localtime', 'localtimestamp', 'age',
+  'date_trunc', 'date_part', 'datediff', 'timestampdiff',
+  'to_char', 'to_date', 'to_timestamp', 'to_number',
+  'date_format', 'str_to_date', 'from_unixtime', 'unix_timestamp',
+  'year', 'month', 'day', 'hour', 'minute', 'second', 'quarter', 'week',
+  'dayofweek', 'dayofyear', 'weekday', 'monthname', 'dayname',
+  'julianday', 'strftime',
 ])
 
 /**
@@ -573,15 +770,36 @@ const CALL_LIKE_SCAN = /\b([a-z_][a-z0-9_]*)\s*\(/gi
  *
  * 어느 쪽이든 `SELECT drop_everything()`과 똑같은 호출이므로 `unknown`이어야
  * 한다. 그래서 이 스캔만은 **원문**을 본다.
+ *
+ * 허용 목록(`PURE_BUILTIN_FUNCTIONS`)은 여기서도 **똑같이** 적용되어야 한다.
+ * 그러지 않으면 인용이 우회면이 된다: `"count"()`가 `count()`보다 엄격하거나
+ * 느슨해질 이유가 없다.
+ *
+ * 다만 **대소문자를 접지 않는다**. 인용 식별자는 대소문자를 보존하고
+ * PostgreSQL의 내장 함수 이름은 소문자이므로, `"COUNT"`는 내장 `count`가 아니라
+ * `COUNT`라는 별개의 (사용자 정의) 함수다. 그래서 인용형은 **정확히 소문자로
+ * 적힌 허용 목록 이름**만 통과시킨다. 인용을 씌워 느슨해지는 방향이 없다.
  */
-const QUOTED_CALL_LIKE = /(?:"[^"]*"|`[^`]*`|\[[^\]]*\])\s*\(/
+const QUOTED_CALL_LIKE = /(?:"([^"]*)"|`([^`]*)`|\[([^\]]*)\])\s*\(/g
+
+/** 인용 안에서 꺼낸 이름. 세 대안 중 매치된 하나. */
+function quotedName(match: RegExpMatchArray): string | undefined {
+  return match[1] ?? match[2] ?? match[3]
+}
 
 function hasCallLike(raw: string, masked: string): boolean {
-  if (QUOTED_CALL_LIKE.test(raw)) return true
+  for (const match of raw.matchAll(QUOTED_CALL_LIKE)) {
+    const name = quotedName(match)
+    // 대소문자를 접지 않는다 (§ QUOTED_CALL_LIKE).
+    if (name !== undefined && !PURE_BUILTIN_FUNCTIONS.has(name)) return true
+  }
 
   for (const match of masked.matchAll(CALL_LIKE_SCAN)) {
     const name = match[1]?.toLowerCase()
-    if (name !== undefined && !NON_CALL_KEYWORDS.has(name)) return true
+    if (name === undefined) continue
+    if (NON_CALL_KEYWORDS.has(name)) continue
+    if (PURE_BUILTIN_FUNCTIONS.has(name)) continue
+    return true
   }
   return false
 }
