@@ -3,6 +3,11 @@ import type { InvokeEventLike } from '../security/senderGuard'
 import type { Logger } from '../core/ports/Logger'
 import type { CallerContext } from './CallerContext'
 import type { IpcFailureCode, IpcResult } from '../../shared/contracts/ipcResult'
+import {
+  IPC_CONTRACT,
+  type ContractChannel,
+  type ContractInput,
+} from '../../shared/contracts/ipcContract'
 
 export type { IpcFailureCode, IpcResult }
 
@@ -56,6 +61,32 @@ function buildCallerContext(): CallerContext {
  * 실패는 던지지 않고 `{ ok: false, code }`로 반환한다. 자세한 이유는
  * `shared/contracts/ipcResult.ts` 참고.
  */
+/**
+ * 계약 표를 강제하는 register. 채널을 받고, **그 채널에 묶인 스키마를 표에서
+ * 꺼내** 쓴다. 호출부가 스키마를 넘길 수 없으므로 채널에 엉뚱한 스키마를 붙일
+ * 수 없고, 핸들러의 입력 타입도 표에서 유도되어 채널 A의 핸들러가 채널 B의
+ * 입력을 기대하면 타입 에러가 난다.
+ */
+export function createContractRegistrar(
+  deps: RegistrarDeps,
+): <C extends ContractChannel, O>(
+  channel: C,
+  handler: (input: ContractInput<C>, context: CallerContext) => Promise<O>,
+) => void {
+  const register = createHandlerRegistrar(deps)
+  return <C extends ContractChannel, O>(
+    channel: C,
+    handler: (input: ContractInput<C>, context: CallerContext) => Promise<O>,
+  ): void => {
+    // 제네릭 `C`에서 `IPC_CONTRACT[C]['input']`은 모든 채널 스키마의 유니온으로
+    // 넓어져 컴파일러가 `ContractInput<C>`와 못 맞춘다. 표가 `satisfies`로
+    // 채널→스키마 관계를 이미 보장하므로, 그 불변식을 이 한 지점에서만
+    // 좁혀 준다 — 타입을 넓히는 것이 아니라 증명된 관계를 명시하는 것이다.
+    const schema = IPC_CONTRACT[channel].input as unknown as ZodType<ContractInput<C>>
+    register(channel, schema, handler)
+  }
+}
+
 export function createHandlerRegistrar(deps: RegistrarDeps): RegisterHandler {
   return (channel, schema, handler) => {
     deps.handle(channel, async (event, input) => {
