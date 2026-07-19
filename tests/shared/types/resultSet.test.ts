@@ -143,6 +143,53 @@ describe('buildResultSet', () => {
     expect(structuredClone(result)).toEqual(result)
   })
 
+  describe('rowsAffected (null과 0 구분)', () => {
+    // null은 "엔진이 이 값을 보고하지 않는다", 0은 "실제로 0개 행이 영향을
+    // 받았다"는 뜻이다 — `??`를 `||`로 바꾸면 0이 null로 뭉개져 이 둘을
+    // 구분할 수 없게 된다.
+    it('rowsAffected: 0을 넘기면 meta.rowsAffected는 0이지 null이 아니다', () => {
+      const result = buildResultSet({
+        requestId: 'req-1',
+        columns: COLUMNS,
+        rows: [],
+        page: { cursor: null, maxRows: 100, maxBytes: 1_000_000 },
+        durationMs: 5,
+        cursorAt: () => null,
+        rowsAffected: 0,
+      })
+
+      expect(result.meta.rowsAffected).toBe(0)
+      expect(result.meta.rowsAffected).not.toBeNull()
+    })
+
+    it('rowsAffected를 생략하면 meta.rowsAffected는 null이다', () => {
+      const result = buildResultSet({
+        requestId: 'req-1',
+        columns: COLUMNS,
+        rows: [],
+        page: { cursor: null, maxRows: 100, maxBytes: 1_000_000 },
+        durationMs: 5,
+        cursorAt: () => null,
+      })
+
+      expect(result.meta.rowsAffected).toBeNull()
+    })
+
+    it('양수 rowsAffected를 그대로 전달한다', () => {
+      const result = buildResultSet({
+        requestId: 'req-1',
+        columns: COLUMNS,
+        rows: [],
+        page: { cursor: null, maxRows: 100, maxBytes: 1_000_000 },
+        durationMs: 5,
+        cursorAt: () => null,
+        rowsAffected: 42,
+      })
+
+      expect(result.meta.rowsAffected).toBe(42)
+    })
+  })
+
   describe('cursor 파생 (회귀)', () => {
     it('오퍼받은 행이 하나뿐이고 그 행이 byte 상한을 넘고 소스도 고갈이면 hasMore는 false다', () => {
       // Finding 1 재현: 단독 행이 byte 상한을 넘어 담기지만(escape hatch),
