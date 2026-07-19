@@ -4,7 +4,18 @@ import path from 'node:path'
 
 const CORE_DIR = path.resolve('src/main/core')
 const RENDERER_DIR = path.resolve('src/renderer')
+const SHARED_DIR = path.resolve('src/shared')
 const SRC_DIR = path.resolve('src')
+
+// renderer(sandbox: true, nodeIntegration: false)가 import할 수 있는 shared 모듈
+// 안에서 이 전역들을 쓰면 타입은 통과하지만("types": ["node"]가 프로젝트 전역에
+// 걸려 있어서) 번들에는 Node 폴리필이 없어 런타임에 ReferenceError로 죽는다.
+// 실제 사용 형태(프로퍼티 접근/호출/식별자 자체)만 잡도록 좁혀서, 'require'
+// 같은 흔한 단어를 값으로 쓰는 문자열 리터럴이나 문서 주석 속 언급을 오탐하지
+// 않게 한다. 완벽한 파서는 아니므로 여전히 우회는 가능하지만, 실수로
+// 재도입되는 것은 확실히 잡는다.
+const NODE_ONLY_GLOBAL_PATTERN =
+  /\bBuffer\s*[.(]|\bnew\s+Buffer\b|\bprocess\s*[.[]|\brequire\s*\(|\b__dirname\b|\b__filename\b/
 
 // 바깥 계층 디렉토리 이름. core는 이 디렉토리들을 어떤 형태로도 import할 수 없다:
 //   - 상대 경로, 어떤 깊이든: '../infrastructure', '../../../infrastructure/x' 등
@@ -77,6 +88,24 @@ describe('의존성 경계', () => {
         if (reachesMain) {
           violations.push(`${path.relative(process.cwd(), file)} → ${specifier}`)
         }
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
+
+  it('shared는 Node 전용 전역을 참조하지 않는다', async () => {
+    // src/shared/**는 renderer가 import할 수 있는 공용 코드다. renderer는
+    // sandbox: true / nodeIntegration: false로 뜨므로 Buffer/process/
+    // __dirname/__filename/require는 번들에 존재하지 않는다. tsconfig의
+    // "types": ["node"]가 프로젝트 전역이라 타입 체크는 통과해 버리므로,
+    // 이 테스트가 유일한 안전망이다.
+    const violations: string[] = []
+
+    for await (const file of walk(SHARED_DIR)) {
+      const source = await readFile(file, 'utf8')
+      if (NODE_ONLY_GLOBAL_PATTERN.test(source)) {
+        violations.push(path.relative(process.cwd(), file))
       }
     }
 

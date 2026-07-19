@@ -28,8 +28,93 @@ export interface TruncatableOptions {
   readonly truncated?: boolean
 }
 
+const BASE64_CHARS =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+/**
+ * bytes를 base64 문자열로 인코딩한다.
+ *
+ * `Buffer`는 Node 전용이라 renderer 번들에서 `ReferenceError`로 죽는다.
+ * `btoa(String.fromCharCode(...bytes))`도 대안이 아니다 — 스프레드 연산자로
+ * 큰 `Uint8Array`를 함수 인자로 펼치면 실제 blob 크기에서 콜 스택을 넘친다.
+ * 그래서 3바이트씩 묶어 직접 인코딩한다.
+ */
 function toBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString('base64')
+  let result = ''
+  const len = bytes.length
+  const remainder = len % 3
+  const mainLength = len - remainder
+
+  for (let i = 0; i < mainLength; i += 3) {
+    const b0 = bytes[i] as number
+    const b1 = bytes[i + 1] as number
+    const b2 = bytes[i + 2] as number
+    const chunk = (b0 << 16) | (b1 << 8) | b2
+
+    result +=
+      BASE64_CHARS.charAt((chunk >> 18) & 0x3f) +
+      BASE64_CHARS.charAt((chunk >> 12) & 0x3f) +
+      BASE64_CHARS.charAt((chunk >> 6) & 0x3f) +
+      BASE64_CHARS.charAt(chunk & 0x3f)
+  }
+
+  if (remainder === 1) {
+    const b0 = bytes[mainLength] as number
+    const chunk = b0 << 16
+
+    result +=
+      BASE64_CHARS.charAt((chunk >> 18) & 0x3f) + BASE64_CHARS.charAt((chunk >> 12) & 0x3f) + '=='
+  } else if (remainder === 2) {
+    const b0 = bytes[mainLength] as number
+    const b1 = bytes[mainLength + 1] as number
+    const chunk = (b0 << 16) | (b1 << 8)
+
+    result +=
+      BASE64_CHARS.charAt((chunk >> 18) & 0x3f) +
+      BASE64_CHARS.charAt((chunk >> 12) & 0x3f) +
+      BASE64_CHARS.charAt((chunk >> 6) & 0x3f) +
+      '='
+  }
+
+  return result
+}
+
+/**
+ * 문자열의 UTF-8 바이트 길이를 할당 없이 센다.
+ *
+ * `new TextEncoder().encode(s).length`는 호출마다 `Uint8Array`를 새로 만든다.
+ * `estimateWireBytes`는 셀마다 호출되므로 1000행 x 20열 페이지 하나에서
+ * 2만 개의 버림 배열이 생긴다. 대신 코드 유닛을 순회하며 범위별로 바이트 수를
+ * 더하고, 서로게이트 쌍은 4바이트로 세면서 인덱스를 한 칸 더 건너뛴다.
+ * 서로게이트가 짝을 이루지 못하면 U+FFFD로 치환됐을 때의 크기인 3바이트로
+ * 센다 — `TextEncoder`/`Buffer`도 짝 없는 서로게이트를 그렇게 다룬다.
+ */
+function utf8ByteLength(input: string): number {
+  let bytes = 0
+  const len = input.length
+
+  for (let i = 0; i < len; i++) {
+    const code = input.charCodeAt(i)
+
+    if (code < 0x80) {
+      bytes += 1
+    } else if (code < 0x800) {
+      bytes += 2
+    } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < len) {
+      const next = input.charCodeAt(i + 1)
+
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        bytes += 4
+        i++
+      } else {
+        bytes += 3
+      }
+    } else {
+      bytes += 3
+    }
+  }
+
+  return bytes
 }
 
 /**
@@ -86,15 +171,11 @@ export function estimateWireBytes(value: WireValue): number {
     case 'str':
     case 'date':
     case 'oid':
-      return TAG_OVERHEAD_BYTES + Buffer.byteLength(value.v, 'utf8')
+      return TAG_OVERHEAD_BYTES + utf8ByteLength(value.v)
     case 'bytes':
     case 'json':
-      return TAG_OVERHEAD_BYTES + Buffer.byteLength(value.v, 'utf8')
+      return TAG_OVERHEAD_BYTES + utf8ByteLength(value.v)
     case 'unknown':
-      return (
-        TAG_OVERHEAD_BYTES +
-        Buffer.byteLength(value.v, 'utf8') +
-        Buffer.byteLength(value.note, 'utf8')
-      )
+      return TAG_OVERHEAD_BYTES + utf8ByteLength(value.v) + utf8ByteLength(value.note)
   }
 }
