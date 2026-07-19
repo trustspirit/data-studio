@@ -24,7 +24,46 @@ import { describeDriverContract } from './driverContract'
  * 핵심을 통째로 우회하게 된다. 그래서 계약이 읽을 문장은 팩토리가 준다.
  */
 
-const ROWS = [[{ t: 'int' as const, v: 1 }], [{ t: 'int' as const, v: 2 }]]
+const PRIMARY_STATEMENT = 'SELECT * FROM whatever'
+const FOREIGN_STATEMENT = 'SELECT * FROM elsewhere'
+
+/**
+ * 문장별 데이터셋.
+ *
+ * 최소 드라이버라도 **읽는 대상이 둘 이상**이어야 한다. 하나뿐이면
+ * `foreignStatement`를 줄 수 없고, 그러면 "다른 질의에서 받은 커서를 거부한다"는
+ * 조항이 이 드라이버에게 요구되지 않는다 — 계약의 핵심 조항이 아무에게도
+ * 요구되지 않는 상태로 되돌아간다.
+ */
+const DATASETS: Record<string, readonly (readonly { t: 'int'; v: number }[])[]> = {
+  [PRIMARY_STATEMENT]: [[{ t: 'int', v: 1 }], [{ t: 'int', v: 2 }]],
+  [FOREIGN_STATEMENT]: [[{ t: 'int', v: 10 }], [{ t: 'int', v: 20 }], [{ t: 'int', v: 30 }]],
+}
+
+const CURSOR_PREFIX = 'min:1:'
+
+/** 커서에 **어느 질의의 것인지**를 싣는다. 그래야 남의 커서를 거부할 수 있다. */
+function encodeCursor(statement: string, offset: number): string {
+  return `${CURSOR_PREFIX}${offset}:${statement}`
+}
+
+function decodeCursor(cursor: string, statement: string): number {
+  if (!cursor.startsWith(CURSOR_PREFIX)) throw new Error(`malformed cursor: ${cursor}`)
+
+  const body = cursor.slice(CURSOR_PREFIX.length)
+  const separator = body.indexOf(':')
+  if (separator < 0) throw new Error(`malformed cursor: ${cursor}`)
+
+  const offset = Number(body.slice(0, separator))
+  if (!Number.isInteger(offset) || offset < 0) throw new Error(`malformed cursor: ${cursor}`)
+
+  const owner = body.slice(separator + 1)
+  if (owner !== statement) {
+    throw new Error(`cursor belongs to statement '${owner}', not '${statement}'`)
+  }
+
+  return offset
+}
 
 const CONFIG: ConnectionConfig = {
   id: 'minimal-1',
@@ -54,32 +93,33 @@ function createMinimalDriver(): Driver {
     if (!connected) throw new Error('driver is not connected')
   }
 
-  function execute(ctx: ExecutionContext, _sql: string, page: PageRequest): Promise<ResultSet> {
+  function execute(ctx: ExecutionContext, sql: string, page: PageRequest): Promise<ResultSet> {
     try {
       requireConnection()
+
+      if (ctx.signal.aborted) {
+        throw new Error(`execution aborted: ${ctx.requestId}`)
+      }
+
+      const rows = DATASETS[sql]
+      if (rows === undefined) throw new Error(`unknown statement: ${sql}`)
+
+      const offset = page.cursor === null ? 0 : decodeCursor(page.cursor, sql)
+
+      return Promise.resolve(
+        buildResultSet({
+          requestId: ctx.requestId,
+          columns: [{ name: 'n', type: 'int8' }],
+          rows: rows.slice(offset),
+          page,
+          durationMs: 0,
+          cursorAt: (kept) =>
+            offset + kept < rows.length ? encodeCursor(sql, offset + kept) : null,
+        }),
+      )
     } catch (error) {
       return Promise.reject(error instanceof Error ? error : new Error(String(error)))
     }
-
-    if (ctx.signal.aborted) {
-      return Promise.reject(new Error(`execution aborted: ${ctx.requestId}`))
-    }
-
-    const offset = page.cursor === null ? 0 : Number(page.cursor)
-    if (!Number.isInteger(offset) || offset < 0) {
-      return Promise.reject(new Error(`malformed cursor: ${page.cursor ?? 'null'}`))
-    }
-
-    return Promise.resolve(
-      buildResultSet({
-        requestId: ctx.requestId,
-        columns: [{ name: 'n', type: 'int8' }],
-        rows: ROWS.slice(offset),
-        page,
-        durationMs: 0,
-        cursorAt: (kept) => (offset + kept < ROWS.length ? String(offset + kept) : null),
-      }),
-    )
   }
 
   return {
@@ -117,7 +157,17 @@ describeDriverContract('MinimalDriver(sql만)', () => ({
   driver: createMinimalDriver(),
   config: CONFIG,
   // schema 능력이 없어도 읽을 문장은 준다 — 그래서 페이지네이션 계약이 돈다.
-  read: { statement: 'SELECT * FROM whatever', expectedRowCount: ROWS.length },
+  read: {
+    statement: PRIMARY_STATEMENT,
+    expectedRowCount: DATASETS[PRIMARY_STATEMENT]?.length ?? 0,
+    // 최소 드라이버도 남의 커서를 거부한다는 것을 증명해야 한다.
+    foreignStatement: FOREIGN_STATEMENT,
+  },
+  // 이 드라이버는 어떤 쓰기 문장도 실행할 수 없다 — 잠자코 빼지 않고 선언한다.
+  writesUnsupported: true,
+  // connect 없이는 아무것도 하지 않는다. 그래서 disconnect 이후 상태도
+  // 계약이 관찰한다.
+  requiresConnection: true,
 }))
 
 describe('계약 스위트가 없는 능력을 건너뛴다', () => {

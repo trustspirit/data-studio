@@ -35,6 +35,12 @@ import type { WireValue } from '@shared/types/wire'
  * 등록 시점에 동기적으로 알아야 하기 때문이다. 연결이 필요한 동작 검증은
  * 각 테스트 안에서 `await connected()`로 새 인스턴스를 연결해 쓴다.
  *
+ * 연결 없이 읽는 것은 **능력 프로퍼티의 존재 여부와 `classify`**까지다.
+ * `classify(statement)`는 서버에 묻지 않고 문장만 보고 답하는 순수 함수로
+ * 본다 — 상위 계층이 "이 문장을 실행해도 되는가"를 연결 전에 판단해야 하므로,
+ * 연결을 요구하는 `classify`는 그 자리에서 쓸 수 없다. 그 밖의 모든 동작
+ * (`execute`/`ping`/`schema` 조회)은 반드시 연결한 뒤에 부른다.
+ *
  * ## 팩토리에 요구하는 전제
  *
  * - `factory()`는 호출할 때마다 **같은 능력 집합**을 가진, **아직 연결되지 않은**
@@ -48,6 +54,17 @@ import type { WireValue } from '@shared/types/wire'
  *   상한(**1000행, 8MB**) 안에 들어와야 한다. 1행짜리 데이터셋으로는 커서가
  *   전진하는지 아닌지를 구분할 수 없고, 상한을 넘는 데이터셋은 "한 페이지에
  *   다 담은 결과"라는 비교 기준 자체를 무너뜨려 올바른 드라이버를 실패시킨다.
+ * - `read.statement`는 호출할 때마다 **같은 순서로** 행을 돌려주어야 한다.
+ *   페이지네이션 계약은 이어 읽은 행 시퀀스를 한 번에 읽은 시퀀스와 그대로
+ *   비교하므로, 순서가 흔들리면 올바른 드라이버가 간헐적으로 실패한다.
+ * - `sql` 능력을 선언하면 `read.foreignStatement`도 **반드시** 준다. 페이지를
+ *   나눌 수 있는 드라이버는 남의 커서를 거부한다는 것까지 증명해야 한다.
+ * - `sql` 능력을 선언하면 `write`를 주거나, 줄 수 없다면 `writesUnsupported: true`로
+ *   **명시적으로** 면제를 선언한다. 잠자코 빼는 것은 허용하지 않는다.
+ * - 드라이버가 실제 연결을 갖는다면 `requiresConnection: true`를 선언한다.
+ *   그러면 계약이 `disconnect` 이후 드라이버가 정말로 쓸 수 없게 되는지를
+ *   확인한다. 선언하지 않은 드라이버는 그 대신 **연결 없이도 동작한다는 것**을
+ *   증명해야 한다 — 어느 쪽이든 빠져나갈 구멍은 없다.
  */
 
 /** 계약 데이터셋 전체가 한 페이지에 담긴다고 가정하는 넉넉한 상한. */
@@ -64,24 +81,46 @@ const MAX_PAGES = 200
  * "자기가 발급하지 않은 커서를 거부한다"까지다. 커서는 불투명한 값이므로
  * 어떤 인코딩을 쓰는지는 드라이버의 자유이고, 계약이 특정 형식을 전제하면
  * 그것은 더 이상 계약이 아니라 구현 지시가 된다.
+ *
+ * 그래서 여기 값들은 **어떤 인코딩도 발급할 수 없는** 모양이어야 한다.
+ * `'{"offset":1}'` 같은 값은 못 쓴다 — 오프셋을 JSON으로 싣는 드라이버가
+ * 정확히 그렇게 발급하므로, 올바른 드라이버를 자기 잘못이 아닌 이유로
+ * 실패시킨다. 아래 둘은 NUL 바이트를 품고 있어서 정수·base64·hex·JSON
+ * 어느 표기로도 나올 수 없고, 길이도 서로 크게 다르다.
  */
-const GARBAGE_CURSORS = ['__contract_cursor_that_no_driver_minted__', '{"offset":1}']
+const GARBAGE_CURSORS = [
+  '\u0000__contract_cursor_that_no_driver_minted__',
+  `\u0000${'\u0000\uFFFFz9'.repeat(128)}`,
+]
 
 /** 어떤 드라이버도 갖고 있지 않을 스키마 이름. */
 const ABSENT_SCHEMA = '__contract_schema_that_does_not_exist__'
 
 /** 계약이 페이지네이션과 커서 검증에 쓰는 읽기 문장. */
 export interface ContractReadStatement {
-  /** 이 엔진에서 유효한, 여러 행을 돌려주는 읽기 문장. */
+  /**
+   * 이 엔진에서 유효한, 여러 행을 돌려주는 읽기 문장.
+   *
+   * **호출할 때마다 같은 순서로** 행을 돌려주어야 한다. 페이지네이션 계약은
+   * 커서로 이어 읽은 시퀀스를 한 번에 읽은 시퀀스와 그대로 비교하므로, 순서가
+   * 안정적이지 않으면 올바른 드라이버가 간헐적으로 실패한다. 대부분의 SQL
+   * 엔진은 `ORDER BY` 없는 질의의 행 순서를 보장하지 않는다 — PostgreSQL도
+   * 그렇다. 그러니 정렬 키가 명확한 문장(예: `... ORDER BY id`)을 준다.
+   */
   readonly statement: string
   /** 위 문장이 상한 없이 돌려주는 행 수. 2 이상, 1000 이하. */
   readonly expectedRowCount: number
   /**
-   * `statement`와 **다른 결과 집합**을 읽는 문장(선택). 주어지면 계약은
-   * `statement`에서 받은 커서를 이 문장에 넘겼을 때 드라이버가 조용히 엉뚱한
-   * 행을 돌려주지 않고 거부하는지 확인한다.
+   * `statement`와 **다른 결과 집합**을 읽는 문장. `sql` 능력을 선언한
+   * 드라이버는 반드시 준다 — 계약은 `statement`에서 받은 커서를 이 문장에
+   * 넘겼을 때 드라이버가 조용히 엉뚱한 행을 돌려주지 않고 거부하는지 확인한다.
+   *
+   * 선택으로 두면 커서 신원 검사가 없는 드라이버가 이 항목을 빼는 것만으로
+   * 계약을 통과한다 — 그러면 "발급하지 않은 커서를 거부한다"는 조항이 아무에게도
+   * 요구되지 않는다. 페이지를 나눌 수 있다는 것은 곧 남의 커서를 받을 수 있다는
+   * 뜻이므로, 이 증명은 sql 계약에서 면제될 수 없다.
    */
-  readonly foreignStatement?: string
+  readonly foreignStatement: string
 }
 
 /** 계약이 `rowsAffected`를 확인할 때 쓰는 쓰기 문장. */
@@ -100,8 +139,37 @@ export interface DriverContractHarness {
   readonly config: ConnectionConfig
   /** `sql` 능력을 선언한 드라이버는 반드시 준다. */
   readonly read?: ContractReadStatement
-  /** 주면 `rowsAffected` 쓰기 계약이 추가로 실행된다. */
+  /**
+   * `rowsAffected` 쓰기 계약에 쓸 문장. `sql` 능력을 선언했다면 이것을 주거나
+   * `writesUnsupported: true`를 선언해야 한다.
+   */
   readonly write?: ContractWriteStatement
+  /**
+   * 이 드라이버로는 어떤 쓰기도 할 수 없음을 **명시적으로** 선언한다.
+   *
+   * `write`를 필수로 만들지 않는 이유는, 읽기 전용 복제본이나 조회 전용
+   * 엔드포인트처럼 쓸 수 있는 문장이 정말로 없는 드라이버가 실재하기 때문이다.
+   * 그런 드라이버를 계약에서 밀어내는 것은 능력이 적다는 이유로 배제하는 것과
+   * 같은 잘못이다. 대신 면제는 **잠자코 얻을 수 없다** — 이 플래그를 세우지
+   * 않고 `write`를 빼면 계약이 실패한다. 그래서 옵트아웃이 리뷰 가능한
+   * 선언으로 남는다.
+   *
+   * `rowsAffected`가 `number | null`이고 `undefined`가 아니라는 성질 자체는
+   * 이 플래그와 무관하게 모든 sql 드라이버가 읽기 문장에서 이미 검증받는다.
+   */
+  readonly writesUnsupported?: true
+  /**
+   * 드라이버가 **실제 연결**(소켓, 풀에서 빌린 클라이언트 등)을 갖는가.
+   *
+   * `true`면 계약이 `disconnect` 이후 드라이버가 정말로 쓸 수 없게 되는지를
+   * 확인한다. 이 조항이 없으면 `disconnect`가 아무것도 하지 않는 드라이버 —
+   * 즉 풀에 클라이언트를 영영 돌려주지 않는 드라이버 — 가 조용히 통과한다.
+   *
+   * 메모리 드라이버처럼 연결 개념이 없는 드라이버까지 이 조항으로 묶으면,
+   * 능력이 적다는 이유로 계약에서 배제하는 잘못을 반복하게 된다. 그래서
+   * 선언하지 않은 드라이버에는 대신 **연결 없이도 동작한다**는 것을 요구한다.
+   */
+  readonly requiresConnection?: true
 }
 
 export type DriverContractFactory = () => DriverContractHarness
@@ -130,13 +198,16 @@ export function describeDriverContract(name: string, factory: DriverContractFact
   const hasExplain = probe.driver.sql?.explain !== undefined
   const hasBeginReadOnly = probe.driver.sql?.beginReadOnly !== undefined
   const hasWrite = probe.write !== undefined
-  const hasForeignStatement = probe.read?.foreignStatement !== undefined
+  const requiresConnection = probe.requiresConnection === true
 
   /**
    * 실제로 등록된 구역. 드라이버가 아무 능력도 선언하지 않아서 계약이
    * 텅 빈 채 초록으로 뜨는 것을 아래 테스트가 막는다.
    */
   const sections: string[] = []
+  // 연결 수명주기는 둘 중 하나가 **반드시** 돈다. 어느 쪽도 돌지 않는
+  // (= 조용히 건너뛰는) 경우가 없어야 disconnect가 관찰되지 않는 구멍이 막힌다.
+  sections.push(requiresConnection ? 'lifecycle.disconnect' : 'lifecycle.connectionless')
   if (hasSql) sections.push('sql')
   if (hasExplain) sections.push('sql.explain')
   if (hasBeginReadOnly) sections.push('sql.beginReadOnly')
@@ -144,7 +215,10 @@ export function describeDriverContract(name: string, factory: DriverContractFact
   // `execute`/`cursorAt`은 sql 능력에 속하지 schema 능력에 속하지 않는다.
   if (hasSql) sections.push('sql.pagination')
   if (hasSql) sections.push('sql.cursor')
-  if (hasForeignStatement) sections.push('sql.cursor.foreign')
+  // 하네스가 foreignStatement를 주는지와 **무관하게** 등록한다. 하네스에서
+  // 계산하면 빼는 순간 구역째 사라져서, 옵트아웃이 조용한 초록이 된다.
+  if (hasSql) sections.push('sql.cursor.foreign')
+  if (hasSql) sections.push('sql.writeDeclaration')
   if (hasWrite) sections.push('sql.rowsAffected')
   if (hasSchema) sections.push('schema')
 
@@ -179,11 +253,37 @@ export function describeDriverContract(name: string, factory: DriverContractFact
         `contract violation: \`read.expectedRowCount\` must fit in one page (<= ${FULL_PAGE.maxRows})`,
       )
     }
+    // 선택 멤버로 두면 커서 신원 검사가 없는 드라이버가 이것을 빼는 것만으로
+    // 계약을 통과한다. `read`와 같은 강도로 요구한다.
+    must(
+      read.foreignStatement,
+      'a driver declaring `sql` must supply `read.foreignStatement` ' +
+        'so the contract can prove it rejects a cursor minted for another query',
+    )
     return read
   }
 
   function writeOf(): ContractWriteStatement {
     return must(factory().write, 'write statement disappeared between instances')
+  }
+
+  /**
+   * 쓰기 계약을 제공했거나, 제공할 수 없음을 **명시적으로** 선언했는지 본다.
+   * 잠자코 `write`를 빼는 것은 통과시키지 않는다.
+   */
+  function assertWriteDeclaration(): void {
+    const harness = factory()
+    if (harness.write !== undefined && harness.writesUnsupported === true) {
+      throw new Error(
+        'contract violation: a harness cannot both supply `write` and declare `writesUnsupported`',
+      )
+    }
+    if (harness.write === undefined && harness.writesUnsupported !== true) {
+      throw new Error(
+        'contract violation: a driver declaring `sql` must supply `write`, ' +
+          'or declare `writesUnsupported: true` to opt out explicitly',
+      )
+    }
   }
 
   /**
@@ -208,7 +308,10 @@ export function describeDriverContract(name: string, factory: DriverContractFact
   }
 
   function foreignStatementOf(read: ContractReadStatement): string {
-    return must(read.foreignStatement, 'foreignStatement disappeared between instances')
+    return must(
+      read.foreignStatement,
+      'a driver declaring `sql` must supply `read.foreignStatement`',
+    )
   }
 
   /** schema 능력에서 읽을 수 있는 테이블 하나를 고른다. */
@@ -227,12 +330,18 @@ export function describeDriverContract(name: string, factory: DriverContractFact
       const harness = factory()
       const driver = harness.driver
       const expected: string[] = []
+      expected.push(
+        harness.requiresConnection === true ? 'lifecycle.disconnect' : 'lifecycle.connectionless',
+      )
       if (driver.sql !== undefined) expected.push('sql')
       if (driver.sql?.explain !== undefined) expected.push('sql.explain')
       if (driver.sql?.beginReadOnly !== undefined) expected.push('sql.beginReadOnly')
       if (driver.sql !== undefined) expected.push('sql.pagination')
       if (driver.sql !== undefined) expected.push('sql.cursor')
-      if (harness.read?.foreignStatement !== undefined) expected.push('sql.cursor.foreign')
+      // 하네스가 아니라 능력에서 계산한다 — foreignStatement를 빼도 구역은
+      // 남아 있어야 하고, 그 구역이 실패해야 한다.
+      if (driver.sql !== undefined) expected.push('sql.cursor.foreign')
+      if (driver.sql !== undefined) expected.push('sql.writeDeclaration')
       if (harness.write !== undefined) expected.push('sql.rowsAffected')
       if (driver.schema !== undefined) expected.push('schema')
 
@@ -283,6 +392,50 @@ export function describeDriverContract(name: string, factory: DriverContractFact
       await harness.driver.connect(harness.config)
 
       await expect(harness.driver.ping()).resolves.toBeGreaterThanOrEqual(0)
+    })
+
+    /**
+     * `disconnect`를 **관찰한다**.
+     *
+     * 위의 "두 번 불러도 안 던진다"와 "다시 connect하면 쓸 수 있다"는 둘 다
+     * disconnect가 아무것도 하지 않아도 통과한다. 즉 풀에서 빌린 클라이언트를
+     * 영영 돌려주지 않는 드라이버가 조용히 초록으로 뜬다. 실제 연결을 가진
+     * 드라이버라면 disconnect 이후에는 **쓸 수 없어야** 한다.
+     */
+    describe.runIf(requiresConnection)('연결 수명주기 — disconnect 관찰', () => {
+      it('disconnect 이후에는 ping이 거부된다', async () => {
+        const driver = await connected()
+
+        await driver.disconnect()
+
+        await expect(driver.ping()).rejects.toThrow()
+      })
+
+      it('disconnect 이후에는 execute가 거부된다', async () => {
+        if (!hasSql) return
+        const read = readOf()
+        const driver = await connected()
+        const sql = sqlOf(driver)
+
+        await driver.disconnect()
+
+        await expect(sql.execute(ctx(), read.statement, FULL_PAGE)).rejects.toThrow()
+      })
+    })
+
+    /**
+     * 연결 개념이 없다고 선언한 드라이버는 그 선언을 **증명해야** 한다.
+     *
+     * 이것이 없으면 `requiresConnection`을 빼는 것만으로 disconnect 관찰을
+     * 면제받을 수 있다 — 옵트아웃이 공짜가 되어버린다. 연결 없이 정말로
+     * 동작하는 드라이버만 이 면제를 얻는다.
+     */
+    describe.runIf(!requiresConnection)('연결 수명주기 — 무연결 선언 검증', () => {
+      it('connect 없이도 ping이 동작한다', async () => {
+        const driver = factory().driver
+
+        await expect(driver.ping()).resolves.toBeGreaterThanOrEqual(0)
+      })
     })
 
     it('선언한 능력이 describeCapabilities와 일치한다', () => {
@@ -532,7 +685,16 @@ export function describeDriverContract(name: string, factory: DriverContractFact
       })
     })
 
-    describe.runIf(hasForeignStatement)('sql 커서 교차사용 계약', () => {
+    describe.runIf(hasSql)('sql 쓰기 선언 계약', () => {
+      it('쓰기 문장을 제공했거나 명시적으로 면제를 선언했다', () => {
+        // 잠자코 `write`를 빼는 것으로 rowsAffected 계약을 벗어날 수 없다.
+        expect(() => {
+          assertWriteDeclaration()
+        }).not.toThrow()
+      })
+    })
+
+    describe.runIf(hasSql)('sql 커서 교차사용 계약', () => {
       it('다른 질의에서 받은 커서는 거부한다', async () => {
         const read = readOf()
         const foreign = foreignStatementOf(read)
