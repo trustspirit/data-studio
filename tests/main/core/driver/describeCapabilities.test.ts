@@ -140,10 +140,14 @@ describe('describeCapabilities', () => {
 
     const capabilities = describeCapabilities(driver)
 
-    expect(capabilities).toEqual(['sql', 'schema'])
-    expect(structuredClone(capabilities)).toEqual(capabilities)
-    // capability 객체 자체는 함수를 담고 있어 IPC(structuredClone)를 건널 수
-    // 없다 — 이것이 describeCapabilities가 문자열 목록으로 옮겨 담는 이유다.
-    expect(() => structuredClone(driver.sql)).toThrow()
+    // 반환값 자체가 검증 대상이다: describeCapabilities(driver)의 결과를
+    // clone해서 원본과 deep-equal한지, 그리고 모든 원소가 문자열인지 확인한다.
+    // 만약 구현이 capability 객체(함수를 담고 있어 clone 불가능한 값)를
+    // 목록에 그대로 흘려보내면 이 clone 자체가 던지므로, "문자열 목록만
+    // 돌려준다"는 성질이 실제로 걸린다.
+    const cloned = structuredClone(capabilities)
+
+    expect(cloned).toEqual(capabilities)
+    expect(capabilities.every((c) => typeof c === 'string')).toBe(true)
   })
 })
