@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DriverRegistry } from '@main/core/driver/DriverRegistry'
 import {
   AcquireTimeoutError,
+  ConnectionConfigChangedError,
   ConnectionNotOpenError,
   PooledConnectionManager,
 } from '@main/infrastructure/connection/PooledConnectionManager'
@@ -530,6 +531,113 @@ describe('PooledConnectionManager', () => {
       expect(manager.status('fake-1')).toBe('closed')
       // 연결까지 간 드라이버를 끊지 않으면 소켓이 샌다. 두 번 끊어도 안 된다.
       expect(fakes[0]?.calls.disconnect).toBe(1)
+    })
+
+    it('연결 중에 닫으면 close가 실제로 끊긴 뒤에 끝난다', async () => {
+      // close가 disconnect를 기다리지 않고 먼저 resolve하면, 종료 경로에서
+      // `await closeAll()` 다음에 app.quit()이 돌아 방금 열린 서버 쪽 커넥션이
+      // 주인 없이 남는다. closeAll의 존재 이유가 종료 경로이므로 치명적이다.
+      let release: () => void = () => undefined
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const { manager, fakes } = createHarness(2, 1000, { gate })
+
+      const opening = manager.open(FAKE_CONFIG)
+      // opening을 여기서 await하면 안 된다. 먼저 기다려 버리면 connectEntry의
+      // 정리가 이미 끝난 뒤에 close를 확인하게 되어, close가 기다리든 말든
+      // 통과한다 — 그러면 이 테스트가 아무것도 지키지 못한다.
+      const openingSettled = opening.catch(() => undefined)
+      await Promise.resolve()
+      const closing = manager.close('fake-1')
+
+      release()
+      await closing
+
+      // close가 끝난 "그 시점에" 이미 끊겨 있어야 한다. 나중에 결국 끊기는 것으로는
+      // 부족하다 — 그 사이에 프로세스가 죽는 게 정확히 문제 상황이다.
+      expect(fakes[0]?.calls.disconnect).toBe(1)
+      await expect(opening).rejects.toThrow(ConnectionNotOpenError)
+      await openingSettled
+    })
+
+    it('연결 중에 closeAll을 불러도 실제로 끊긴 뒤에 끝난다', async () => {
+      let release: () => void = () => undefined
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const { manager, fakes } = createHarness(2, 1000, { gate })
+
+      const opening = manager.open(FAKE_CONFIG)
+      const openingSettled = opening.catch(() => undefined)
+      await Promise.resolve()
+      const closing = manager.closeAll()
+
+      release()
+      await closing
+
+      expect(fakes[0]?.calls.disconnect).toBe(1)
+      await expect(opening).rejects.toThrow(ConnectionNotOpenError)
+      await openingSettled
+    })
+  })
+
+  describe('config 변경 감지', () => {
+    it('열려 있는 커넥션을 다른 config로 열려 하면 거부한다', async () => {
+      const { manager, fakes } = createHarness(2, 1000)
+      await manager.open(FAKE_CONFIG)
+
+      // 사용자가 host를 고치고 다시 연결한 상황. 조용히 무시하면 옛 서버의 답이
+      // 새 설정의 답으로 둔갑한다.
+      await expect(
+        manager.open({ ...FAKE_CONFIG, host: 'other.example.com' }),
+      ).rejects.toThrow(ConnectionConfigChangedError)
+
+      // 거부만 하고 살아 있는 커넥션을 건드리지는 않는다.
+      expect(manager.status('fake-1')).toBe('ready')
+      expect(fakes[0]?.calls.disconnect).toBe(0)
+    })
+
+    it('같은 config면 키 순서가 달라도 재사용한다', async () => {
+      const { manager, created } = createHarness(2, 1000)
+      await manager.open(FAKE_CONFIG)
+
+      const reordered = Object.fromEntries(
+        Object.entries(FAKE_CONFIG).reverse(),
+      ) as typeof FAKE_CONFIG
+
+      await manager.open(reordered)
+
+      expect(created).toHaveLength(1)
+    })
+
+    it('닫은 뒤에는 새 config로 열 수 있다', async () => {
+      const { manager } = createHarness(2, 1000)
+      await manager.open(FAKE_CONFIG)
+      await manager.close('fake-1')
+
+      await expect(
+        manager.open({ ...FAKE_CONFIG, host: 'other.example.com' }),
+      ).resolves.toBeUndefined()
+      expect(manager.status('fake-1')).toBe('ready')
+    })
+
+    it('연결이 진행 중일 때 다른 config로 열려 해도 거부한다', async () => {
+      let release: () => void = () => undefined
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const { manager } = createHarness(2, 1000, { gate })
+
+      const opening = manager.open(FAKE_CONFIG)
+      await Promise.resolve()
+
+      await expect(
+        manager.open({ ...FAKE_CONFIG, database: 'other' }),
+      ).rejects.toThrow(ConnectionConfigChangedError)
+
+      release()
+      await opening
     })
   })
 

@@ -25,6 +25,28 @@ export class AcquireTimeoutError extends Error {
   }
 }
 
+export class ConnectionConfigChangedError extends Error {
+  constructor(readonly connectionId: string) {
+    super(`connection ${connectionId} is already open with a different config`)
+    this.name = 'ConnectionConfigChangedError'
+  }
+}
+
+/**
+ * config를 키 순서에 무관한 문자열로 만든다. 두 config가 같은 대상을 가리키는지
+ * 판단하는 유일한 기준이다.
+ *
+ * 필드를 골라 비교하지 않고 **전부** 비교한다. 골라내면 나중에 필드가 추가될 때
+ * 조용히 비교 대상에서 빠지고, 그때 생기는 증상이 "설정을 바꿨는데 옛 서버에
+ * 붙어 있다"라는 알아채기 어려운 형태다. 전부 비교하면 무해한 변경까지
+ * 거부당하지만, 그건 close 후 열면 되는 눈에 보이는 불편이다.
+ */
+function fingerprint(config: ConnectionConfig): string {
+  return JSON.stringify(
+    Object.fromEntries(Object.entries(config).sort(([a], [b]) => a.localeCompare(b))),
+  )
+}
+
 export interface PoolOptions {
   /** 커넥션당 동시에 실행할 수 있는 작업 수 */
   readonly maxConcurrent: number
@@ -41,6 +63,11 @@ interface Waiter {
 
 interface Entry {
   readonly driver: Driver
+  /**
+   * 이 커넥션을 연 config의 지문. 저장해 두지 않으면 "다른 config로 다시 열려는
+   * 시도"를 원리적으로 감지할 수 없다 — 규칙을 문서에만 적어 두는 것과 같다.
+   */
+  readonly fingerprint: string
   status: ConnectionStatus
   inUse: number
   waiters: Waiter[]
@@ -80,7 +107,18 @@ export class PooledConnectionManager implements ConnectionManager {
 
   open(config: ConnectionConfig): Promise<void> {
     const existing = this.entries.get(config.id)
+    const print = fingerprint(config)
+
     if (existing !== undefined) {
+      // 살아 있는 항목에 대해서만 따진다. 'error'로 주저앉은 항목은 어차피 아래에서
+      // 새 드라이버로 재시도하므로, 그때는 새 config가 그대로 적용된다.
+      if (
+        (existing.status === 'ready' || existing.opening !== null) &&
+        existing.fingerprint !== print
+      ) {
+        return Promise.reject(new ConnectionConfigChangedError(config.id))
+      }
+
       if (existing.status === 'ready') return Promise.resolve()
       if (existing.opening !== null) return existing.opening
       // 'error'로 주저앉은 항목은 재시도 대상이다. 실패를 성공으로 캐시하지
@@ -90,6 +128,7 @@ export class PooledConnectionManager implements ConnectionManager {
 
     const entry: Entry = {
       driver: this.registry.create(config),
+      fingerprint: print,
       status: 'connecting',
       inUse: 0,
       waiters: [],
@@ -185,10 +224,22 @@ export class PooledConnectionManager implements ConnectionManager {
     entry.waiters = []
     entry.status = 'closed'
 
-    // 아직 연결 중이면 여기서 끊지 않는다 — connectEntry가 자기가 연 소켓을
+    // 아직 연결 중이면 여기서 직접 끊지 않는다 — connectEntry가 자기가 연 소켓을
     // 책임지고 닫는다. 여기서도 끊으면 아직 열리지 않은 드라이버에
     // disconnect가 가고, 이어서 한 번 더 간다.
-    if (entry.opening !== null) return
+    //
+    // 다만 그 정리가 끝날 때까지 **기다린다**. 그냥 돌아가면 close가 소켓이 실제로
+    // 닫히기 전에 resolve하고, `await closeAll()` 뒤 app.quit()이 방금 열린
+    // 서버 쪽 커넥션을 주인 없이 남긴 채 프로세스를 끝낸다. closeAll의 존재
+    // 이유가 종료 경로인 만큼 여기서 기다리지 않으면 의미가 없다.
+    //
+    // connectEntry는 이 경로에서 ConnectionNotOpenError를 던지도록 되어 있고
+    // 그 거부는 open()의 호출자가 받는다. 여기서는 이미 close를 요청한
+    // 상황이므로 삼킨다 — 안 삼키면 close가 남의 에러로 실패한다.
+    if (entry.opening !== null) {
+      await entry.opening.catch(() => undefined)
+      return
+    }
 
     await entry.driver.disconnect()
   }
