@@ -4,6 +4,7 @@ import { describeCapabilities } from '@main/core/driver/describeCapabilities'
 import type { ExecutionContext } from '@main/core/driver/ExecutionContext'
 import type { SqlCapability } from '@main/core/driver/capabilities/SqlCapability'
 import type { SchemaCapability } from '@main/core/driver/capabilities/SchemaCapability'
+import type { ConnectionConfig } from '@shared/types/connection'
 import type { PageRequest, ResultSet } from '@shared/types/resultSet'
 import type { WireValue } from '@shared/types/wire'
 
@@ -20,12 +21,33 @@ import type { WireValue } from '@shared/types/wire'
  * 하는 상황이다. 대신 실행된 구역 목록을 테스트로 노출해서, 아무것도
  * 주장하지 않은 드라이버가 조용히 초록으로 지나가지 못하게 한다.
  *
+ * ## 연결 수명주기
+ *
+ * `connect(config)`는 `Driver`의 **필수** 멤버다. 그래서 이 스위트는 드라이버를
+ * 쓰기 전에 **직접 `connect`를 부른다** — 팩토리가 이미 연결된 드라이버를
+ * 돌려주게 하지 않는다. 팩토리가 연결까지 맡으면 "connect 없이도 동작하는
+ * 드라이버"만 통과할 수 있다는 전제가 스위트에 숨어버리고, 실제 서버에
+ * 붙어야 하는 Phase 1의 PostgreSQL 드라이버는 자기 잘못이 아닌 이유로 모든
+ * 테스트에서 실패한다.
+ *
+ * 팩토리는 **동기**로 `{ driver, config }`를 준다. 능력 보유 여부(`sql`/`schema`
+ * 프로퍼티)는 연결과 무관한 정적 사실이고, `describe.runIf`로 구역을 등록하려면
+ * 등록 시점에 동기적으로 알아야 하기 때문이다. 연결이 필요한 동작 검증은
+ * 각 테스트 안에서 `await connected()`로 새 인스턴스를 연결해 쓴다.
+ *
  * ## 팩토리에 요구하는 전제
  *
- * `factory()`는 호출할 때마다 **같은 능력 집합**을 가진 드라이버를 준다.
- * `schema`와 `sql`을 모두 지원한다면, 첫 스키마의 첫 테이블은 페이지네이션을
- * 실제로 소진시킬 수 있도록 **2행 이상**을 담고 있어야 한다. 1행짜리
- * 데이터셋으로는 커서가 전진하는지 아닌지를 구분할 수 없다.
+ * - `factory()`는 호출할 때마다 **같은 능력 집합**을 가진, **아직 연결되지 않은**
+ *   새 드라이버를 준다. 테스트끼리 상태를 공유하지 않아야 한다 — 쓰기 구역이
+ *   데이터를 지운다.
+ * - `sql` 능력을 선언하면 `read`(읽을 수 있는 문장과 그 기대 행 수)를 반드시
+ *   함께 준다. 계약이 문장을 스스로 조립하지 않는 이유는 `SELECT * FROM s.t`가
+ *   모든 엔진에서 유효한 문장이 아니기 때문이고, 그렇게 해야 `schema` 능력이
+ *   없는 SQL 드라이버도 페이지네이션 계약을 면제받지 못하기 때문이다.
+ * - `read.statement`가 돌려주는 행 수는 **2 이상**이어야 하고 `FULL_PAGE`
+ *   상한(**1000행, 8MB**) 안에 들어와야 한다. 1행짜리 데이터셋으로는 커서가
+ *   전진하는지 아닌지를 구분할 수 없고, 상한을 넘는 데이터셋은 "한 페이지에
+ *   다 담은 결과"라는 비교 기준 자체를 무너뜨려 올바른 드라이버를 실패시킨다.
  */
 
 /** 계약 데이터셋 전체가 한 페이지에 담긴다고 가정하는 넉넉한 상한. */
@@ -33,6 +55,48 @@ const FULL_PAGE: PageRequest = { cursor: null, maxRows: 1000, maxBytes: 8_000_00
 
 /** 페이지네이션이 끝나지 않을 때 무한 루프 대신 실패시키는 상한. */
 const MAX_PAGES = 200
+
+/** 어떤 드라이버도 발급했을 리 없는 커서. 커서 검증을 요구할 때 쓴다. */
+const GARBAGE_CURSOR = '__contract_cursor_that_no_driver_minted__'
+
+/** 어떤 드라이버도 갖고 있지 않을 스키마 이름. */
+const ABSENT_SCHEMA = '__contract_schema_that_does_not_exist__'
+
+/** 계약이 페이지네이션과 커서 검증에 쓰는 읽기 문장. */
+export interface ContractReadStatement {
+  /** 이 엔진에서 유효한, 여러 행을 돌려주는 읽기 문장. */
+  readonly statement: string
+  /** 위 문장이 상한 없이 돌려주는 행 수. 2 이상, 1000 이하. */
+  readonly expectedRowCount: number
+  /**
+   * `statement`와 **다른 결과 집합**을 읽는 문장(선택). 주어지면 계약은
+   * `statement`에서 받은 커서를 이 문장에 넘겼을 때 드라이버가 조용히 엉뚱한
+   * 행을 돌려주지 않고 거부하는지 확인한다.
+   */
+  readonly foreignStatement?: string
+}
+
+/** 계약이 `rowsAffected`를 확인할 때 쓰는 쓰기 문장. */
+export interface ContractWriteStatement {
+  /** 실행하면 행을 바꾸는 문장. 계약은 매번 새 드라이버 인스턴스에서 실행한다. */
+  readonly statement: string
+  /** 위 문장이 바꾸는 행 수. `rowsAffected`가 null이 아닌 실수치임을 못 박는다. */
+  readonly expectedRowsAffected: number
+}
+
+/** 계약이 한 드라이버를 검증하는 데 필요한 것 전부. */
+export interface DriverContractHarness {
+  /** 아직 `connect`되지 않은 새 인스턴스. */
+  readonly driver: Driver
+  /** 계약이 `driver.connect(config)`에 넘길 설정. */
+  readonly config: ConnectionConfig
+  /** `sql` 능력을 선언한 드라이버는 반드시 준다. */
+  readonly read?: ContractReadStatement
+  /** 주면 `rowsAffected` 쓰기 계약이 추가로 실행된다. */
+  readonly write?: ContractWriteStatement
+}
+
+export type DriverContractFactory = () => DriverContractHarness
 
 function ctx(requestId = 'contract-req'): ExecutionContext {
   return { requestId, signal: new AbortController().signal }
@@ -49,17 +113,16 @@ function must<T>(value: T | undefined, message: string): T {
   return value
 }
 
-function rowKey(row: readonly WireValue[]): string {
-  return JSON.stringify(row)
-}
-
-export function describeDriverContract(name: string, factory: () => Driver): void {
-  // 능력 보유 여부는 테스트 **등록 시점**에 확인한다.
+export function describeDriverContract(name: string, factory: DriverContractFactory): void {
+  // 능력 보유 여부는 테스트 **등록 시점**에 확인한다. 연결과 무관한 정적
+  // 사실이므로 connect 없이 읽어도 된다.
   const probe = factory()
-  const hasSql = probe.sql !== undefined
-  const hasSchema = probe.schema !== undefined
-  const hasExplain = probe.sql?.explain !== undefined
-  const hasBeginReadOnly = probe.sql?.beginReadOnly !== undefined
+  const hasSql = probe.driver.sql !== undefined
+  const hasSchema = probe.driver.schema !== undefined
+  const hasExplain = probe.driver.sql?.explain !== undefined
+  const hasBeginReadOnly = probe.driver.sql?.beginReadOnly !== undefined
+  const hasWrite = probe.write !== undefined
+  const hasForeignStatement = probe.read?.foreignStatement !== undefined
 
   /**
    * 실제로 등록된 구역. 드라이버가 아무 능력도 선언하지 않아서 계약이
@@ -69,8 +132,20 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
   if (hasSql) sections.push('sql')
   if (hasExplain) sections.push('sql.explain')
   if (hasBeginReadOnly) sections.push('sql.beginReadOnly')
-  if (hasSql && hasSchema) sections.push('sql.pagination')
+  // schema 능력과 무관하게 sql만 있으면 페이지네이션과 커서 검증을 요구한다.
+  // `execute`/`cursorAt`은 sql 능력에 속하지 schema 능력에 속하지 않는다.
+  if (hasSql) sections.push('sql.pagination')
+  if (hasSql) sections.push('sql.cursor')
+  if (hasForeignStatement) sections.push('sql.cursor.foreign')
+  if (hasWrite) sections.push('sql.rowsAffected')
   if (hasSchema) sections.push('schema')
+
+  /** 새 인스턴스를 만들어 **연결한 뒤** 돌려준다. */
+  async function connected(): Promise<Driver> {
+    const harness = factory()
+    await harness.driver.connect(harness.config)
+    return harness.driver
+  }
 
   /** 인스턴스마다 능력이 달라지면 등록 시점 probe가 거짓말이 된다 — 건너뛰지 않고 실패시킨다. */
   function sqlOf(driver: Driver): SqlCapability {
@@ -79,6 +154,28 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
 
   function schemaOf(driver: Driver): SchemaCapability {
     return must(driver.schema, 'schema capability disappeared between instances')
+  }
+
+  /**
+   * sql 능력을 선언한 드라이버는 읽을 수 있는 문장을 반드시 제공해야 한다.
+   * 없으면 건너뛰지 않고 **실패**시킨다 — 페이지네이션은 sql 계약의 핵심이라
+   * 면제 대상이 아니다.
+   */
+  function readOf(): ContractReadStatement {
+    const read = must(factory().read, 'a driver declaring `sql` must supply `read` to the contract')
+    if (read.expectedRowCount < 2) {
+      throw new Error('contract violation: `read.expectedRowCount` must be at least 2')
+    }
+    if (read.expectedRowCount > FULL_PAGE.maxRows) {
+      throw new Error(
+        `contract violation: \`read.expectedRowCount\` must fit in one page (<= ${FULL_PAGE.maxRows})`,
+      )
+    }
+    return read
+  }
+
+  function writeOf(): ContractWriteStatement {
+    return must(factory().write, 'write statement disappeared between instances')
   }
 
   /**
@@ -102,6 +199,10 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
     }
   }
 
+  function foreignStatementOf(read: ContractReadStatement): string {
+    return must(read.foreignStatement, 'foreignStatement disappeared between instances')
+  }
+
   /** schema 능력에서 읽을 수 있는 테이블 하나를 고른다. */
   async function firstTable(driver: Driver): Promise<{ schema: string; table: string }> {
     const schema = schemaOf(driver)
@@ -115,12 +216,16 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
 
   describe(`${name} — 드라이버 계약`, () => {
     it('계약이 검증한 구역을 노출한다', () => {
-      const driver = factory()
+      const harness = factory()
+      const driver = harness.driver
       const expected: string[] = []
       if (driver.sql !== undefined) expected.push('sql')
       if (driver.sql?.explain !== undefined) expected.push('sql.explain')
       if (driver.sql?.beginReadOnly !== undefined) expected.push('sql.beginReadOnly')
-      if (driver.sql !== undefined && driver.schema !== undefined) expected.push('sql.pagination')
+      if (driver.sql !== undefined) expected.push('sql.pagination')
+      if (driver.sql !== undefined) expected.push('sql.cursor')
+      if (harness.read?.foreignStatement !== undefined) expected.push('sql.cursor.foreign')
+      if (harness.write !== undefined) expected.push('sql.rowsAffected')
       if (driver.schema !== undefined) expected.push('schema')
 
       expect(sections).toEqual(expected)
@@ -130,30 +235,50 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
     })
 
     it('id와 engine을 노출한다', () => {
-      const driver = factory()
+      const driver = factory().driver
 
       expect(driver.id.length).toBeGreaterThan(0)
       expect(driver.engine.length).toBeGreaterThan(0)
     })
 
-    it('ping이 음이 아닌 밀리초 수치를 준다', async () => {
-      const ms = await factory().ping()
+    it('connect 이후 ping이 음이 아닌 밀리초 수치를 준다', async () => {
+      // connect는 Driver의 필수 멤버다. 연결 없이 쓰이는 것을 전제하면
+      // 실제 서버에 붙어야 하는 드라이버는 계약에 참여할 수조차 없다.
+      const ms = await (await connected()).ping()
 
       expect(Number.isFinite(ms)).toBe(true)
       expect(ms).toBeGreaterThanOrEqual(0)
     })
 
-    it('disconnect는 두 번 불러도 던지지 않는다', async () => {
+    it('connect는 같은 설정으로 다시 불러도 던지지 않는다', async () => {
+      // 재연결 경로(연결 끊김 복구)가 같은 드라이버에 connect를 다시 부른다.
+      const harness = factory()
+
+      await harness.driver.connect(harness.config)
+      await expect(harness.driver.connect(harness.config)).resolves.toBeUndefined()
+    })
+
+    it('connect 이후 disconnect는 두 번 불러도 던지지 않는다', async () => {
       // 풀은 정리 경로가 겹칠 때 같은 드라이버에 disconnect를 두 번 부를 수
       // 있다. 두 번째 호출이 터지면 정리 전체가 멈춘다.
-      const driver = factory()
+      const driver = await connected()
 
       await driver.disconnect()
       await expect(driver.disconnect()).resolves.toBeUndefined()
     })
 
+    it('disconnect 이후 다시 connect하면 쓸 수 있다', async () => {
+      const harness = factory()
+
+      await harness.driver.connect(harness.config)
+      await harness.driver.disconnect()
+      await harness.driver.connect(harness.config)
+
+      await expect(harness.driver.ping()).resolves.toBeGreaterThanOrEqual(0)
+    })
+
     it('선언한 능력이 describeCapabilities와 일치한다', () => {
-      const driver = factory()
+      const driver = factory().driver
       const reported = describeCapabilities(driver)
 
       expect(reported.includes('sql')).toBe(driver.sql !== undefined)
@@ -162,19 +287,26 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
 
     it('같은 팩토리가 항상 같은 능력 집합을 준다', () => {
       // 인스턴스마다 능력이 달라지면 등록 시점 probe가 거짓말이 된다.
-      expect(describeCapabilities(factory())).toEqual(describeCapabilities(factory()))
+      expect(describeCapabilities(factory().driver)).toEqual(
+        describeCapabilities(factory().driver),
+      )
     })
 
     describe.runIf(hasSql)('sql 능력', () => {
       it('필수 멤버가 함수다', () => {
-        const sql = sqlOf(factory())
+        const sql = sqlOf(factory().driver)
 
         expect(typeof sql.execute).toBe('function')
         expect(typeof sql.classify).toBe('function')
       })
 
       it('execute가 요청한 requestId를 그대로 실은 ResultSet을 준다', async () => {
-        const result = await sqlOf(factory()).execute(ctx('req-echo'), 'SELECT 1', FULL_PAGE)
+        const read = readOf()
+        const result = await sqlOf(await connected()).execute(
+          ctx('req-echo'),
+          read.statement,
+          FULL_PAGE,
+        )
 
         expect(result.requestId).toBe('req-echo')
         expect(Array.isArray(result.columns)).toBe(true)
@@ -186,8 +318,26 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
         expect(typeof result.meta.truncatedBytes).toBe('boolean')
       })
 
+      /**
+       * `rowsAffected`의 `null`과 `0`은 뜻이 다르다 — `null`은 "이 드라이버가
+       * 이 값을 보고하지 않는다", `0`은 "실제로 0행이 바뀌었다". 둘을 섞으면
+       * 사용자에게 그 차이를 보여줄 수 없다. `undefined`는 셋 중 어느 것도
+       * 아니어서 상위 계층이 구분할 근거를 잃는다.
+       */
+      it('meta.rowsAffected가 number거나 null이며 undefined가 아니다', async () => {
+        const read = readOf()
+        const result = await sqlOf(await connected()).execute(ctx(), read.statement, FULL_PAGE)
+
+        expect('rowsAffected' in result.meta).toBe(true)
+        expect(result.meta.rowsAffected === null || typeof result.meta.rowsAffected === 'number').toBe(
+          true,
+        )
+        expect(result.meta.rowsAffected).not.toBeUndefined()
+      })
+
       it('execute 결과가 structuredClone으로 IPC를 건널 수 있다', async () => {
-        const result = await sqlOf(factory()).execute(ctx(), 'SELECT 1', FULL_PAGE)
+        const read = readOf()
+        const result = await sqlOf(await connected()).execute(ctx(), read.statement, FULL_PAGE)
 
         expect(structuredClone(result)).toEqual(result)
       })
@@ -195,13 +345,15 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
       it('이미 취소된 컨텍스트로는 execute가 거부된다', async () => {
         // signal은 사용자 취소와 timeout 양쪽에서 온다. 이를 무시하는
         // 드라이버는 취소된 작업의 결과를 상위로 흘려보낸다.
+        const read = readOf()
+
         await expect(
-          sqlOf(factory()).execute(abortedCtx(), 'SELECT 1', FULL_PAGE),
+          sqlOf(await connected()).execute(abortedCtx(), read.statement, FULL_PAGE),
         ).rejects.toThrow()
       })
 
       it('classify가 union 안의 값만 돌려주고 던지지 않는다', () => {
-        const sql = sqlOf(factory())
+        const sql = sqlOf(factory().driver)
 
         for (const statement of ['SELECT 1', 'DELETE FROM x', 'CALL p()', '', '???']) {
           expect(['read', 'write', 'unknown']).toContain(sql.classify(statement))
@@ -209,17 +361,17 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
       })
 
       it('classify가 읽기 문장을 read로 분류한다', () => {
-        expect(sqlOf(factory()).classify('SELECT 1')).toBe('read')
+        expect(sqlOf(factory().driver).classify('SELECT 1')).toBe('read')
       })
 
       it('classify가 쓰기 문장을 write로 분류한다', () => {
-        expect(sqlOf(factory()).classify('DELETE FROM users')).toBe('write')
+        expect(sqlOf(factory().driver).classify('DELETE FROM users')).toBe('write')
       })
     })
 
     describe.runIf(hasExplain)('sql.explain 능력', () => {
       it('explain이 analyze 여부를 결과에 표시한다', async () => {
-        const sql = sqlOf(factory())
+        const sql = sqlOf(await connected())
         assertExplain(sql)
         const plain = await sql.explain(ctx(), 'SELECT 1', { analyze: false })
         const analyzed = await sql.explain(ctx(), 'SELECT 1', { analyze: true })
@@ -231,7 +383,7 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
       })
 
       it('explain 결과가 IPC를 건널 수 있다', async () => {
-        const sql = sqlOf(factory())
+        const sql = sqlOf(await connected())
         assertExplain(sql)
         const plan = await sql.explain(ctx(), 'SELECT 1', { analyze: false })
 
@@ -241,7 +393,7 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
 
     describe.runIf(hasBeginReadOnly)('sql.beginReadOnly 능력', () => {
       it('범위 안에서 쓰기 문장이 거부된다', async () => {
-        const sql = sqlOf(factory())
+        const sql = sqlOf(await connected())
         assertBeginReadOnly(sql)
         const scope = await sql.beginReadOnly(ctx())
 
@@ -251,10 +403,11 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
       })
 
       it('범위 안에서 읽기 문장은 동작한다', async () => {
-        const sql = sqlOf(factory())
+        const read = readOf()
+        const sql = sqlOf(await connected())
         assertBeginReadOnly(sql)
         const scope = await sql.beginReadOnly(ctx())
-        const result = await scope.execute(ctx(), 'SELECT 1', FULL_PAGE)
+        const result = await scope.execute(ctx(), read.statement, FULL_PAGE)
 
         expect(result.page.rowCount).toBeGreaterThanOrEqual(0)
 
@@ -262,7 +415,7 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
       })
     })
 
-    describe.runIf(hasSql && hasSchema)('sql 페이지네이션 계약', () => {
+    describe.runIf(hasSql)('sql 페이지네이션 계약', () => {
       /**
        * `cursorAt`이 존재하는 이유를 끝까지 몰아붙인다.
        *
@@ -273,18 +426,17 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
        * 때문이다.
        */
       it('한 행씩 끊어 읽은 결과가 한 번에 읽은 결과와 완전히 같다', async () => {
-        const driver = factory()
-        const sql = sqlOf(driver)
-        const { schema, table } = await firstTable(driver)
-        const statement = `SELECT * FROM ${schema}.${table}`
+        const read = readOf()
+        const sql = sqlOf(await connected())
 
-        const full = await sql.execute(ctx(), statement, FULL_PAGE)
+        const full = await sql.execute(ctx(), read.statement, FULL_PAGE)
 
         // 기준 페이지가 잘렸다면 아래 비교가 무의미해진다.
         expect(full.meta.truncatedRows).toBe(false)
         expect(full.meta.truncatedBytes).toBe(false)
-        // 1행짜리 데이터셋으로는 커서가 전진하는지 알 수 없다.
-        expect(full.rows.length).toBeGreaterThanOrEqual(2)
+        // 팩토리가 약속한 행 수를 실제로 돌려주는지 확인한다 — 이게 어긋나면
+        // 아래 비교는 "무엇을 읽었는지 모르는 두 결과"를 비교하는 셈이 된다.
+        expect(full.rows).toHaveLength(read.expectedRowCount)
 
         const collected: (readonly WireValue[])[] = []
         const seenCursors = new Set<string>()
@@ -299,7 +451,7 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
             )
           }
 
-          const page: ResultSet = await sql.execute(ctx(), statement, {
+          const page: ResultSet = await sql.execute(ctx(), read.statement, {
             cursor,
             maxRows: 1,
             maxBytes: FULL_PAGE.maxBytes,
@@ -326,21 +478,18 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
 
         // 빠짐도 중복도 순서 뒤바뀜도 없이 정확히 같아야 한다.
         expect(collected).toEqual(full.rows)
-        expect(new Set(collected.map(rowKey)).size).toBe(new Set(full.rows.map(rowKey)).size)
         // 행 수보다 페이지 수가 적으면 상한이 무시된 것이다.
         expect(pages).toBeGreaterThanOrEqual(full.rows.length)
       })
 
       it('maxRows 상한을 넘겨 돌려주지 않고, 넘칠 때 truncatedRows를 표시한다', async () => {
-        const driver = factory()
-        const sql = sqlOf(driver)
-        const { schema, table } = await firstTable(driver)
-        const statement = `SELECT * FROM ${schema}.${table}`
+        const read = readOf()
+        const sql = sqlOf(await connected())
 
-        const full = await sql.execute(ctx(), statement, FULL_PAGE)
+        const full = await sql.execute(ctx(), read.statement, FULL_PAGE)
         expect(full.rows.length).toBeGreaterThanOrEqual(2)
 
-        const limited = await sql.execute(ctx(), statement, {
+        const limited = await sql.execute(ctx(), read.statement, {
           cursor: null,
           maxRows: 1,
           maxBytes: FULL_PAGE.maxBytes,
@@ -352,9 +501,66 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
       })
     })
 
+    /**
+     * 커서는 불투명 문자열이다. 호출자는 그 안을 볼 수 없고, 그래서 잘못된
+     * 커서를 넘기는 일이 생긴다 — 저장해 둔 오래된 커서, 다른 질의에서 받은
+     * 커서, 손상된 문자열. 드라이버가 이를 조용히 받아들이면 **엉뚱한 행을
+     * 맞는 결과인 것처럼** 돌려준다. 조용한 오답보다 거부가 낫다.
+     */
+    describe.runIf(hasSql)('sql 커서 검증 계약', () => {
+      it('드라이버가 발급하지 않은 커서는 거부한다', async () => {
+        const read = readOf()
+        const sql = sqlOf(await connected())
+
+        await expect(
+          sql.execute(ctx(), read.statement, {
+            cursor: GARBAGE_CURSOR,
+            maxRows: 1,
+            maxBytes: FULL_PAGE.maxBytes,
+          }),
+        ).rejects.toThrow()
+      })
+    })
+
+    describe.runIf(hasForeignStatement)('sql 커서 교차사용 계약', () => {
+      it('다른 질의에서 받은 커서는 거부한다', async () => {
+        const read = readOf()
+        const foreign = foreignStatementOf(read)
+        const sql = sqlOf(await connected())
+
+        const first = await sql.execute(ctx(), read.statement, {
+          cursor: null,
+          maxRows: 1,
+          maxBytes: FULL_PAGE.maxBytes,
+        })
+        const cursor = must(first.page.cursor ?? undefined, 'expected a cursor to continue from')
+
+        await expect(
+          sql.execute(ctx(), foreign, {
+            cursor,
+            maxRows: 1,
+            maxBytes: FULL_PAGE.maxBytes,
+          }),
+        ).rejects.toThrow()
+      })
+    })
+
+    describe.runIf(hasWrite)('sql rowsAffected 계약', () => {
+      it('쓰기 문장은 rowsAffected를 실제 수치로 보고한다', async () => {
+        // null은 "보고하지 않음"이라는 별개의 뜻이므로, 쓰기가 그것을
+        // 돌려주면 사용자는 "0행 변경"과 구분할 수 없다.
+        const write = writeOf()
+        const sql = sqlOf(await connected())
+
+        const result = await sql.execute(ctx(), write.statement, FULL_PAGE)
+
+        expect(result.meta.rowsAffected).toBe(write.expectedRowsAffected)
+      })
+    })
+
     describe.runIf(hasSchema)('schema 능력', () => {
       it('다섯 메서드가 모두 함수다', () => {
-        const schema = schemaOf(factory())
+        const schema = schemaOf(factory().driver)
 
         expect(typeof schema.listSchemas).toBe('function')
         expect(typeof schema.listTables).toBe('function')
@@ -364,7 +570,7 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
       })
 
       it('listSchemas와 listTables가 IPC를 건널 수 있는 값을 준다', async () => {
-        const driver = factory()
+        const driver = await connected()
         const schema = schemaOf(driver)
         const schemas = await schema.listSchemas(ctx())
 
@@ -381,7 +587,7 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
       })
 
       it('listTables가 요청한 스키마의 테이블만 돌려준다', async () => {
-        const driver = factory()
+        const driver = await connected()
         const schema = schemaOf(driver)
         const schemas = await schema.listSchemas(ctx())
         const first = must(schemas[0], 'listSchemas returned no schema')
@@ -396,21 +602,17 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
       })
 
       it('존재하지 않는 스키마에는 테이블을 보고하지 않는다', async () => {
-        const tables = await schemaOf(factory()).listTables(
-          ctx(),
-          '__contract_schema_that_does_not_exist__',
-        )
+        const tables = await schemaOf(await connected()).listTables(ctx(), ABSENT_SCHEMA)
 
         expect(tables).toEqual([])
       })
 
       it('describeTable이 listTables가 보고한 테이블의 컬럼을 돌려준다', async () => {
-        const driver = factory()
+        const driver = await connected()
         const schema = schemaOf(driver)
         const { schema: schemaName, table } = await firstTable(driver)
         const detail = await schema.describeTable(ctx(), schemaName, table)
 
-        expect(detail.schema).toBe(schemaName)
         expect(detail.name).toBe(table)
         expect(detail.columns.length).toBeGreaterThan(0)
         expect(structuredClone(detail)).toEqual(detail)
@@ -424,8 +626,24 @@ export function describeDriverContract(name: string, factory: () => Driver): voi
         }
       })
 
+      /**
+       * `describeTable`이 스키마 한정자를 **실제로 쓰는지** 확인한다.
+       *
+       * `expect(detail.schema).toBe(schemaName)`으로는 이것을 알 수 없다 —
+       * 입력을 그대로 되돌려주기만 해도 통과하기 때문이다. 스키마를 무시하고
+       * 이름으로만 테이블을 찾는 드라이버는 없는 스키마를 물어봐도 태연히
+       * 컬럼을 돌려주므로, 여기서 걸린다.
+       */
+      it('존재하지 않는 스키마의 테이블은 describeTable이 거부한다', async () => {
+        const driver = await connected()
+        const schema = schemaOf(driver)
+        const { table } = await firstTable(driver)
+
+        await expect(schema.describeTable(ctx(), ABSENT_SCHEMA, table)).rejects.toThrow()
+      })
+
       it('listIndexes와 listForeignKeys가 IPC를 건널 수 있는 배열을 준다', async () => {
-        const driver = factory()
+        const driver = await connected()
         const schema = schemaOf(driver)
         const { schema: schemaName, table } = await firstTable(driver)
 
