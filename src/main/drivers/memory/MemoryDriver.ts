@@ -80,26 +80,44 @@ function toWireValue(raw: unknown): WireValue {
   return wire.unknown('', `unsupported memory value: ${typeof raw}`)
 }
 
-/** SQL을 파싱하지 않고 `FROM <table>`만 읽는다. 스키마 한정과 따옴표는 벗겨낸다. */
-function tableNameFrom(sql: string): string | null {
+/** SQL에서 읽어낸 테이블 참조. `schema`는 한정자가 없으면 null. */
+interface TableRef {
+  readonly schema: string | null
+  readonly table: string
+}
+
+/** SQL을 파싱하지 않고 `FROM <table>`만 읽는다. 따옴표는 벗기되 스키마 한정자는 **살린다**. */
+function tableRefFrom(sql: string): TableRef | null {
   const match = /\bfrom\s+([a-z0-9_."]+)/i.exec(sql)
   const raw = match?.[1]
   if (raw === undefined) return null
+
   const parts = raw.replaceAll('"', '').split('.')
-  return parts[parts.length - 1] ?? null
+  const table = parts[parts.length - 1]
+  if (table === undefined || table.length === 0) return null
+
+  const schema = parts.length >= 2 ? parts[parts.length - 2] : undefined
+  return { schema: schema === undefined || schema.length === 0 ? null : schema, table }
 }
 
 /**
- * 커서는 "어느 테이블의 몇 번째 행부터"를 담는다.
+ * 커서는 "어느 스키마의 어느 테이블에서 몇 번째 행부터"를 담는다.
  *
- * 테이블 이름을 함께 실어 두면, 다른 질의에서 받은 커서를 그대로 넘겼을 때
- * 조용히 엉뚱한 행을 돌려주는 대신 거부할 수 있다.
+ * 스키마까지 실어 두는 이유: 이름이 같고 스키마가 다른 테이블(`public.users`와
+ * `analytics.users`)이 흔하다. 테이블 이름만 실으면 한쪽에서 받은 커서가
+ * 다른 쪽 질의에 그대로 먹혀서, 거부되어야 할 요청이 조용히 **엉뚱한 행**을
+ * 돌려준다. 오프셋 커서를 쓰기로 한 근거 자체가 "다른 질의의 커서를 거부할 수
+ * 있다"였으므로, 신원에 스키마가 빠지면 그 근거가 무너진다.
  */
-function encodeCursor(table: string, offset: number): string {
-  return `${CURSOR_PREFIX}${offset}:${table}`
+function tableIdentity(table: TableState): string {
+  return `${table.schema}.${table.name}`
 }
 
-function decodeCursor(cursor: string, table: string): number {
+function encodeCursor(table: TableState, offset: number): string {
+  return `${CURSOR_PREFIX}${offset}:${tableIdentity(table)}`
+}
+
+function decodeCursor(cursor: string, table: TableState): number {
   if (!cursor.startsWith(CURSOR_PREFIX)) {
     throw new Error(`malformed cursor: ${cursor}`)
   }
@@ -112,12 +130,13 @@ function decodeCursor(cursor: string, table: string): number {
 
   const offset = Number(body.slice(0, separator))
   const cursorTable = body.slice(separator + 1)
+  const identity = tableIdentity(table)
 
   if (!Number.isInteger(offset) || offset < 0) {
     throw new Error(`malformed cursor: ${cursor}`)
   }
-  if (cursorTable !== table) {
-    throw new Error(`cursor belongs to table '${cursorTable}', not '${table}'`)
+  if (cursorTable !== identity) {
+    throw new Error(`cursor belongs to table '${cursorTable}', not '${identity}'`)
   }
 
   return offset
@@ -198,10 +217,33 @@ class MemoryDriverImpl implements Driver {
     return Promise.resolve(0)
   }
 
-  private findTable(name: string): TableState {
-    const found = this.tables.find((t) => t.name === name)
-    if (found === undefined) throw new Error(`unknown table: ${name}`)
-    return found
+  /**
+   * 스키마 한정자가 있으면 **그 스키마 안에서만** 찾는다.
+   *
+   * 한정자를 무시하고 이름으로만 찾으면 `SELECT * FROM analytics.users`가
+   * `public.users`의 컬럼과 행을 돌려준다 — 틀린 답을 맞는 답처럼 주는 셈이다.
+   * 한정자가 없는데 같은 이름이 여러 스키마에 있으면, 아무거나 고르지 않고
+   * 모호하다고 던진다.
+   */
+  private findTable(ref: TableRef): TableState {
+    if (ref.schema !== null) {
+      const qualified = this.tables.find((t) => t.schema === ref.schema && t.name === ref.table)
+      if (qualified === undefined) {
+        throw new Error(`unknown table: ${ref.schema}.${ref.table}`)
+      }
+      return qualified
+    }
+
+    const matches = this.tables.filter((t) => t.name === ref.table)
+    const first = matches[0]
+    if (first === undefined) throw new Error(`unknown table: ${ref.table}`)
+    if (matches.length > 1) {
+      throw new Error(
+        `ambiguous table reference '${ref.table}': ` +
+          `qualify it with one of ${matches.map((t) => t.schema).join(', ')}`,
+      )
+    }
+    return first
   }
 
   private execute(
@@ -238,12 +280,12 @@ class MemoryDriverImpl implements Driver {
       throw new Error(`unsupported write statement for the memory driver: ${statement}`)
     }
 
-    const name = tableNameFrom(statement)
-    if (name === null) {
+    const ref = tableRefFrom(statement)
+    if (ref === null) {
       throw new Error(`unsupported write statement for the memory driver: ${statement}`)
     }
 
-    const table = this.findTable(name)
+    const table = this.findTable(ref)
     const removed = table.rows.length
     table.rows = []
 
@@ -259,9 +301,9 @@ class MemoryDriverImpl implements Driver {
   }
 
   private executeRead(ctx: ExecutionContext, statement: string, page: PageRequest): ResultSet {
-    const name = tableNameFrom(statement)
+    const ref = tableRefFrom(statement)
 
-    if (name === null) {
+    if (ref === null) {
       // FROM 절이 없는 문장(SELECT 1 등)은 빈 결과로 취급한다.
       // 커서를 받았다면 어디에도 대응하지 않으므로 거부한다.
       if (page.cursor !== null) {
@@ -278,8 +320,8 @@ class MemoryDriverImpl implements Driver {
       })
     }
 
-    const table = this.findTable(name)
-    const offset = page.cursor === null ? 0 : decodeCursor(page.cursor, table.name)
+    const table = this.findTable(ref)
+    const offset = page.cursor === null ? 0 : decodeCursor(page.cursor, table)
     const remaining = table.rows.slice(offset)
     const columns: readonly ColumnDescriptor[] = table.columns.map((c) => ({
       name: c.name,
@@ -297,7 +339,7 @@ class MemoryDriverImpl implements Driver {
       // 가리키고, 잘려나간 행이 있어도 다음 요청이 그 행부터 이어 읽는다.
       cursorAt: (kept) => {
         const next = offset + kept
-        return next < table.rows.length ? encodeCursor(table.name, next) : null
+        return next < table.rows.length ? encodeCursor(table, next) : null
       },
     })
   }
@@ -402,6 +444,11 @@ class MemoryDriverImpl implements Driver {
  * 계약 스위트의 페이지네이션 구역이 커서 전진을 실제로 확인할 수 있도록
  * 2행 이상을 담는다 — 1행짜리 데이터셋으로는 커서가 전진하는 드라이버와
  * 매번 같은 페이지를 돌려주는 드라이버를 구분할 수 없다.
+ *
+ * **이름이 같고 스키마가 다른 테이블을 일부러 둘 담는다.** 스키마를 무시하고
+ * 이름으로만 테이블을 찾는 구현, 그리고 커서 신원에 스키마를 넣지 않은 구현이
+ * 계약 스위트에서 걸리게 하기 위해서다. 두 테이블은 컬럼과 행 수가 서로 달라서,
+ * 잘못 고르면 결과가 눈에 띄게 달라진다.
  */
 const DEFAULT_SEED: MemorySeed = {
   tables: [
@@ -419,6 +466,17 @@ const DEFAULT_SEED: MemorySeed = {
         [3, null],
       ],
       indexes: [{ name: 'contract_probe_pkey', columns: ['id'], unique: true, sizeBytes: null }],
+      foreignKeys: [],
+    },
+    {
+      schema: 'analytics',
+      name: 'contract_probe',
+      kind: 'table',
+      columns: [
+        { name: 'bucket', type: 'text', nullable: false, defaultValue: null, isPrimaryKey: true },
+      ],
+      rows: [['a'], ['b']],
+      indexes: [],
       foreignKeys: [],
     },
   ],
