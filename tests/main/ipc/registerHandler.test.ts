@@ -35,19 +35,25 @@ function createHarness(guardResult: boolean) {
 }
 
 describe('createHandlerRegistrar', () => {
-  it('검증을 통과한 입력을 핸들러에 넘긴다', async () => {
+  it('검증을 통과한 입력을 핸들러에 넘기고 ok 결과로 감싼다', async () => {
     const harness = createHarness(true)
     harness.register('math:double', z.object({ n: z.number() }), ({ n }) => Promise.resolve(n * 2))
 
-    await expect(harness.invoke('math:double', { n: 21 })).resolves.toBe(42)
+    await expect(harness.invoke('math:double', { n: 21 })).resolves.toEqual({
+      ok: true,
+      value: 42,
+    })
   })
 
-  it('sender 검증 실패 시 핸들러를 호출하지 않고 거부한다', async () => {
+  it('sender 검증 실패 시 핸들러를 호출하지 않고 실패 결과를 반환한다 (던지지 않는다)', async () => {
     const harness = createHarness(false)
     const handler = vi.fn()
     harness.register('math:double', z.object({ n: z.number() }), handler)
 
-    await expect(harness.invoke('math:double', { n: 1 })).rejects.toThrow(IpcFailure)
+    await expect(harness.invoke('math:double', { n: 1 })).resolves.toEqual({
+      ok: false,
+      code: 'forbidden_sender',
+    })
     expect(handler).not.toHaveBeenCalled()
   })
 
@@ -55,7 +61,7 @@ describe('createHandlerRegistrar', () => {
     const harness = createHarness(false)
     harness.register('math:double', z.object({ n: z.number() }), () => Promise.resolve(0))
 
-    await harness.invoke('math:double', { n: 1 }).catch(() => undefined)
+    await harness.invoke('math:double', { n: 1 })
 
     expect(harness.logger.warn).toHaveBeenCalledWith(
       'ipc.forbidden_sender',
@@ -70,7 +76,7 @@ describe('createHandlerRegistrar', () => {
 
     await expect(
       harness.invoke('math:double', { n: 'not a number' }),
-    ).rejects.toMatchObject({ code: 'forbidden_sender' })
+    ).resolves.toEqual({ ok: false, code: 'forbidden_sender' })
     expect(handler).not.toHaveBeenCalled()
   })
 
@@ -78,7 +84,7 @@ describe('createHandlerRegistrar', () => {
     const harness = createHarness(false)
     harness.register('math:double', z.strictObject({ n: z.number() }), () => Promise.resolve(0))
 
-    await harness.invoke('math:double', { n: 'not a number' }).catch(() => undefined)
+    await harness.invoke('math:double', { n: 'not a number' })
 
     expect(harness.logger.warn).toHaveBeenCalledWith(
       'ipc.forbidden_sender',
@@ -90,14 +96,15 @@ describe('createHandlerRegistrar', () => {
     )
   })
 
-  it('스키마에 맞지 않는 입력을 거부한다', async () => {
+  it('스키마에 맞지 않는 입력을 실패 결과로 거부한다', async () => {
     const harness = createHarness(true)
     const handler = vi.fn()
     harness.register('math:double', z.object({ n: z.number() }), handler)
 
-    await expect(harness.invoke('math:double', { n: 'not a number' })).rejects.toThrow(
-      IpcFailure,
-    )
+    await expect(harness.invoke('math:double', { n: 'not a number' })).resolves.toEqual({
+      ok: false,
+      code: 'invalid_input',
+    })
     expect(handler).not.toHaveBeenCalled()
   })
 
@@ -108,7 +115,7 @@ describe('createHandlerRegistrar', () => {
 
     await expect(
       harness.invoke('math:double', { n: 1, origin: 'user' }),
-    ).rejects.toThrow(IpcFailure)
+    ).resolves.toEqual({ ok: false, code: 'invalid_input' })
     expect(handler).not.toHaveBeenCalled()
   })
 
@@ -130,11 +137,49 @@ describe('createHandlerRegistrar', () => {
     expect(received).toEqual({ source: 'renderer-ui' })
   })
 
-  it('거부 오류에 코드를 담는다', async () => {
+  it('실패 결과에 코드가 담겨 있다 (던져진 오류가 아니라 반환값에)', async () => {
     const harness = createHarness(true)
     harness.register('math:double', z.object({ n: z.number() }), () => Promise.resolve(0))
 
-    await expect(harness.invoke('math:double', {})).rejects.toMatchObject({
+    const result = await harness.invoke('math:double', {})
+
+    expect(result).toMatchObject({ ok: false, code: 'invalid_input' })
+  })
+
+  it('핸들러가 IpcFailure가 아닌 예외를 던지면 일반 코드로 감싸고 원본 메시지를 renderer로 넘기지 않는다', async () => {
+    const harness = createHarness(true)
+    harness.register('math:double', z.object({ n: z.number() }), () => {
+      throw new Error('leaked db connection string: postgres://user:hunter2@host/db')
+    })
+
+    const result = await harness.invoke('math:double', { n: 1 })
+
+    expect(result).toEqual({ ok: false, code: 'internal_error' })
+    expect(JSON.stringify(result)).not.toContain('hunter2')
+  })
+
+  it('핸들러가 IpcFailure가 아닌 예외를 던지면 실제 오류를 main 로그에 남긴다', async () => {
+    const harness = createHarness(true)
+    harness.register('math:double', z.object({ n: z.number() }), () => {
+      throw new Error('boom')
+    })
+
+    await harness.invoke('math:double', { n: 1 })
+
+    expect(harness.logger.warn).toHaveBeenCalledWith(
+      'ipc.unexpected_error',
+      expect.objectContaining({ channel: 'math:double', message: 'boom' }),
+    )
+  })
+
+  it('핸들러가 IpcFailure를 직접 던지면 해당 코드를 결과에 담는다', async () => {
+    const harness = createHarness(true)
+    harness.register('math:double', z.object({ n: z.number() }), () => {
+      throw new IpcFailure('invalid_input', 'domain-level rejection')
+    })
+
+    await expect(harness.invoke('math:double', { n: 1 })).resolves.toEqual({
+      ok: false,
       code: 'invalid_input',
     })
   })

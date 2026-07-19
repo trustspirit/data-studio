@@ -2,9 +2,14 @@ import type { ZodType } from 'zod'
 import type { InvokeEventLike } from '../security/senderGuard'
 import type { Logger } from '../core/ports/Logger'
 import type { CallerContext } from './CallerContext'
+import type { IpcFailureCode, IpcResult } from '../../shared/contracts/ipcResult'
 
-export type IpcFailureCode = 'forbidden_sender' | 'invalid_input'
+export type { IpcFailureCode, IpcResult }
 
+/**
+ * main 내부의 제어 흐름용 오류. IPC 경계를 넘지 않는다 —
+ * 경계를 넘는 것은 항상 `IpcResult`다.
+ */
 export class IpcFailure extends Error {
   constructor(
     readonly code: IpcFailureCode,
@@ -47,6 +52,9 @@ function buildCallerContext(): CallerContext {
  * 모든 IPC 핸들러가 통과하는 단일 등록 지점.
  * sender 검증 → 스키마 검증 → 핸들러 순으로 게이트를 건다.
  * 핸들러는 검증된 입력만 보므로 자체 방어 코드를 둘 필요가 없다.
+ *
+ * 실패는 던지지 않고 `{ ok: false, code }`로 반환한다. 자세한 이유는
+ * `shared/contracts/ipcResult.ts` 참고.
  */
 export function createHandlerRegistrar(deps: RegistrarDeps): RegisterHandler {
   return (channel, schema, handler) => {
@@ -56,7 +64,7 @@ export function createHandlerRegistrar(deps: RegistrarDeps): RegisterHandler {
           channel,
           senderUrl: event.senderFrame?.url ?? null,
         })
-        throw new IpcFailure('forbidden_sender', `sender rejected for ${channel}`)
+        return { ok: false, code: 'forbidden_sender' }
       }
 
       const parsed = schema.safeParse(input)
@@ -65,10 +73,25 @@ export function createHandlerRegistrar(deps: RegistrarDeps): RegisterHandler {
           channel,
           issues: parsed.error.issues.map((i) => i.path.join('.')),
         })
-        throw new IpcFailure('invalid_input', `invalid input for ${channel}`)
+        return { ok: false, code: 'invalid_input' }
       }
 
-      return handler(parsed.data, buildCallerContext())
+      try {
+        return { ok: true, value: await handler(parsed.data, buildCallerContext()) }
+      } catch (error) {
+        // 핸들러가 도메인 수준 거부를 IpcFailure로 표현했다면 그 코드를 그대로 쓴다.
+        if (error instanceof IpcFailure) {
+          return { ok: false, code: error.code }
+        }
+
+        // 예상치 못한 예외의 메시지는 renderer로 넘기지 않는다 — 커넥션 문자열,
+        // 파일 경로, 스키마 내부 구조가 섞여 나올 수 있다. main 로그에만 남긴다.
+        deps.logger.warn('ipc.unexpected_error', {
+          channel,
+          message: error instanceof Error ? error.message : String(error),
+        })
+        return { ok: false, code: 'internal_error' }
+      }
     })
   }
 }
