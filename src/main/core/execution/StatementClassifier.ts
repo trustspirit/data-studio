@@ -196,8 +196,56 @@ const READ_HEADS = new Set(['select', 'show', 'describe', 'desc', 'values', 'tab
 /** 본문 어디에 나타나도 쓰기를 뜻하는 키워드 (CTE 안의 쓰기 등) */
 const WRITE_ANYWHERE = /\b(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s|drop\s|alter\s|create\s|grant\s|revoke\s)/i
 
-/** 함수·프로시저 호출로 보이는 형태. 부작용을 정적으로 판정할 수 없다. */
-const CALL_LIKE = /\b[a-z_][a-z0-9_]*\s*\(/i
+/**
+ * `(` 바로 앞에 붙는 SQL 키워드들. 키워드 뒤의 괄호는 함수 호출이 아니라
+ * 문법 구조다 — `IN (1,2,3)`, `WHERE (a=1 AND b=2)`, `GROUP BY (a)` 등.
+ *
+ * 여기에 **내장 함수는 넣지 않는다**. `count()`, `now()`, `sum()`도
+ * `unknown`으로 남는다 — 내장 함수 허용 목록은 그 자체가 우회면이 되고
+ * (동명의 사용자 정의 함수로 가릴 수 있다), 이 층의 목적은 확신할 수 없는
+ * 것을 확신하지 않는 것이다.
+ */
+const NON_CALL_KEYWORDS = new Set([
+  'in', 'and', 'or', 'not', 'where', 'on', 'values', 'over', 'case', 'when',
+  'then', 'else', 'end', 'between', 'like', 'ilike', 'exists', 'from', 'select',
+  'by', 'having', 'group', 'order', 'union', 'intersect', 'except', 'all',
+  'any', 'some', 'is', 'null', 'as', 'join', 'inner', 'outer', 'left', 'right',
+  'full', 'cross', 'lateral', 'using', 'limit', 'offset', 'fetch', 'returning',
+  'distinct', 'with', 'recursive', 'partition', 'filter', 'within', 'into',
+  'set', 'table', 'insert', 'update', 'delete', 'asc', 'desc', 'for', 'of',
+])
+
+/**
+ * 함수·프로시저 호출로 보이는 형태를 찾는다. 부작용을 정적으로 판정할 수 없다.
+ *
+ * `\b<식별자>\s*\(` 를 **전부** 훑고, 그중 하나라도 SQL 키워드가 아니면
+ * 호출로 본다. 키워드 뒤의 괄호까지 호출로 세면 `WHERE id IN (1,2,3)` 같은
+ * 평범한 SELECT가 전부 `unknown`이 되어 사용자가 매번 승인해야 한다.
+ */
+const CALL_LIKE_SCAN = /\b([a-z_][a-z0-9_]*)\s*\(/gi
+
+/**
+ * **인용된 식별자** 뒤의 괄호. `SELECT "drop_everything"()`처럼 함수 이름을
+ * 따옴표로 감싸면 위의 스캔이 놓친다:
+ *   - `"..."`(PostgreSQL/표준 식별자 인용)는 마스커가 문자열 리터럴로 보고
+ *     공백으로 지워 버려서 마스킹된 사본에는 이름이 남지 않는다.
+ *   - `` `...` ``(MySQL)와 `[...]`(SQL Server)는 남아 있지만 `\b\w+\s*\(`의
+ *     `\s*`가 닫는 인용 부호를 못 넘어가 매치되지 않는다.
+ *
+ * 어느 쪽이든 `SELECT drop_everything()`과 똑같은 호출이므로 `unknown`이어야
+ * 한다. 그래서 이 스캔만은 **원문**을 본다.
+ */
+const QUOTED_CALL_LIKE = /(?:"[^"]*"|`[^`]*`|\[[^\]]*\])\s*\(/
+
+function hasCallLike(raw: string, masked: string): boolean {
+  if (QUOTED_CALL_LIKE.test(raw)) return true
+
+  for (const match of masked.matchAll(CALL_LIKE_SCAN)) {
+    const name = match[1]?.toLowerCase()
+    if (name !== undefined && !NON_CALL_KEYWORDS.has(name)) return true
+  }
+  return false
+}
 
 /**
  * 이미 세미콜론으로 나뉜 **단일** 문장 하나를 분류한다. 여러 문장을 다루는
@@ -237,7 +285,7 @@ function classifySingleStatement(raw: string, backslashEscapes: boolean): Statem
 
   if (READ_HEADS.has(head)) {
     // SELECT drop_everything() — 함수의 부작용은 정적으로 알 수 없다.
-    return CALL_LIKE.test(masked) ? 'unknown' : 'read'
+    return hasCallLike(raw, masked) ? 'unknown' : 'read'
   }
 
   return 'unknown'

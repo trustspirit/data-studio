@@ -232,6 +232,35 @@ describe('classifyStatement', () => {
     expect(classifyStatement("SELECT 'a\\'b'; DROP TABLE x")).toBe('write')
   })
 
+  it('평범한 SELECT의 키워드 뒤 괄호를 함수 호출로 오인하지 않는다', () => {
+    // 오탐 방지: unknown은 "사용자가 승인해야 함"을 뜻하므로, 여기서
+    // 오인하면 일상적인 SELECT마다 승인을 받아야 한다.
+    expect(classifyStatement('SELECT id, name FROM users WHERE id IN (1,2,3)')).toBe('read')
+    expect(classifyStatement('SELECT * FROM t WHERE (a=1 AND b=2)')).toBe('read')
+    expect(classifyStatement('SELECT * FROM t WHERE a IN (SELECT b FROM u)')).toBe('read')
+    expect(classifyStatement('SELECT a FROM t ORDER BY (a)')).toBe('read')
+  })
+
+  it('내장 함수도 여전히 unknown이다 (허용 목록을 두지 않는다)', () => {
+    // 내장 함수 허용 목록은 그 자체가 우회면이 된다 — 동명의 사용자 정의
+    // 함수로 가릴 수 있다. 확신할 수 없으면 확신하지 않는다.
+    expect(classifyStatement('SELECT * FROM t WHERE created_at > now()')).toBe('unknown')
+    expect(classifyStatement('SELECT a FROM t GROUP BY a HAVING count(*) > 1')).toBe('unknown')
+    expect(classifyStatement('SELECT sum(x) FROM t')).toBe('unknown')
+  })
+
+  it('인용된 식별자로 감싼 함수 호출도 unknown이다', () => {
+    // 어드버서리얼 케이스: 함수 이름을 따옴표로 감싸면 이름이 마스킹으로
+    // 지워지거나(`"..."`) 닫는 인용 부호가 단어 경계 검사를 막아
+    // (`` `...` ``, `[...]`) 호출 검사를 통째로 빠져나간다.
+    // SELECT drop_everything() 과 똑같은 호출이다.
+    expect(classifyStatement('SELECT "drop_everything"()')).toBe('unknown')
+    expect(classifyStatement('SELECT `drop_all`()')).toBe('unknown')
+    expect(classifyStatement('SELECT [drop_all]()')).toBe('unknown')
+    // 인용된 식별자 자체는 오탐을 만들지 않아야 한다.
+    expect(classifyStatement('SELECT "col" FROM "users" WHERE "id" IN (1,2)')).toBe('read')
+  })
+
   it('\\r로만 끝나는 줄 주석 뒤에 숨긴 쓰기를 잡는다', () => {
     // 어드버서리얼 케이스: -- 주석이 \n 대신 \r로 끝나면 그 뒤의 DROP이
     // 여전히 주석 밖의 진짜 코드로 보여야 한다.
