@@ -135,3 +135,24 @@ describe('decide — capability', () => {
     })
   })
 })
+
+describe('decide — 모르는 operation 종류', () => {
+  // `Operation`은 document/keyvalue/stream이 붙을 예정인 판별 유니온이다.
+  // 이 검사가 없으면 새 변형이 sql 경로로 흘러들어가, 어떤 capability 검사도
+  // 그 변형을 보지 않은 채 사용자 경로에서 허용되어 버린다.
+  const FUTURE = { kind: 'document', collection: 'users' } as unknown as Operation
+
+  it('사용자 경로에서도 거부한다 (fail-open 금지)', () => {
+    expect(decide(input(USER, FUTURE))).toEqual({
+      allow: false,
+      reason: 'capability_missing',
+    })
+  })
+
+  it('AI 경로에서 던지지 않고 거부한다', () => {
+    expect(decide(input(AI, FUTURE))).toEqual({
+      allow: false,
+      reason: 'capability_missing',
+    })
+  })
+})

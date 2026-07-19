@@ -35,6 +35,22 @@ function deny(reason: DenialReason): PolicyDecision {
   return { allow: false, reason }
 }
 
+/** `decide`가 실제로 판정 로직을 갖고 있는 operation 종류. */
+const HANDLED_KINDS = ['sql', 'schema'] as const
+
+type HandledKind = (typeof HANDLED_KINDS)[number]
+
+/**
+ * 컴파일 타임 완전성 검사. `Operation`에 변형을 추가하면서 `HANDLED_KINDS`를
+ * 갱신하지 않으면 여기서 타입 에러가 난다 — 런타임에 조용히 통과하는 대신.
+ */
+const _exhaustive: HandledKind = null as unknown as Operation['kind']
+void _exhaustive
+
+function isHandledKind(kind: string): kind is HandledKind {
+  return (HANDLED_KINDS as readonly string[]).includes(kind)
+}
+
 /**
  * 두 분류를 합친다. **둘 중 하나라도 `read`가 아니면 읽기가 아니다.**
  *
@@ -55,6 +71,16 @@ function combine(a: StatementClassification, b: StatementClassification): Statem
  */
 export function decide(input: PolicyInput): PolicyDecision {
   const { actor, operation } = input
+
+  // 아는 종류가 아니면 거부한다. `Operation`은 document/keyvalue/stream이
+  // 붙을 예정인 판별 유니온인데, 이 검사가 없으면 새 변형이 sql 경로로 흘러
+  // 들어가 사용자 경로에서 **허용**되어 버린다(어떤 capability 검사도 그
+  // 변형을 보지 않으므로). AI 경로는 operation.sql이 undefined라 죽는다.
+  // 즉 "나중에 변형을 더한다"가 순수 확장이 아니라 조용한 권한 부여가 된다.
+  //
+  // 새 변형을 추가할 때는 여기에 분기를 더해야 하고, 그러면 아래 never 검사가
+  // 컴파일 에러로 그 사실을 알려 준다.
+  if (!isHandledKind(operation.kind)) return deny('capability_missing')
 
   if (operation.kind === 'schema') {
     if (!input.hasSchema) return deny('capability_missing')
