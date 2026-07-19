@@ -48,6 +48,50 @@ describe('stripCommentsAndLiterals', () => {
     // 닫히지 않았는데 코드로 되돌리면 그 안의 키워드가 살아난다.
     expect(stripCommentsAndLiterals("SELECT 'unterminated DROP")).not.toMatch(/DROP/i)
   })
+
+  it('닫히지 않은 블록 주석은 끝까지 주석으로 본다', () => {
+    // 안전하지 않은 방향의 분기: 코드로 되돌리면 그 안의 DROP이 살아나는
+    // 게 아니라, 반대로 여기서 주석을 일찍 끊으면 뒤의 키워드가 사라진다.
+    // 어느 쪽이든 이 분기는 지금까지 테스트로 고정되어 있지 않았다.
+    expect(stripCommentsAndLiterals('SELECT 1 /* unterminated DROP TABLE x')).not.toMatch(/DROP/i)
+  })
+
+  it('닫히지 않은 달러 인용은 끝까지 리터럴로 본다', () => {
+    // 위와 같은 이유로 고정한다.
+    expect(stripCommentsAndLiterals('SELECT $$ unterminated DROP TABLE x')).not.toMatch(/DROP/i)
+  })
+
+  it('마스킹 결과는 언제나 입력과 길이가 같다', () => {
+    // splitStatements가 마스킹된 사본의 인덱스를 원문에 그대로 대응시킨다.
+    // 길이가 어긋나면 문장 경계가 밀려 엉뚱한 곳에서 잘린다. 특히 문자열
+    // 끝의 백슬래시에서 인덱스가 입력 길이를 넘어가는 것이 알려진 함정이다.
+    const adversarial = [
+      "SELECT 'a\\",
+      "'\\",
+      '"\\',
+      "';\\",
+      'SELECT 1 /* unterminated',
+      'SELECT $$ unterminated',
+      "SELECT 'a''",
+      'SELECT 1 /*!50000',
+      "SELECT 1 /*!'*/",
+      '--',
+      '-- x\r',
+      "\\'",
+      "'a\\\\",
+      '/*',
+      '/*!',
+      '$$',
+      '$tag$',
+    ]
+
+    // 두 해석 모두에서 성립해야 한다. 백슬래시 이스케이프 분기는 MySQL
+    // 해석에서만 실행되고, 인덱스가 넘치는 것도 바로 그 분기다.
+    for (const sql of adversarial) {
+      expect(stripCommentsAndLiterals(sql, false)).toHaveLength(sql.length)
+      expect(stripCommentsAndLiterals(sql, true)).toHaveLength(sql.length)
+    }
+  })
 })
 
 describe('splitStatements', () => {
@@ -154,6 +198,38 @@ describe('classifyStatement', () => {
 
   it('MySQL 버전 조건부 주석이 읽기만 담고 있으면 읽기다 (오탐 방지)', () => {
     expect(classifyStatement('SELECT 1/*! , 2 */')).toBe('read')
+  })
+
+  it('버전 조건부 주석 안의 여는 토큰이 닫는 */ 밖으로 새지 않는다', () => {
+    // 어드버서리얼 케이스(회귀): /*! 마커만 지우고 본문을 코드로 되돌리면
+    // 본문 안의 주석·따옴표 여는 토큰이 마스킹 상태를 닫는 `*/` 바깥으로
+    // 흘려보내, 그 뒤의 `; DROP TABLE x`를 통째로 삼켜 버린다.
+    // /*!...*/ 는 MySQL에서만 실행되고 다른 엔진에는 평범한 주석이므로
+    // **두 해석의 합집합**을 취해야 한다.
+    expect(classifyStatement('SELECT 1 /*!-- */; DROP TABLE x')).toBe('write')
+    expect(classifyStatement("SELECT 1 /*!' */; DROP TABLE x")).toBe('write')
+    expect(classifyStatement('SELECT 1 /*!"*/; DROP TABLE x')).toBe('write')
+    expect(classifyStatement('SELECT 1 /*!$$*/; DROP TABLE x')).toBe('write')
+    expect(classifyStatement("SELECT 1 /*!50000'*/; DROP TABLE x")).toBe('write')
+  })
+
+  it('백슬래시를 이스케이프로 단정하지 않는다 (표준 SQL 해석)', () => {
+    // PostgreSQL은 9.1부터 standard_conforming_strings=on이 기본이고,
+    // SQL Server와 Oracle은 백슬래시 이스케이프를 지원한 적이 없다.
+    // 거기서는 `\`가 평범한 문자라 리터럴이 다음 따옴표에서 닫히고,
+    // 그 뒤의 `; DROP`은 진짜 코드다.
+    expect(classifyStatement("SELECT 'a\\'; DROP TABLE x")).toBe('write')
+    // 윈도우 경로는 공격이 아니라 있을 법한 리터럴이다.
+    expect(classifyStatement("SELECT 'C:\\'; DROP TABLE x")).toBe('write')
+    expect(classifyStatement("SELECT 'a\\' ; TRUNCATE t")).toBe('write')
+  })
+
+  it('MySQL 백슬래시 해석에서만 드러나는 쓰기도 잡는다', () => {
+    // 반대 방향: 여기서는 표준 해석이 `'a\'`에서 리터럴을 끊고 `b`를 코드로
+    // 본 뒤 `'; DROP TABLE x`를 닫히지 않은 리터럴로 삼켜 버린다.
+    // MySQL 해석에서만 `; DROP`이 코드로 드러난다. 어느 해석도 다른 쪽을
+    // 포함하지 않으므로 둘 다 돌려야 한다.
+    expect(classifyStatement("SELECT 'a\\'b'; DROP TABLE x")).toBe('write')
   })
 
   it('\\r로만 끝나는 줄 주석 뒤에 숨긴 쓰기를 잡는다', () => {
