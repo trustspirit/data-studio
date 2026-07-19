@@ -48,6 +48,10 @@ export interface BuildResultSetInput {
    * `index === rows.length`는 "이 배치 끝 다음" 위치를 뜻하며, 더 읽을 것이
    * 없으면 null을 돌려준다.
    *
+   * 호출 규약(드라이버 구현자용): `buildResultSet` 한 번당 **정확히 한 번**
+   * 호출되며, `index`는 항상 `0 <= index <= rows.length` 범위다. 반환값은
+   * 결과에 그대로 실려 IPC로 나가므로 structuredClone 가능한 값이어야 한다.
+   *
    * `nextCursor: string | null`을 그대로 전달받는 대신 콜백으로 받는 이유:
    * 드라이버가 배치 전체 기준으로 계산한 커서를 곧이곧대로 넘기면, byte/행 수
    * 상한이 뒷부분 행을 잘라낸 뒤에도 커서는 잘려나간 행들 "너머"를 가리키게
