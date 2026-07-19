@@ -214,6 +214,7 @@ export function describeDriverContract(name: string, factory: DriverContractFact
   // 연결 수명주기는 둘 중 하나가 **반드시** 돈다. 어느 쪽도 돌지 않는
   // (= 조용히 건너뛰는) 경우가 없어야 disconnect가 관찰되지 않는 구멍이 막힌다.
   sections.push(requiresConnection ? 'lifecycle.disconnect' : 'lifecycle.connectionless')
+  sections.push('lifecycle.connectIdentity')
   if (hasSql) sections.push('sql')
   if (hasExplain) sections.push('sql.explain')
   if (hasBeginReadOnly) sections.push('sql.beginReadOnly')
@@ -345,6 +346,7 @@ export function describeDriverContract(name: string, factory: DriverContractFact
       expected.push(
         harness.requiresConnection === true ? 'lifecycle.disconnect' : 'lifecycle.connectionless',
       )
+      expected.push('lifecycle.connectIdentity')
       if (driver.sql !== undefined) expected.push('sql')
       if (driver.sql?.explain !== undefined) expected.push('sql.explain')
       if (driver.sql?.beginReadOnly !== undefined) expected.push('sql.beginReadOnly')
@@ -489,6 +491,24 @@ export function describeDriverContract(name: string, factory: DriverContractFact
         const driver = factory().driver
 
         await expect(driver.ping()).resolves.toBeGreaterThanOrEqual(0)
+      })
+    })
+
+    describe('연결 수명주기 — connect 신원 검증', () => {
+      it('드라이버 id와 다른 config로 connect하면 거부한다', async () => {
+        // 매니저는 config.id로 항목을 키잉하고 그 항목의 driver를 내준다.
+        // 둘이 어긋나도 connect가 성공하면, A 커넥션으로 보낸 질의가 B 서버에서
+        // 아무 에러 없이 실행된다 — 맞아 보이는 틀린 데이터가 나가는 형태다.
+        const harness = factory()
+        const foreign = { ...harness.config, id: `${harness.config.id}-other` }
+
+        await expect(harness.driver.connect(foreign)).rejects.toThrow()
+      })
+
+      it('자기 config로 connect하면 성공한다', async () => {
+        const harness = factory()
+
+        await expect(harness.driver.connect(harness.config)).resolves.toBeUndefined()
       })
     })
 
