@@ -21,6 +21,27 @@ function proposeDelete(store: WriteProposalStore, connectionId = 'conn-1') {
 }
 
 describe('WriteProposalStore', () => {
+  it('TTL은 5분이다', () => {
+    // 리터럴로 못박는다. 모든 만료 테스트가 PROPOSAL_TTL_MS만큼 전진시키면
+    // 그 상수가 5시간이어도 전부 통과한다 — 검증 대상이 자기 자신이 된다.
+    expect(PROPOSAL_TTL_MS).toBe(5 * 60 * 1000)
+  })
+
+  it('만료 시각은 생성 시각 + 5분이다', () => {
+    const { store } = createStore(1_000)
+
+    expect(proposeDelete(store).expiresAt).toBe(1_000 + 300_000)
+  })
+
+  it('5분이 지나면 리터럴 기준으로도 만료된다', () => {
+    const { store, advance } = createStore()
+    const view = proposeDelete(store)
+
+    advance(300_000)
+
+    expect(store.consume(view.proposalId, 'conn-1')).toEqual({ ok: false, reason: 'expired' })
+  })
+
   it('제안서를 저장하고 표시용 정보를 돌려준다', () => {
     const { store } = createStore()
 
@@ -106,7 +127,7 @@ describe('WriteProposalStore', () => {
     const { store } = createStore()
     const view = proposeDelete(store)
 
-    store.reject(view.proposalId)
+    store.reject(view.proposalId, 'conn-1')
 
     expect(store.consume(view.proposalId, 'conn-1')).toEqual({ ok: false, reason: 'not_found' })
   })
@@ -143,6 +164,77 @@ describe('WriteProposalStore', () => {
 
     expect(store.consume(stale.proposalId, 'conn-1')).toEqual({ ok: false, reason: 'not_found' })
     expect(store.consume(fresh.proposalId, 'conn-1')).toMatchObject({ ok: true })
+  })
+
+  it('pending은 요청한 id의 제안서를 준다', () => {
+    // 제안서를 둘 이상 담아야 조회가 실제로 일어나는지 알 수 있다. 하나만 두면
+    // 인자를 무시하고 아무거나 돌려주는 구현도 통과한다.
+    const { store } = createStore()
+    const a = store.propose({ connectionId: 'conn-1', statement: 'DELETE FROM a', impact: IMPACT })
+    const b = store.propose({ connectionId: 'conn-1', statement: 'DELETE FROM b', impact: IMPACT })
+
+    expect(store.pending(a.proposalId)?.statement).toBe('DELETE FROM a')
+    expect(store.pending(b.proposalId)?.statement).toBe('DELETE FROM b')
+  })
+
+  it('pending은 소비된 제안서를 주지 않는다', () => {
+    const { store } = createStore()
+    const view = proposeDelete(store)
+
+    store.consume(view.proposalId, 'conn-1')
+
+    expect(store.pending(view.proposalId)).toBeNull()
+  })
+
+  it('pending은 만료된 제안서를 주지 않는다', () => {
+    const { store, advance } = createStore()
+    const view = proposeDelete(store)
+
+    advance(PROPOSAL_TTL_MS)
+
+    expect(store.pending(view.proposalId)).toBeNull()
+  })
+
+  it('id가 충돌하면 조용히 덮어쓰지 않고 던진다', () => {
+    const store = new WriteProposalStore({
+      now: () => 1_000,
+      randomId: () => 'same-id',
+      hash: (t) => t,
+    })
+    store.propose({ connectionId: 'conn-1', statement: 'A', impact: IMPACT })
+
+    expect(() =>
+      store.propose({ connectionId: 'conn-1', statement: 'B', impact: IMPACT }),
+    ).toThrow(/collision/)
+    // 원래 제안서가 살아 있어야 한다.
+    expect(store.pending('same-id')?.statement).toBe('A')
+  })
+
+  it('다른 커넥션으로는 거부(reject)할 수 없다', () => {
+    const { store } = createStore()
+    const view = proposeDelete(store)
+
+    expect(store.reject(view.proposalId, 'conn-2')).toBe(false)
+    expect(store.pending(view.proposalId)).not.toBeNull()
+  })
+
+  it('reject는 실제로 지웠는지 알려준다', () => {
+    const { store } = createStore()
+    const view = proposeDelete(store)
+
+    expect(store.reject(view.proposalId, 'conn-1')).toBe(true)
+    expect(store.reject('nope', 'conn-1')).toBe(false)
+  })
+
+  it('sweep은 소비된 제안서도 지운다', () => {
+    // 소비된 제안서를 TTL까지 들고 있으면 문장 원문이 필요 이상으로 오래 남는다.
+    const { store } = createStore()
+    const view = proposeDelete(store)
+    store.consume(view.proposalId, 'conn-1')
+
+    store.sweep()
+
+    expect(store.consume(view.proposalId, 'conn-1')).toEqual({ ok: false, reason: 'not_found' })
   })
 
   it('제안서 뷰는 structuredClone 가능하다', () => {

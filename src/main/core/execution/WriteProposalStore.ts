@@ -40,6 +40,18 @@ export interface ProposalInput {
 
 export interface ProposalDeps {
   readonly now: () => number
+  /**
+   * **암호학적으로 안전한 난수여야 한다.**
+   *
+   * `proposalId`는 renderer로 나가고 renderer가 그대로 되돌려 보내는 유일한
+   * 승인 증표다. 추측 가능한 id면 침해된 renderer가 사용자가 아직 승인하지
+   * 않은 제안서를 맞혀 승인시킬 수 있다 — 커넥션 검사도 1회용도 막지 못한다
+   * (renderer가 connectionId를 스스로 보내고, 한 번 맞히면 그것으로 끝이다).
+   * 이 보장은 전적으로 주입하는 쪽 책임이므로 여기 적어 둔다.
+   *
+   * 다만 위험은 한정적이다: id를 맞혀도 AI가 이미 제안한 문장이 실행될 뿐,
+   * 새 SQL을 지어낼 수는 없다.
+   */
   readonly randomId: () => string
   readonly hash: (text: string) => string
 }
@@ -72,6 +84,12 @@ export class WriteProposalStore {
       createdAt,
       expiresAt: createdAt + PROPOSAL_TTL_MS,
       consumed: false,
+    }
+
+    if (this.proposals.has(proposal.proposalId)) {
+      // id 충돌은 조용히 덮어쓰면 안 된다 — 살아 있는 제안서가 사라지고,
+      // 사용자가 승인 화면에서 본 것과 다른 문장이 그 id에 붙는다.
+      throw new Error(`proposal id collision: ${proposal.proposalId}`)
     }
 
     this.proposals.set(proposal.proposalId, proposal)
@@ -112,6 +130,11 @@ export class WriteProposalStore {
   pending(proposalId: string): ProposalView | null {
     const proposal = this.proposals.get(proposalId)
     if (proposal === undefined) return null
+    // 이름 그대로 "아직 승인 대기 중인" 것만 준다. 소비됐거나 만료된 제안서를
+    // 살아 있는 것처럼 돌려주면 승인 UI가 죽은 제안서를 승인 가능한 것으로
+    // 그리고, 사용자의 클릭이 consume에서야 실패한다.
+    if (proposal.consumed) return null
+    if (this.deps.now() >= proposal.expiresAt) return null
 
     return {
       proposalId: proposal.proposalId,
@@ -123,15 +146,31 @@ export class WriteProposalStore {
     }
   }
 
-  reject(proposalId: string): void {
+  /**
+   * 제안서를 버린다. `consume`과 같은 기준으로 커넥션을 확인한다 — 한쪽만
+   * 검사하면 id를 쥔 아무 호출자나 남의 커넥션 제안서를 지울 수 있다.
+   *
+   * 실제로 무언가를 지웠는지 돌려준다. 감사 로그(Task 5)가 "실재하는 제안서를
+   * 거부했다"와 "모르는 id를 거부했다"를 구분할 수 있어야 한다.
+   */
+  reject(proposalId: string, connectionId: string): boolean {
+    const proposal = this.proposals.get(proposalId)
+    if (proposal === undefined) return false
+    if (proposal.connectionId !== connectionId) return false
+
     this.proposals.delete(proposalId)
+    return true
   }
 
-  /** 만료된 제안서를 버린다. 보관 자체가 문장 원문을 들고 있는 일이다. */
+  /**
+   * 더 쓸 수 없는 제안서를 버린다. 보관 자체가 문장 원문을 들고 있는 일이므로,
+   * 만료된 것뿐 아니라 **이미 소비된 것도** 지운다 — 소비된 제안서를 TTL까지
+   * 들고 있을 이유가 없다.
+   */
   sweep(): void {
     const now = this.deps.now()
     for (const [id, proposal] of this.proposals) {
-      if (now >= proposal.expiresAt) this.proposals.delete(id)
+      if (proposal.consumed || now >= proposal.expiresAt) this.proposals.delete(id)
     }
   }
 }
