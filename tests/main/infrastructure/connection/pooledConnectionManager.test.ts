@@ -49,6 +49,8 @@ interface FakeBehavior {
   /** connect를 이 promise가 풀릴 때까지 붙잡는다. */
   readonly gate?: Promise<void>
   readonly failPing?: boolean
+  /** disconnect가 거부하게 만든다. 정리 실패가 원래 원인을 가리는지 보기 위한 것. */
+  readonly failDisconnect?: boolean
 }
 
 function createFakeDriver(
@@ -73,7 +75,9 @@ function createFakeDriver(
     },
     disconnect(): Promise<void> {
       calls.disconnect += 1
-      return Promise.resolve()
+      return behavior.failDisconnect === true
+        ? Promise.reject(new Error('disconnect failed'))
+        : Promise.resolve()
     },
     ping(): Promise<number> {
       calls.ping += 1
@@ -445,6 +449,57 @@ describe('PooledConnectionManager', () => {
       // 첫 시도의 드라이버와 재시도의 드라이버는 별개다.
       expect(fakes).toHaveLength(2)
       expect(fakes[1]?.calls.connect).toBe(1)
+    })
+
+    /**
+     * 실패한 드라이버가 붙들고 있는 소켓을 놓아주는지 본다.
+     *
+     * `pg`/`mysql2` 같은 실제 클라이언트는 인증하기 **전에** TCP/TLS 소켓을
+     * 연다. 그래서 인증 실패로 connect가 거부되어도 소켓은 살아 있다. 'error'
+     * 항목은 다음 open()에서 새 드라이버로 교체되므로, 끊어 주지 않으면 그
+     * 순간 참조를 잃고 프로세스가 끝날 때까지 서버 쪽 커넥션이 남는다 —
+     * 비밀번호를 한 번 잘못 칠 때마다 하나씩.
+     */
+    it('실패한 드라이버를 끊어 소켓을 남기지 않는다', async () => {
+      const { manager, fakes } = createHarness(2, 1000, { failConnectOn: [1] })
+
+      await expect(manager.open(FAKE_CONFIG)).rejects.toThrow()
+
+      expect(fakes[0]?.calls.disconnect).toBe(1)
+    })
+
+    it('실패 후 재시도해도 첫 드라이버가 정확히 한 번 끊긴다', async () => {
+      // 사용자가 비밀번호를 잘못 치고, 고쳐서 다시 연결하고, 앱을 닫는 경로.
+      const { manager, fakes } = createHarness(2, 1000, { failConnectOn: [1] })
+
+      await expect(manager.open(FAKE_CONFIG)).rejects.toThrow()
+      await manager.open(FAKE_CONFIG)
+      await manager.closeAll()
+
+      expect(fakes).toHaveLength(2)
+      // 실패한 첫 드라이버: 교체되어 사라지기 전에 이미 끊겼다. 두 번 끊지도
+      // 않는다 — closeAll이 보는 것은 재시도로 들어선 두 번째 드라이버다.
+      expect(fakes[0]?.calls.disconnect).toBe(1)
+      expect(fakes[1]?.calls.disconnect).toBe(1)
+    })
+
+    it('정리 중의 disconnect 실패가 원래 connect 실패를 가리지 않는다', async () => {
+      // 호출자가 알아야 하는 것은 "비밀번호가 틀렸다"이지, 그 뒤처리에서 난
+      // 이차적 실패가 아니다. 정리 실패가 던져 올라오면 사용자는 엉뚱한 것을
+      // 고치게 된다.
+      const { manager, fakes } = createHarness(2, 1000, {
+        failConnectOn: [1],
+        failDisconnect: true,
+      })
+
+      await expect(manager.open(FAKE_CONFIG)).rejects.toThrow('connect failed on attempt 1')
+
+      // 시도는 했다 — 삼킨 것이지 건너뛴 것이 아니다.
+      expect(fakes[0]?.calls.disconnect).toBe(1)
+      expect(logger.warn).toHaveBeenCalledWith('connection.failed_driver_dispose_failed', {
+        connectionId: 'fake-1',
+        message: 'disconnect failed',
+      })
     })
 
     it('실패를 로그로 남긴다', async () => {

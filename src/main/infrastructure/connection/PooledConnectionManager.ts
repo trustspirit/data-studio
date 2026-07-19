@@ -152,6 +152,24 @@ export class PooledConnectionManager implements ConnectionManager {
         connectionId: config.id,
         message: messageOf(error),
       })
+      // 실패한 드라이버를 **여기서** 버린다.
+      //
+      // `pg`나 `mysql2` 같은 실제 클라이언트는 인증하기 **전에** TCP/TLS 소켓을
+      // 먼저 연다. 그래서 인증 실패로 connect가 거부되어도 살아 있는 소켓이
+      // 남는다. 이 드라이버는 다시 쓰이지 않는다 — 'error' 항목은 open()에서
+      // 새 드라이버로 교체되므로, 여기서 끊지 않으면 map을 덮어쓰는 순간
+      // 참조를 잃고 프로세스가 끝날 때까지 서버 쪽 커넥션이 주인 없이 남는다.
+      // 비밀번호를 한 번 잘못 치고 고쳐 다시 연결할 때마다 하나씩 새는 셈이다.
+      //
+      // 교체 시점이 아니라 실패 시점에 버리는 이유: 사용자가 재시도하지 않고
+      // 그대로 두는 경우가 더 흔한데, 교체 시점에 버리면 그 소켓은 영영
+      // 닫히지 않는다. 실패 시점이라면 재시도 여부와 무관하게 즉시 닫힌다.
+      //
+      // 항목 자체는 'error' 상태로 map에 남는다(status() 조회와 재시도 판단이
+      // 그것을 본다). 그래서 나중에 close()가 이 드라이버에 disconnect를 한 번
+      // 더 부를 수 있는데, 계약이 "disconnect는 두 번 불러도 던지지 않는다"를
+      // 모든 드라이버에 요구하므로 안전하다.
+      await this.disposeFailedDriver(config.id, entry.driver)
       throw error
     }
 
@@ -166,6 +184,25 @@ export class PooledConnectionManager implements ConnectionManager {
     }
 
     entry.status = 'ready'
+  }
+
+  /**
+   * connect가 실패한 드라이버가 붙들고 있을 수 있는 자원을 놓아준다.
+   *
+   * disconnect가 실패해도 **삼킨다**. 호출자가 알아야 하는 것은 원래의 connect
+   * 실패("비밀번호가 틀렸다")이지, 그 뒤처리 과정에서 난 이차적 실패가 아니다.
+   * 여기서 던지면 정리 실패가 원인을 가려 사용자가 엉뚱한 것을 고치게 된다.
+   * 대신 로그에는 남겨 조용히 사라지지 않게 한다.
+   */
+  private async disposeFailedDriver(connectionId: string, driver: Driver): Promise<void> {
+    try {
+      await driver.disconnect()
+    } catch (error) {
+      this.logger.warn('connection.failed_driver_dispose_failed', {
+        connectionId,
+        message: messageOf(error),
+      })
+    }
   }
 
   status(connectionId: string): ConnectionStatus {
