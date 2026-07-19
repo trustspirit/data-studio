@@ -85,6 +85,28 @@ export default tseslint.config(
     },
   },
   {
+    // acquire()는 raw 드라이버를 담은 lease를 돌려준다. 정책 관문(OperationExecutor)을
+    // 통하지 않고 이걸 쓰면 AI가 승인 없이 sql을 돌리는 우회가 생긴다.
+    // boundaries 테스트가 텍스트로 이미 잡지만, 정규식은 별칭·대괄호 접근을
+    // 놓친다 — no-restricted-properties는 `const { acquire } = m`과 `m['acquire']()`
+    // 까지 잡는다. 커넥션 매니저 자신과 실행 관문만 예외로 둔다.
+    files: ['src/main/**/*.ts'],
+    ignores: [
+      'src/main/core/execution/OperationExecutor.ts',
+      'src/main/infrastructure/connection/PooledConnectionManager.ts',
+    ],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          property: 'acquire',
+          message:
+            'acquire()는 OperationExecutor를 통해서만 쓴다 — 정책 관문을 우회하면 AI가 승인 없이 실행할 수 있다',
+        },
+      ],
+    },
+  },
+  {
     // renderer의 feature 슬라이스는 서로를 직접 import하지 않는다.
     files: ['src/renderer/features/**/*.{ts,tsx}'],
     rules: {

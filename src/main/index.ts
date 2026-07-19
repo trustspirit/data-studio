@@ -137,7 +137,23 @@ async function wireServices(): Promise<void> {
   // 만료된 제안서를 주기적으로 버린다. 순수 팩토리는 타이머를 걸지 않으므로
   // electron 진입점인 여기서 건다.
   setInterval(() => services.sweepProposals(), PROPOSAL_SWEEP_MS)
+
+  // 정상 종료 시 큐에 남은 감사 append를 마저 쓴다. 이게 없으면 기록 직후
+  // 종료할 때 그 항목이 파일에 닿지 못한다 — 릴리스 차단 조건을 닫은 바로 그
+  // 기능이 정상 종료 창에서 새는 셈이다. 크래시는 여전히 못 막지만(그건
+  // append-only의 한계로 문서화됨) 정상 종료는 닫는다.
+  app.on('before-quit', (event) => {
+    if (auditFlushed) return
+    event.preventDefault()
+    void log.flush().finally(() => {
+      auditFlushed = true
+      app.quit()
+    })
+  })
 }
+
+/** before-quit 재진입 가드. flush가 끝난 뒤의 quit만 통과시킨다. */
+let auditFlushed = false
 
 void app.whenReady().then(async () => {
   installCsp()
