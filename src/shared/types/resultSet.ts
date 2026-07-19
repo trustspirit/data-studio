@@ -43,8 +43,19 @@ export interface BuildResultSetInput {
   readonly rows: readonly (readonly WireValue[])[]
   readonly page: PageRequest
   readonly durationMs: number
-  /** 드라이버가 계산한 다음 커서. 더 없으면 null. */
-  readonly nextCursor: string | null
+  /**
+   * 오프셋 `index`의 행부터 다시 읽기 위한 커서를 준다.
+   * `index === rows.length`는 "이 배치 끝 다음" 위치를 뜻하며, 더 읽을 것이
+   * 없으면 null을 돌려준다.
+   *
+   * `nextCursor: string | null`을 그대로 전달받는 대신 콜백으로 받는 이유:
+   * 드라이버가 배치 전체 기준으로 계산한 커서를 곧이곧대로 넘기면, byte/행 수
+   * 상한이 뒷부분 행을 잘라낸 뒤에도 커서는 잘려나간 행들 "너머"를 가리키게
+   * 된다. 호출자가 그 커서로 이어 읽으면 잘려나간 행은 영영 사라진다.
+   * `buildResultSet`은 실제로 담은 행 수(`kept.length`)를 넘겨 호출하므로,
+   * 반환되는 커서는 항상 "실제로 돌려준 행 바로 다음"을 가리킨다.
+   */
+  readonly cursorAt: (index: number) => string | null
   readonly notices?: readonly string[]
 }
 
@@ -56,6 +67,15 @@ export interface BuildResultSetInput {
  *
  * 첫 행이 단독으로 상한을 넘어도 그 행은 담는다 — 한 행도 못 돌려주면 호출자가
  * 커서를 전진시킬 방법이 없어 무한 루프가 된다.
+ *
+ * 반환하는 `page.cursor`는 실제로 담은 행 수(`kept.length`)로 `cursorAt`을
+ * 호출해 얻는다 — 오퍼받은 배치 전체 길이가 아니라. 그래야 커서가 항상 "실제로
+ * 돌려준 행 바로 다음"을 가리켜서, 잘려나간 행이 있어도 다음 요청이 그 행부터
+ * 다시 읽는다. `page.hasMore`도 이 커서가 null이 아니거나 이번에 잘려나간
+ * 행이 있으면 true다 — 담은 행이 하나뿐이고(byte 상한 예외) 그게 오퍼받은
+ * 마지막 행이며 드라이버 쪽에도 더 읽을 게 없으면(`cursorAt`이 null을 주면)
+ * `hasMore`는 false가 되어, 호출자가 `cursor: null`로 영원히 같은 행을
+ * 되받는 무한 루프에 빠지지 않는다.
  */
 export function buildResultSet(input: BuildResultSetInput): ResultSet {
   const kept: (readonly WireValue[])[] = []
@@ -86,15 +106,15 @@ export function buildResultSet(input: BuildResultSetInput): ResultSet {
     }
   }
 
-  const truncated = truncatedRows || truncatedBytes
+  const cursor = input.cursorAt(kept.length)
 
   return {
     requestId: input.requestId,
     columns: input.columns,
     rows: kept,
     page: {
-      cursor: input.nextCursor,
-      hasMore: truncated || input.nextCursor !== null,
+      cursor,
+      hasMore: kept.length < input.rows.length || cursor !== null,
       rowCount: kept.length,
       bytes,
     },
