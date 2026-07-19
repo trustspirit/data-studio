@@ -33,6 +33,11 @@ export interface ReadOnlyScope {
 }
 
 export interface SqlCapability {
+  /**
+   * 문장을 실행한다. `classify(sql)`이 `'write'`를 보고하는 문장도 이
+   * 메서드로 실행한다 — 결과의 `meta.rowsAffected`가 영향받은 행 수를
+   * 담는다(엔진이 보고하지 않으면 `null`).
+   */
   execute(
     ctx: ExecutionContext,
     sql: string,
@@ -40,16 +45,25 @@ export interface SqlCapability {
     params?: readonly unknown[],
   ): Promise<ResultSet>
 
-  explain(ctx: ExecutionContext, sql: string, opts: ExplainOptions): Promise<ExplainPlan>
+  /**
+   * 선택적 멤버다 — 엔진이 실행 계획 조회를 지원하지 않으면 이 멤버를
+   * 구현하지 않는다. 존재 자체가 지원의 증거이므로(`Driver.ts` 참고),
+   * 호출자는 항상 `driver.sql?.explain`으로 존재를 확인한 뒤 호출해야 한다.
+   */
+  explain?(ctx: ExecutionContext, sql: string, opts: ExplainOptions): Promise<ExplainPlan>
 
   /**
    * DB 수준 읽기 전용 트랜잭션을 연다(PostgreSQL `BEGIN READ ONLY`,
    * MySQL `START TRANSACTION READ ONLY` 등).
    *
-   * 엔진이 이를 지원하지 않으면 **던져야 한다**. 조용히 일반 트랜잭션으로
-   * 대체하면 AI 읽기 전용 보장이 무너진 채로 안전해 보이게 된다.
+   * 선택적 멤버다 — 엔진이 이를 지원하지 않으면 이 멤버 자체를 구현하지
+   * 않는다. `sql` 객체 존재가 곧 `beginReadOnly` 지원을 뜻하지는 않으므로,
+   * 호출자는 항상 `driver.sql?.beginReadOnly`로 존재를 확인한 뒤 호출해야
+   * 한다. 부재는 "이 엔진은 DB 수준 읽기 전용 트랜잭션을 지원하지 않는다"는
+   * 뜻이다 — 조용히 일반 트랜잭션으로 대체해 구현하는 것은 여전히 금지된다,
+   * AI 읽기 전용 보장이 무너진 채로 안전해 보이게 되기 때문이다.
    */
-  beginReadOnly(ctx: ExecutionContext): Promise<ReadOnlyScope>
+  beginReadOnly?(ctx: ExecutionContext): Promise<ReadOnlyScope>
 
   /** 엔진 문법에 맞춰 문장을 분류한다. 확신할 수 없으면 'unknown'. */
   classify(sql: string): StatementClassification
