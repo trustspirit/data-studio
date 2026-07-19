@@ -34,7 +34,10 @@ function emptyResultSet(): Promise<ResultSet> {
     columns: [],
     rows: [],
     page: { cursor: null, hasMore: false, rowCount: 0, bytes: 0 },
-    meta: { durationMs: 0, truncatedRows: false, truncatedBytes: false },
+    // `rowsAffected`는 `ResultMeta`의 **필수** 멤버다. 손으로 조립하는
+    // ResultSet도 "보고하지 않음"을 명시적인 null로 적어야 한다 — 빼면
+    // 여기서 컴파일이 깨진다.
+    meta: { durationMs: 0, truncatedRows: false, truncatedBytes: false, rowsAffected: null },
   })
 }
 
@@ -112,5 +115,43 @@ describe('타입 고정: TableInfo.kind는 필수 멤버다', () => {
     }
 
     expect('kind' in missingKind).toBe(false)
+  })
+})
+
+describe('타입 고정: ResultMeta.rowsAffected는 필수 멤버다', () => {
+  it('rowsAffected를 명시한 ResultMeta 리터럴을 만들 수 있다', () => {
+    // `null`("이 엔진은 보고하지 않는다")과 `0`("실제로 0행")은 서로 다른
+    // 뜻이므로 둘 다 적을 수 있어야 한다.
+    const unreported: ResultSet['meta'] = {
+      durationMs: 0,
+      truncatedRows: false,
+      truncatedBytes: false,
+      rowsAffected: null,
+    }
+    const zeroRows: ResultSet['meta'] = {
+      durationMs: 0,
+      truncatedRows: false,
+      truncatedBytes: false,
+      rowsAffected: 0,
+    }
+
+    expect(unreported.rowsAffected).toBeNull()
+    expect(zeroRows.rowsAffected).toBe(0)
+  })
+
+  it('rowsAffected를 생략하면 ResultMeta 리터럴은 컴파일되지 않는다', () => {
+    // 계약(`driverContract.ts`)은 `'rowsAffected' in result.meta`를 요구하지만
+    // 그건 런타임 검사라, `buildResultSet`을 거치지 않고 손으로 조립하는
+    // 드라이버는 이 필드를 빼고도 타입 체크를 통과했다. `?`가 되살아나면
+    // 아래 지시어가 "사용되지 않는 @ts-expect-error"가 되어 typecheck가
+    // 깨진다 — 그게 이 테스트가 지키는 성질이다.
+    // @ts-expect-error rowsAffected는 필수 멤버다 — 생략하면 타입 에러가 나야 한다.
+    const missingRowsAffected: ResultSet['meta'] = {
+      durationMs: 0,
+      truncatedRows: false,
+      truncatedBytes: false,
+    }
+
+    expect('rowsAffected' in missingRowsAffected).toBe(false)
   })
 })

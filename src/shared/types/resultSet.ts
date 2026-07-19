@@ -27,8 +27,16 @@ export interface ResultMeta {
    * 않는다"는 뜻이고, `0`은 "실제로 0개 행이 영향을 받았다"는 뜻이다. 이 둘을
    * 섞으면 "0 rows updated"와 "modified count unavailable"을 사용자에게
    * 구분해 보여줄 수 없다.
+   *
+   * **선택 멤버가 아니다.** 계약(`driverContract.ts`)은 `'rowsAffected' in
+   * result.meta`를 요구하지만 그것은 런타임 검사일 뿐이라, `buildResultSet`을
+   * 거치지 않고 `ResultSet`을 손으로 조립하는 드라이버는 이 필드를 빼고도
+   * 타입 체크를 통과했다. 실제로 `buildResultSet`에서 이 줄을 지우는 변이가
+   * 타입 체크와 전체 스위트를 모두 통과한 적이 있다. 필수로 두어 컴파일러가
+   * 계약과 같은 것을 강제하게 한다 — 값이 없다는 뜻은 `undefined`가 아니라
+   * 명시적인 `null`로 적는다.
    */
-  readonly rowsAffected?: number | null
+  readonly rowsAffected: number | null
   readonly notices?: readonly string[]
 }
 
