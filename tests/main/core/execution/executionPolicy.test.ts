@@ -104,7 +104,9 @@ describe('decide — AI', () => {
     const schema: Operation = { kind: 'schema', op: 'listSchemas' }
     const decision = decide(input(AI, schema, { supportsReadOnlyScope: false }))
 
-    expect(decision.allow).toBe(true)
+    // readOnlyScope까지 단언한다. allow만 보면 이 분기가 어떤 스코프를 요구하든
+    // 통과해서, 실행기가 열 수 없는 스코프를 요구하는 회귀를 놓친다.
+    expect(decision).toMatchObject({ allow: true, readOnlyScope: false })
   })
 
   it('AI 요청도 제한을 더 엄격하게만 만들 수 있다', () => {
