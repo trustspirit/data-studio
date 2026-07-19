@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { FileConnectionRepository } from '@main/infrastructure/FileConnectionRepository'
+import { connectionConfigSchema } from '@shared/types/connection'
 import type { ConnectionConfig } from '@shared/types/connection'
 
 const PG: ConnectionConfig = {
@@ -169,6 +170,61 @@ describe('FileConnectionRepository', () => {
     await expect(repo.get('conn-1')).resolves.toMatchObject({
       name: 'Production',
       maskedColumnPatterns: ['email', 'phone'],
+    })
+  })
+
+  describe('방어적 복사 — 스키마 전 필드', () => {
+    // cloneConfig는 `{ ...config, maskedColumnPatterns: [...] }`로 손수 만든다.
+    // 나중에 배열이나 객체 필드가 하나 추가되면 그 필드만 조용히 참조 공유가
+    // 되고, 증상은 "설정을 안 바꿨는데 디스크의 값이 달라져 있다"는 알아채기
+    // 어려운 형태로 나온다. 필드 목록을 손으로 적으면 다음 필드가 또 빠지므로
+    // **스키마에서 키를 유도한다**.
+    const keys = Object.keys(connectionConfigSchema.shape) as (keyof ConnectionConfig)[]
+
+    it('스키마 키를 실제로 읽어온다', () => {
+      // 키 목록이 비면 아래 테스트들이 아무것도 검사하지 않으면서 통과한다.
+      expect(keys.length).toBeGreaterThan(5)
+      expect(keys).toContain('maskedColumnPatterns')
+    })
+
+    it('get()이 돌려준 설정은 참조형 필드를 캐시와 공유하지 않는다', async () => {
+      const repo = new FileConnectionRepository(filePath, logger)
+      await repo.save(PG)
+
+      const first = await repo.get('conn-1')
+      const second = await repo.get('conn-1')
+
+      for (const key of keys) {
+        const a: unknown = first?.[key]
+        const b: unknown = second?.[key]
+        if (typeof a === 'object' && a !== null) {
+          expect(a, `${key}가 두 호출 사이에 공유된다`).not.toBe(b)
+        }
+      }
+    })
+
+    it('save()에 넘긴 설정의 참조형 필드를 캐시가 공유하지 않는다', async () => {
+      const repo = new FileConnectionRepository(filePath, logger)
+      const input: ConnectionConfig = { ...PG, maskedColumnPatterns: ['email'] }
+      await repo.save(input)
+
+      const stored = await repo.get('conn-1')
+
+      for (const key of keys) {
+        const a: unknown = input[key]
+        const b: unknown = stored?.[key]
+        if (typeof a === 'object' && a !== null) {
+          expect(a, `${key}가 호출자와 캐시 사이에 공유된다`).not.toBe(b)
+        }
+      }
+    })
+
+    it('모든 필드 값이 왕복해도 보존된다', async () => {
+      // 복사가 필드를 떨어뜨리지 않는지도 같이 본다.
+      const repo = new FileConnectionRepository(filePath, logger)
+      await repo.save(PG)
+
+      expect(await repo.get('conn-1')).toEqual(PG)
     })
   })
 })
