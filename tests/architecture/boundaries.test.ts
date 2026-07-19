@@ -171,4 +171,25 @@ describe('의존성 경계', () => {
 
     expect(violations).toEqual([])
   })
+
+  it('acquire()는 실행 관문과 커넥션 매니저 자신 외에서 호출되지 않는다', async () => {
+    // acquire는 raw 드라이버를 담은 lease를 돌려준다. 정책 관문(OperationExecutor)을
+    // 통하지 않고 이걸 쓰면 AI가 승인 없이 sql을 돌리는 우회가 생긴다. 관문이
+    // 하나여야 한다는 설계는 이 호출을 한 곳에 가두는 것으로만 성립한다.
+    const allowed = new Set([
+      path.resolve('src/main/core/execution/OperationExecutor.ts'),
+      path.resolve('src/main/infrastructure/connection/PooledConnectionManager.ts'),
+    ])
+    const violations: string[] = []
+
+    for await (const file of walk(SRC_DIR)) {
+      if (allowed.has(file)) continue
+      const source = await readFile(file, 'utf8')
+      if (/\.acquire\s*\(/.test(source)) {
+        violations.push(path.relative(process.cwd(), file))
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
 })
