@@ -6,8 +6,10 @@ import {
 import type { OperationLogEntry, OperationLogInput } from '@main/core/execution/OperationLog'
 
 function createLog(capacity?: number) {
-  let now = 0
-  return new InMemoryOperationLog({ now: () => (now += 1) }, capacity)
+  // 실제 epoch 밀리초처럼 움직이게 한다. 1,2,3...을 돌려주면 `at`이 행 번호와
+  // 구분되지 않아서, at을 entries.length로 바꾼 구현도 통과한다.
+  let now = 1_700_000_000_000
+  return new InMemoryOperationLog({ now: () => (now += 1_000) }, capacity)
 }
 
 type MutableLogInput = { -readonly [K in keyof OperationLogInput]: OperationLogInput[K] }
@@ -35,11 +37,21 @@ describe('InMemoryOperationLog', () => {
     expect(log.recent(10).map((e) => e.requestId)).toEqual(['r3', 'r2', 'r1'])
   })
 
-  it('기록 시각을 붙인다', () => {
+  it('기록 시각을 시계에서 가져와 붙인다', () => {
     const log = createLog()
     log.record(entry())
 
-    expect(log.recent(1)[0]?.at).toBe(1)
+    expect(log.recent(1)[0]?.at).toBe(1_700_000_001_000)
+  })
+
+  it('시각은 기록 순서대로 증가한다', () => {
+    const log = createLog()
+    log.record(entry({ requestId: 'r1' }))
+    log.record(entry({ requestId: 'r2' }))
+
+    const [newer, older] = log.recent(2)
+
+    expect(newer?.at).toBeGreaterThan(older?.at ?? 0)
   })
 
   it('거부된 요청도 기록한다', () => {
@@ -85,6 +97,16 @@ describe('InMemoryOperationLog', () => {
     expect(log.recent(1)[0]?.statementHash).toBe('sha256:abc')
   })
 
+  it('proposalId를 보존한다', () => {
+    // 같은 문장을 두 번 제안하면 해시가 같아 흐름이 구분되지 않는다.
+    // 어느 제안이 실행됐는지는 proposalId만이 답한다.
+    const log = createLog()
+    log.record(entry({ outcome: 'proposed', proposalId: 'prop-1', statementHash: 'h' }))
+    log.record(entry({ outcome: 'approved', proposalId: 'prop-2', statementHash: 'h' }))
+
+    expect(log.recent(2).map((e) => e.proposalId)).toEqual(['prop-2', 'prop-1'])
+  })
+
   it('AI 문장을 원문 그대로 보관한다', () => {
     // 스펙 §4.2 6층. 잘라내거나 정규화하면 감사 가치가 사라진다.
     const log = createLog()
@@ -101,6 +123,22 @@ describe('InMemoryOperationLog', () => {
     for (const id of ['r1', 'r2', 'r3']) log.record(entry({ requestId: id }))
 
     expect(log.recent(10).map((e) => e.requestId)).toEqual(['r3', 'r2'])
+  })
+
+  it('버려진 항목 수를 센다', () => {
+    // 손실이 조용하면 조회자는 "이게 전부"와 구분할 수 없다. AI는 거부 요청을
+    // 무제한 유발할 수 있으므로 자기 이전 기록을 밀어낼 수 있다.
+    const log = createLog(2)
+    for (const id of ['r1', 'r2', 'r3', 'r4']) log.record(entry({ requestId: id }))
+
+    expect(log.droppedCount()).toBe(2)
+  })
+
+  it('버린 것이 없으면 0이다', () => {
+    const log = createLog(10)
+    log.record(entry())
+
+    expect(log.droppedCount()).toBe(0)
   })
 
   it('기본 용량은 5000이다', () => {

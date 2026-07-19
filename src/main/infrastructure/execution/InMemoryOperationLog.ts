@@ -23,6 +23,7 @@ export const DEFAULT_LOG_CAPACITY = 5_000
  */
 export class InMemoryOperationLog implements OperationLog {
   private readonly entries: OperationLogEntry[] = []
+  private dropped = 0
 
   constructor(
     private readonly clock: LogClock,
@@ -34,8 +35,17 @@ export class InMemoryOperationLog implements OperationLog {
     // 이미 기록된 감사 항목이 따라 바뀐다.
     this.entries.push({ ...input, at: this.clock.now() })
 
-    // 무한히 쌓이면 장시간 세션에서 메모리를 먹는다. 오래된 것부터 버린다.
-    while (this.entries.length > this.capacity) this.entries.shift()
+    // 무한히 쌓이면 장시간 세션에서 메모리를 먹는다. 오래된 것부터 버리되,
+    // 버린 개수를 세어 손실이 조용해지지 않게 한다 — AI는 거부 요청을
+    // 무제한 유발할 수 있고, 그것만으로 자기 이전 기록을 밀어낼 수 있다.
+    while (this.entries.length > this.capacity) {
+      this.entries.shift()
+      this.dropped += 1
+    }
+  }
+
+  droppedCount(): number {
+    return this.dropped
   }
 
   recent(limit: number): readonly OperationLogEntry[] {
