@@ -4,9 +4,25 @@ export interface SchemaInfo {
   readonly name: string
 }
 
+/**
+ * `listTables`가 돌려주는 객체의 종류.
+ *
+ * - `'table'`: 일반 base table. 쓰기 가능.
+ * - `'view'`: 뷰. 대부분의 엔진에서 직접 쓰기가 안 되거나 제한적이다 — AI
+ *   계층이 이를 base table과 같게 취급하면 안 된다.
+ * - `'materialized_view'`: materialized view. 읽기 전용이고, 내용이 마지막
+ *   REFRESH 시점에 멈춰 있을 수 있다.
+ *
+ * foreign table과 partition은 아직 이 union에 없다 — 이를 구분해야 하는
+ * 드라이버가 실제로 나오기 전까지는(Task 5 in-memory 드라이버, Phase 1
+ * PostgreSQL 드라이버) 값을 예측해서 늘리지 않는다.
+ */
+export type TableKind = 'table' | 'view' | 'materialized_view'
+
 export interface TableInfo {
   readonly schema: string
   readonly name: string
+  readonly kind: TableKind
   /** 추정 행 수. 엔진이 제공하지 않으면 null. */
   readonly estimatedRows: number | null
 }
