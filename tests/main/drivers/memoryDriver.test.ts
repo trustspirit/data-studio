@@ -48,7 +48,18 @@ function seedWithUsers(): MemorySeed {
   }
 }
 
-describeDriverContract('MemoryDriver', () => createMemoryDriver(CONFIG))
+describeDriverContract('MemoryDriver', () => ({
+  driver: createMemoryDriver(CONFIG),
+  config: CONFIG,
+  read: {
+    statement: 'SELECT * FROM public.contract_probe',
+    expectedRowCount: 3,
+    // 이름은 같고 스키마가 다른 테이블. 커서 신원에 스키마가 빠져 있으면
+    // 여기서 커서가 그대로 먹혀 계약이 빨개진다.
+    foreignStatement: 'SELECT * FROM analytics.contract_probe',
+  },
+  write: { statement: 'DELETE FROM public.contract_probe', expectedRowsAffected: 3 },
+}))
 
 describe('MemoryDriver 고유 동작', () => {
   it('시드로 넣은 테이블만 스키마로 노출한다', async () => {
@@ -218,6 +229,86 @@ describe('MemoryDriver 고유 동작', () => {
     const qualified = await sql.execute(ctx(), 'SELECT * FROM public."users"', PAGE)
 
     expect(qualified.rows).toHaveLength(2)
+  })
+
+  /** 이름이 같고 스키마만 다른 두 테이블. 스키마 한정자가 실제로 고르는지 본다. */
+  function twoSchemaSeed(): MemorySeed {
+    return {
+      tables: [
+        {
+          schema: 'public',
+          name: 'users',
+          columns: [
+            { name: 'a', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: true },
+          ],
+          rows: [[1], [2]],
+        },
+        {
+          schema: 'analytics',
+          name: 'users',
+          columns: [
+            { name: 'b', type: 'text', nullable: false, defaultValue: null, isPrimaryKey: true },
+          ],
+          rows: [['x']],
+        },
+      ],
+    }
+  }
+
+  it('스키마 한정자가 같은 이름의 테이블 중 어느 쪽인지를 실제로 고른다', async () => {
+    const driver = createMemoryDriver(CONFIG, twoSchemaSeed())
+    const sql = must(driver.sql, 'memory driver must expose sql')
+
+    const fromPublic = await sql.execute(ctx(), 'SELECT * FROM public.users', PAGE)
+    const fromAnalytics = await sql.execute(ctx(), 'SELECT * FROM analytics.users', PAGE)
+
+    expect(fromPublic.columns).toEqual([{ name: 'a', type: 'int8' }])
+    expect(fromPublic.rows).toEqual([[{ t: 'int', v: 1 }], [{ t: 'int', v: 2 }]])
+
+    expect(fromAnalytics.columns).toEqual([{ name: 'b', type: 'text' }])
+    expect(fromAnalytics.rows).toEqual([[{ t: 'str', v: 'x' }]])
+  })
+
+  it('스키마별로 describeTable이 서로 다른 컬럼을 돌려준다', async () => {
+    const driver = createMemoryDriver(CONFIG, twoSchemaSeed())
+    const schema = must(driver.schema, 'memory driver must expose schema')
+
+    expect((await schema.describeTable(ctx(), 'public', 'users')).columns.map((c) => c.name)).toEqual(
+      ['a'],
+    )
+    expect(
+      (await schema.describeTable(ctx(), 'analytics', 'users')).columns.map((c) => c.name),
+    ).toEqual(['b'])
+    await expect(schema.describeTable(ctx(), 'nope', 'users')).rejects.toThrow(/unknown table/i)
+  })
+
+  it('한정자가 없는데 이름이 여러 스키마에 있으면 아무거나 고르지 않고 던진다', async () => {
+    const driver = createMemoryDriver(CONFIG, twoSchemaSeed())
+    const sql = must(driver.sql, 'memory driver must expose sql')
+
+    await expect(sql.execute(ctx(), 'SELECT * FROM users', PAGE)).rejects.toThrow(/ambiguous/i)
+  })
+
+  it('한 스키마에서 얻은 커서를 같은 이름의 다른 스키마 테이블에 쓸 수 없다', async () => {
+    // 커서 신원이 테이블 이름뿐이면 이 커서가 그대로 먹혀서, 거부되어야 할
+    // 요청이 조용히 엉뚱한 스키마의 행을 돌려준다.
+    const driver = createMemoryDriver(CONFIG, twoSchemaSeed())
+    const sql = must(driver.sql, 'memory driver must expose sql')
+
+    const fromPublic = await sql.execute(ctx(), 'SELECT * FROM public.users', {
+      cursor: null,
+      maxRows: 1,
+      maxBytes: 1_000_000,
+    })
+    const cursor = must(fromPublic.page.cursor, 'expected a cursor')
+
+    await expect(
+      sql.execute(ctx(), 'SELECT * FROM analytics.users', {
+        cursor,
+        maxRows: 1,
+        maxBytes: 1_000_000,
+      }),
+    ).rejects.toThrow(/cursor belongs to table/i)
   })
 
   it('페이지 상한을 결과에 적용하고 커서로 이어 읽게 한다', async () => {
@@ -439,5 +530,21 @@ describe('MemoryDriver 고유 동작', () => {
     const table = must((await schema.listTables(ctx(), 'public'))[0], 'expected a default table')
 
     expect(must(table.estimatedRows, 'expected estimatedRows')).toBeGreaterThanOrEqual(2)
+  })
+
+  it('기본 시드는 이름이 같고 스키마가 다른 테이블을 담는다', async () => {
+    // 계약의 커서 교차사용 구역이 의미를 가지려면 두 질의가 정말로 서로 다른
+    // 결과 집합이어야 한다. 시드가 한 스키마로 줄어들면 그 구역은 조용히
+    // 무의미해지므로 여기서 못 박는다.
+    const driver = createMemoryDriver(CONFIG)
+    const schema = must(driver.schema, 'memory driver must expose schema')
+
+    expect((await schema.listSchemas(ctx())).map((s) => s.name)).toEqual(['public', 'analytics'])
+    expect((await schema.listTables(ctx(), 'public')).map((t) => t.name)).toEqual([
+      'contract_probe',
+    ])
+    expect((await schema.listTables(ctx(), 'analytics')).map((t) => t.name)).toEqual([
+      'contract_probe',
+    ])
   })
 })
