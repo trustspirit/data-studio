@@ -41,6 +41,14 @@ export class DriverRegistry {
     return [...this.factories.keys()]
   }
 
+  /**
+   * 호출할 때마다 새 드라이버를 만든다 — 캐시하지 않는다. 같은 `config.id`로
+   * 두 번 부르면 서로 독립적인 인스턴스가 둘 생긴다.
+   *
+   * 여기서 만든 드라이버에 `connect`/`disconnect`를 부르지도 않는다. 수명 관리는
+   * 전적으로 호출자(PooledConnectionManager) 몫이다. 이 클래스는 Map을 감싼
+   * 상태 없는 팩토리다.
+   */
   create(config: ConnectionConfig): Driver {
     const factory = this.factories.get(config.engine)
     if (factory === undefined) {

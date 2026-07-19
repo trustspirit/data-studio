@@ -47,6 +47,24 @@ describe('DriverRegistry', () => {
     expect(factory).toHaveBeenCalledWith(CONFIG)
   })
 
+  it('팩토리가 만든 바로 그 인스턴스를 돌려준다', () => {
+    // 참조 동일성으로 본다. `engine`/`id`만 비교하면, 팩토리를 호출해 놓고
+    // 반환값은 버린 뒤 config로 똑같이 생긴 객체를 새로 지어내는 구현도
+    // 통과한다 — 그러면 팩토리가 붙인 sql/schema capability가 조용히 사라진다.
+    const registry = new DriverRegistry()
+    const produced: Driver = {
+      ...fakeDriver(CONFIG),
+      sql: {
+        execute: () => Promise.reject(new Error('not used in this test')),
+        classify: () => 'read',
+      },
+    }
+    registry.register('postgres', () => produced)
+
+    expect(registry.create(CONFIG)).toBe(produced)
+    expect(registry.create(CONFIG).sql).toBeDefined()
+  })
+
   it('등록되지 않은 엔진은 UnsupportedEngineError로 거부한다', () => {
     const registry = new DriverRegistry()
 
