@@ -21,6 +21,12 @@ import type { WireValue } from '@shared/types/wire'
  * 하는 상황이다. 대신 실행된 구역 목록을 테스트로 노출해서, 아무것도
  * 주장하지 않은 드라이버가 조용히 초록으로 지나가지 못하게 한다.
  *
+ * 다만 구역 목록만으로는 부족하다. 수명주기 구역은 **어떤 드라이버에나**
+ * 등록되므로 "구역이 하나라도 돌았다"는 능력의 증거가 못 된다. 그래서 이
+ * 스위트는 별도로 **데이터 평면 능력(`sql` 또는 `schema`)을 최소 하나 선언했는지**
+ * 를 요구한다. 둘 다 없는 드라이버에게 이 계약은 검증할 것이 없고, 그런
+ * 드라이버는 초록이 아니라 실패를 받아야 한다.
+ *
  * ## 연결 수명주기
  *
  * `connect(config)`는 `Driver`의 **필수** 멤버다. 그래서 이 스위트는 드라이버를
@@ -211,6 +217,12 @@ export function describeDriverContract(name: string, factory: DriverContractFact
   if (hasSql) sections.push('sql')
   if (hasExplain) sections.push('sql.explain')
   if (hasBeginReadOnly) sections.push('sql.beginReadOnly')
+  // 읽기 전용 범위의 쓰기 차단은 하네스가 실제 쓰기 문장을 줄 때만 **증명**할
+  // 수 있다. 면제받은 경우에도 구역 이름을 남겨, 그 면제가 sections에 보이게
+  // 한다 — 조용히 사라지면 옵트아웃이 다시 공짜가 된다.
+  if (hasBeginReadOnly) {
+    sections.push(hasWrite ? 'sql.beginReadOnly.blocksWrite' : 'sql.beginReadOnly.writesUnsupported')
+  }
   // schema 능력과 무관하게 sql만 있으면 페이지네이션과 커서 검증을 요구한다.
   // `execute`/`cursorAt`은 sql 능력에 속하지 schema 능력에 속하지 않는다.
   if (hasSql) sections.push('sql.pagination')
@@ -336,6 +348,13 @@ export function describeDriverContract(name: string, factory: DriverContractFact
       if (driver.sql !== undefined) expected.push('sql')
       if (driver.sql?.explain !== undefined) expected.push('sql.explain')
       if (driver.sql?.beginReadOnly !== undefined) expected.push('sql.beginReadOnly')
+      if (driver.sql?.beginReadOnly !== undefined) {
+        expected.push(
+          harness.write !== undefined
+            ? 'sql.beginReadOnly.blocksWrite'
+            : 'sql.beginReadOnly.writesUnsupported',
+        )
+      }
       if (driver.sql !== undefined) expected.push('sql.pagination')
       if (driver.sql !== undefined) expected.push('sql.cursor')
       // 하네스가 아니라 능력에서 계산한다 — foreignStatement를 빼도 구역은
@@ -346,9 +365,44 @@ export function describeDriverContract(name: string, factory: DriverContractFact
       if (driver.schema !== undefined) expected.push('schema')
 
       expect(sections).toEqual(expected)
-      // 아무 능력도 선언하지 않은 드라이버는 계약을 "통과"할 수 없다.
-      // 이 단언이 없으면 능력 0개짜리 껍데기가 조용히 초록으로 뜬다.
-      expect(sections.length).toBeGreaterThan(0)
+    })
+
+    /**
+     * 아무 **데이터 평면** 능력도 선언하지 않은 드라이버는 계약을 통과할 수 없다.
+     *
+     * 예전에는 이것을 `sections.length > 0`으로 확인했다. 그런데 그 뒤에 다른
+     * 지적을 막느라 수명주기 구역을 **무조건** 등록하도록 바꾸면서, 저 단언은
+     * 실패할 수 없는 것이 되어 버렸다 — 새 수정이 옛 가드를 조용히 무력화한
+     * 것이다. 실제로 `sql`도 `schema`도 없이 connect/disconnect/ping만 가진
+     * kafka 드라이버가 10 passed / 26 skipped / 0 failed로 초록 배지를 받았다.
+     *
+     * 그래서 "구역이 하나라도 돌았다"가 아니라 "검증할 데이터 평면 능력을
+     * 선언했다"를 단언한다. 수명주기는 어떤 드라이버든 갖고 있으므로 능력의
+     * 증거가 되지 못한다.
+     *
+     * Kafka나 Redis처럼 `sql`도 `schema`도 정말로 지원하지 않는 엔진은 여기서
+     * **시끄럽게 실패해야 맞다**. 그런 드라이버에게 이 계약은 검증할 것이 없고,
+     * 초록 배지는 "검증됐다"는 거짓 신호가 된다. 그 엔진들이 도착하면 자기
+     * 능력(`stream`, `keyValue` 등)과 자기 계약 구역을 함께 들고 와야 한다.
+     */
+    it('검증할 데이터 평면 능력(sql 또는 schema)을 최소 하나 선언한다', () => {
+      const driver = factory().driver
+      const declared: string[] = []
+      if (driver.sql !== undefined) declared.push('sql')
+      if (driver.schema !== undefined) declared.push('schema')
+
+      if (declared.length === 0) {
+        throw new Error(
+          `contract violation: '${name}' declares no data-plane capability ` +
+            '(`sql` or `schema`), so this contract has nothing to verify for it — ' +
+            'only connect/disconnect/ping ran. Passing here would be a green badge ' +
+            'for an unverified driver. An engine that legitimately supports neither ' +
+            'needs its own capability and its own contract sections; it must not ' +
+            'borrow this one.',
+        )
+      }
+
+      expect(declared.length).toBeGreaterThan(0)
     })
 
     it('id와 engine을 노출한다', () => {
@@ -553,16 +607,6 @@ export function describeDriverContract(name: string, factory: DriverContractFact
     })
 
     describe.runIf(hasBeginReadOnly)('sql.beginReadOnly 능력', () => {
-      it('범위 안에서 쓰기 문장이 거부된다', async () => {
-        const sql = sqlOf(await connected())
-        assertBeginReadOnly(sql)
-        const scope = await sql.beginReadOnly(ctx())
-
-        await expect(scope.execute(ctx(), 'DELETE FROM users', FULL_PAGE)).rejects.toThrow()
-
-        await scope.end()
-      })
-
       it('범위 안에서 읽기 문장은 동작한다', async () => {
         const read = readOf()
         const sql = sqlOf(await connected())
@@ -573,6 +617,63 @@ export function describeDriverContract(name: string, factory: DriverContractFact
         expect(result.page.rowCount).toBeGreaterThanOrEqual(0)
 
         await scope.end()
+      })
+    })
+
+    /**
+     * 읽기 전용 범위가 쓰기를 **정말로 막는지** 본다.
+     *
+     * 예전에는 `scope.execute(ctx(), 'DELETE FROM users', ...)`가 거부되는지만
+     * 봤다. 그런데 어떤 엔진도 `users` 테이블을 갖고 있어야 할 의무가 없으므로,
+     * 그 거부는 "읽기 전용이라서"가 아니라 "그런 relation이 없어서"일 수 있다.
+     * 실제로 MemoryDriver의 읽기 전용 플래그를 꺼서 범위가 조용히 쓰기 가능해지게
+     * 만들어도 — `SqlCapability.beginReadOnly`의 JSDoc이 금지하는 바로 그 퇴화 —
+     * 이 계약은 초록으로 통과했다. 거부 자체는 아무것도 증명하지 못한다.
+     *
+     * 그래서 하네스가 준 **실제로 실행 가능한 쓰기 문장**을 범위 안에서 돌리고,
+     * 거부된 뒤 그 쓰기가 **적용되지 않았음**까지 확인한다. 같은 문장을 범위
+     * 밖에서 실행했을 때 여전히 약속된 행 수를 바꾼다면, 범위 안의 시도는
+     * 아무 일도 하지 않은 것이다. 이로써 거부의 원인이 범위에 귀속된다.
+     */
+    describe.runIf(hasBeginReadOnly && hasWrite)('sql.beginReadOnly 쓰기 차단 계약', () => {
+      it('범위 안의 쓰기가 거부되고, 그 쓰기가 적용되지도 않는다', async () => {
+        const write = writeOf()
+        // 0행을 바꾸는 문장으로는 "적용되지 않았다"를 구분할 수 없다 —
+        // 적용됐든 아니든 나중 실행이 0을 돌려주기 때문이다.
+        if (write.expectedRowsAffected < 1) {
+          throw new Error(
+            'contract violation: `write.expectedRowsAffected` must be at least 1 so the ' +
+              'read-only contract can tell "the write was blocked" from "the write ran ' +
+              'and changed nothing"',
+          )
+        }
+
+        const driver = await connected()
+        const sql = sqlOf(driver)
+        assertBeginReadOnly(sql)
+        const scope = await sql.beginReadOnly(ctx())
+
+        await expect(scope.execute(ctx(), write.statement, FULL_PAGE)).rejects.toThrow()
+
+        await scope.end()
+
+        // 범위 밖에서 같은 문장이 여전히 약속된 행 수를 바꾼다 = 범위 안의
+        // 시도는 아무것도 바꾸지 않았다. 범위가 조용히 쓰기를 통과시켰다면
+        // 여기서 남은 행이 없어 이 단언이 깨진다.
+        const applied = await sql.execute(ctx(), write.statement, FULL_PAGE)
+
+        expect(applied.meta.rowsAffected).toBe(write.expectedRowsAffected)
+      })
+    })
+
+    /**
+     * 쓰기 문장을 줄 수 없는 드라이버의 면제. 구역 이름이 `sections`에 남으므로
+     * 면제받았다는 사실 자체가 보인다 — 조용히 사라지지 않는다.
+     */
+    describe.runIf(hasBeginReadOnly && !hasWrite)('sql.beginReadOnly 쓰기 차단 계약 — 면제', () => {
+      it('쓰기를 실행할 수 없음을 명시적으로 선언했다', () => {
+        // 잠자코 `write`를 빼는 것으로 이 면제를 얻을 수는 없다.
+        expect(factory().writesUnsupported).toBe(true)
       })
     })
 
