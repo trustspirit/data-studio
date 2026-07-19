@@ -9,6 +9,7 @@ import type { Operation, OperationRequest } from '@shared/types/operation'
 import type { Actor } from '@main/core/execution/Actor'
 import type { Driver } from '@main/core/driver/Driver'
 import type { ConnectionManager, LeasedConnection } from '@main/core/connection/ConnectionManager'
+import type { ExecutionLimits } from '@shared/types/operation'
 import type { PageRequest, ResultSet } from '@shared/types/resultSet'
 import type { ExecutionContext } from '@main/core/driver/ExecutionContext'
 import type { ReadOnlyScope } from '@main/core/driver/capabilities/SqlCapability'
@@ -29,9 +30,17 @@ function emptyResult(requestId: string): ResultSet {
   }
 }
 
+interface RecordedExecute {
+  sql: string
+  page: PageRequest
+  params?: readonly unknown[] | undefined
+  requestId: string
+}
+
 interface Calls {
-  execute: { sql: string; page: PageRequest }[]
-  scopedExecute: { sql: string; page: PageRequest }[]
+  execute: RecordedExecute[]
+  scopedExecute: RecordedExecute[]
+  limits?: ExecutionLimits | undefined
   beginReadOnly: number
   scopeEnd: number
   listSchemas: number
@@ -82,7 +91,7 @@ function createHarness(options: FakeOptions = {}) {
 
   const scope: ReadOnlyScope = {
     async execute(ctx, sql, page) {
-      calls.scopedExecute.push({ sql, page })
+      calls.scopedExecute.push({ sql, page, requestId: ctx.requestId })
       await runBody(ctx)
       return emptyResult(ctx.requestId)
     },
@@ -101,8 +110,8 @@ function createHarness(options: FakeOptions = {}) {
     ...(withSql
       ? {
           sql: {
-            async execute(ctx, sql, page) {
-              calls.execute.push({ sql, page })
+            async execute(ctx, sql, page, params) {
+              calls.execute.push({ sql, page, params, requestId: ctx.requestId })
               await runBody(ctx)
               return emptyResult(ctx.requestId)
             },
@@ -170,7 +179,13 @@ function createHarness(options: FakeOptions = {}) {
   const executor = new OperationExecutor(
     connections,
     log,
-    [new SqlCapabilityExecutor(), new SchemaCapabilityExecutor()],
+    [new SqlCapabilityExecutor(), new SchemaCapabilityExecutor()].map((inner) => ({
+      kind: inner.kind,
+      execute: (input) => {
+        calls.limits = input.limits
+        return inner.execute(input)
+      },
+    })),
     {
       now: () => now,
       setTimeout: (fn, ms) => {
@@ -300,12 +315,44 @@ describe('OperationExecutor — 제한', () => {
     })
   })
 
-  it('AI 경로에는 AI 제한을 건다', async () => {
+  it('AI 기본값은 사용자 기본값과 timeout이 다르다', () => {
+    // 이 테스트가 없으면 아래 두 테스트가 무의미해진다. maxRows/maxBytes는 두
+    // 기본값이 같아서 그것만 단언하면 AI 제한과 사용자 제한을 구분하지 못한다.
+    expect(DEFAULT_AI_LIMITS.timeoutMs).toBe(10_000)
+    expect(DEFAULT_USER_LIMITS.timeoutMs).toBe(30_000)
+  })
+
+  it('AI 경로에는 AI timeout을 건다', async () => {
+    const h = createHarness()
+
+    await h.executor.run(request(), AI)
+
+    expect(h.timers[0]?.ms).toBe(DEFAULT_AI_LIMITS.timeoutMs)
+  })
+
+  it('사용자 경로에는 사용자 timeout을 건다', async () => {
+    const h = createHarness()
+
+    await h.executor.run(request(), USER)
+
+    expect(h.timers[0]?.ms).toBe(DEFAULT_USER_LIMITS.timeoutMs)
+  })
+
+  it('AI 경로에는 AI 행 상한을 건다', async () => {
     const h = createHarness()
 
     await h.executor.run(request(), AI)
 
     expect(h.calls.scopedExecute[0]?.page).toMatchObject({ maxRows: DEFAULT_AI_LIMITS.maxRows })
+  })
+
+  it('요청한 limits도 상한 이내로만 받아들인다', async () => {
+    const h = createHarness()
+
+    await h.executor.run(request({ limits: { maxRows: 7, timeoutMs: 999_999 } }), USER)
+
+    expect(h.calls.execute[0]?.page.maxRows).toBe(7)
+    expect(h.timers[0]?.ms).toBe(DEFAULT_USER_LIMITS.timeoutMs)
   })
 
   it('요청이 제한보다 느슨하면 제한으로 눌러 담는다', async () => {
@@ -328,6 +375,47 @@ describe('OperationExecutor — 제한', () => {
     await h.executor.run(request({ page: { cursor: 'c1', maxRows: 5, maxBytes: 1_000 } }), USER)
 
     expect(h.calls.execute[0]?.page).toEqual({ cursor: 'c1', maxRows: 5, maxBytes: 1_000 })
+  })
+})
+
+describe('OperationExecutor — 파라미터와 컨텍스트', () => {
+  it('쿼리 파라미터를 드라이버에 그대로 넘긴다', async () => {
+    // 파라미터는 문자열 보간의 안전한 대안이다. 조용히 떨어지면 드라이버가
+    // 플레이스홀더만 있는 문장을 받는다.
+    const h = createHarness()
+
+    await h.executor.run(
+      request({ operation: { kind: 'sql', sql: 'SELECT * FROM t WHERE id = $1', params: [42] } }),
+      USER,
+    )
+
+    expect(h.calls.execute[0]?.params).toEqual([42])
+  })
+
+  it('requestId를 ExecutionContext로 전달한다', async () => {
+    // 엔진 네이티브 취소가 이 값으로 백엔드를 찾는다.
+    const h = createHarness()
+
+    await h.executor.run(request({ requestId: 'req-xyz' }), USER)
+
+    expect(h.calls.execute[0]?.requestId).toBe('req-xyz')
+  })
+
+  it('정책이 정한 제한을 capability 실행기에 전달한다', async () => {
+    // 드라이버가 statement_timeout을 걸 때 읽는 값이다.
+    const h = createHarness()
+
+    await h.executor.run(request(), AI)
+
+    expect(h.calls.limits?.timeoutMs).toBe(DEFAULT_AI_LIMITS.timeoutMs)
+  })
+
+  it('성공한 실행의 소요 시간을 기록한다', async () => {
+    const h = createHarness()
+
+    await h.executor.run(request(), USER)
+
+    expect(h.log.recent(1)[0]?.durationMs).toBeGreaterThanOrEqual(0)
   })
 })
 
@@ -486,6 +574,20 @@ describe('OperationExecutor — capability 라우팅', () => {
     expect(result).toEqual({ ok: false, reason: 'capability_missing' })
   })
 
+  it('schema 능력이 없는 드라이버에 schema 요청이 오면 거부한다', async () => {
+    const h = createHarness({ withSchema: false })
+
+    const result = await h.executor.run(
+      request({ operation: { kind: 'schema', op: 'listSchemas' } }),
+      USER,
+    )
+
+    // 실행 실패가 아니라 거부여야 한다. 'error'로 나가면 감사 로그에 능력 부족이
+    // 실행 실패로 잘못 기록된다.
+    expect(result).toEqual({ ok: false, reason: 'capability_missing' })
+    expect(h.log.recent(1)[0]?.outcome).toBe('denied')
+  })
+
   it('읽기 전용 스코프를 지원하지 않으면 AI 읽기를 거부한다', async () => {
     const h = createHarness({ withReadOnlyScope: false })
 
@@ -567,6 +669,23 @@ describe('OperationExecutor — 쓰기 승인', () => {
 
     expect(result).toEqual({ ok: false, reason: 'proposal_invalid' })
     expect(h.calls.execute).toHaveLength(0)
+  })
+
+  it('실행에 닿지 못한 거부는 승인 토큰을 태우지 않는다', async () => {
+    // 이 드라이버는 sql을 못 한다. 요청은 실행되지 않으므로, 사용자가 승인한
+    // 토큰이 소모되어서는 안 된다 — 아무 일도 일어나지 않은 파괴적 쓰기를
+    // 다시 승인하게 만드는 것은 승인 피로를 부른다.
+    const h = createHarness({ withSql: false })
+    const view = proposeWrite(h)
+
+    const result = await h.executor.run(request(), {
+      type: 'user',
+      grant: { proposalId: view.proposalId },
+    })
+
+    expect(result).toEqual({ ok: false, reason: 'capability_missing' })
+    // 제안서가 아직 살아 있어야 한다.
+    expect(h.proposals.pending(view.proposalId)).not.toBeNull()
   })
 
   it('승인 실행을 proposalId와 함께 로그에 남긴다', async () => {

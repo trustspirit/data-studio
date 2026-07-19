@@ -85,6 +85,18 @@ export class OperationExecutor {
     actor: Actor,
     driver: Driver,
   ): Promise<OperationResult> {
+    // 제안서를 소비하기 **전에** 이 드라이버가 그 종류를 실행할 수 있는지부터
+    // 본다. 순서를 뒤집으면, 실행에 닿지도 못한 요청이 승인 토큰을 태워 없애고
+    // 사용자는 아무 일도 일어나지 않은 파괴적 쓰기를 다시 승인해야 한다.
+    // 승인 토큰이 붙어 있으면 실행될 것은 언제나 sql이다.
+    const kind: Operation['kind'] =
+      actor.type === 'user' && actor.grant !== null ? 'sql' : req.operation.kind
+
+    const executor = this.executors.get(kind)
+    if (executor === undefined || !this.supports(driver, kind)) {
+      return this.fail(req, actor, req.operation, 'capability_missing')
+    }
+
     // 승인된 쓰기는 renderer가 보낸 문장이 아니라 main이 보관한 원문으로
     // 실행한다. connectionId는 방금 lease를 얻은 그 커넥션이다 — renderer가
     // 보낸 값이 아니라 실제로 실행될 커넥션이어야 검사가 의미를 갖는다.
@@ -109,11 +121,6 @@ export class OperationExecutor {
       return this.fail(req, actor, operation, decision.reason, statementHash)
     }
 
-    const executor = this.executors.get(operation.kind)
-    if (executor === undefined) {
-      return this.fail(req, actor, operation, 'capability_missing', statementHash)
-    }
-
     return this.execute(req, actor, operation, executor, decision, driver, statementHash)
   }
 
@@ -127,17 +134,20 @@ export class OperationExecutor {
     statementHash: string | undefined,
   ): Promise<OperationResult> {
     const controller = new AbortController()
-    this.inFlight.set(req.requestId, controller)
-
     let timedOut = false
-    const timer = this.clock.setTimeout(() => {
-      timedOut = true
-      controller.abort()
-    }, decision.limits.timeoutMs)
+    let timer: unknown
+    let startedAt = 0
 
-    const startedAt = this.clock.now()
-
+    // set/setTimeout/now를 try 밖에 두면 이들 중 하나가 던졌을 때 inFlight에
+    // 항목이 남고, 그 requestId는 이후 영원히 duplicate_request가 된다.
+    // run()이 결과 대신 reject하는 것도 계약 위반이다.
     try {
+      this.inFlight.set(req.requestId, controller)
+      timer = this.clock.setTimeout(() => {
+        timedOut = true
+        controller.abort()
+      }, decision.limits.timeoutMs)
+      startedAt = this.clock.now()
       const payload = await executor.execute({
         ctx: { requestId: req.requestId, signal: controller.signal },
         driver,
@@ -200,6 +210,24 @@ export class OperationExecutor {
     }
   }
 
+  /**
+   * 이 드라이버가 그 종류의 연산을 할 수 있는가.
+   *
+   * `decide()`도 `hasSql`/`hasSchema`로 같은 것을 본다 — **일부러 중복이다.**
+   * 이 검사는 제안서를 소비하기 전에 걸려야 하고(승인 토큰을 헛되이 태우지
+   * 않기 위해), 정책 검사는 그 뒤 모든 경로에 걸려야 한다. 한쪽만 깨뜨리는
+   * 변이는 다른 쪽이 잡으므로 개별 변이는 살아남는다. 둘 다 깨뜨리면 실패한다 —
+   * 방어 심층화이지 검증 구멍이 아니다.
+   */
+  private supports(driver: Driver, kind: Operation['kind']): boolean {
+    switch (kind) {
+      case 'sql':
+        return driver.sql !== undefined
+      case 'schema':
+        return driver.schema !== undefined
+    }
+  }
+
   private pageFor(req: OperationRequest, limits: ExecutionLimits): PageRequest {
     return {
       cursor: req.page?.cursor ?? DEFAULT_PAGE.cursor,
@@ -209,7 +237,23 @@ export class OperationExecutor {
     }
   }
 
-  /** 진행 중인 실행을 취소한다. 모르는 id는 조용히 무시한다. */
+  /**
+   * 진행 중인 실행을 취소한다. 모르는 id는 조용히 무시한다.
+   *
+   * **이 계층의 취소는 권고다.** 여기서 하는 일은 `ctx.signal`을 발화시키는
+   * 것뿐이고, 백엔드 쿼리를 실제로 멈추는 것은 드라이버 몫이다. signal을
+   * 무시하는 드라이버는 취소 후에도 성공 결과를 돌려주고, 감사 로그에는
+   * `allowed`가 남는다 — 사용자는 취소를 눌렀는데 데이터를 받는다.
+   *
+   * 실제 드라이버는 다음을 지켜야 이 보장이 진짜가 된다:
+   * 1. signal 발화 시 엔진 네이티브 취소를 건다(PG `pg_cancel_backend`,
+   *    MySQL `KILL QUERY`).
+   * 2. `limits.timeoutMs`를 엔진 쪽 timeout으로도 건다(PG
+   *    `SET LOCAL statement_timeout`). 앱 타이머만으로는 프로세스가 멈춘 동안
+   *    쿼리가 계속 돈다.
+   * 3. 백엔드가 조용해지기 전에 resolve/reject하지 않는다. 먼저 반환하면
+   *    `release()`가 쿼리가 아직 도는 커넥션을 풀에 돌려준다.
+   */
   cancel(requestId: string): void {
     this.inFlight.get(requestId)?.abort()
   }
@@ -263,15 +307,24 @@ export class OperationExecutor {
   }
 }
 
-const DENIAL_REASONS: readonly FailureReason[] = [
+const DENIAL_REASONS = [
   'ai_write_requires_proposal',
   'ai_multi_statement',
   'ai_read_only_unsupported',
   'capability_missing',
-]
+] as const
+
+/**
+ * 컴파일 타임 완전성 검사. `DenialReason`에 값을 추가하면서 위 목록을 갱신하지
+ * 않으면 여기서 타입 에러가 난다 — 갱신을 잊으면 그 거부는 감사 로그에
+ * `denialReason` 없이 남는다. "이유 없는 거부"는 무슨 일이 있었는지 설명하는
+ * 것이 존재 이유인 층에서 특히 나쁘다.
+ */
+const _exhaustiveDenials: (typeof DENIAL_REASONS)[number] = null as unknown as DenialReason
+void _exhaustiveDenials
 
 function isDenialReason(reason: FailureReason): reason is DenialReason {
-  return DENIAL_REASONS.includes(reason)
+  return (DENIAL_REASONS as readonly string[]).includes(reason)
 }
 
 /** 감사 로그에 남길 문장. sql은 원문 그대로, 그 외는 무엇을 했는지 적는다. */
