@@ -1,41 +1,27 @@
-const path = require('node:path')
 const { flipFuses, FuseVersion, FuseV1Options } = require('@electron/fuses')
+const { fuseValues, resolveExecutablePath } = require('./fusePlan.cjs')
 
 /**
  * 패키징된 Electron 바이너리의 fuse를 뒤집는다.
- * - runAsNode / nodeCliInspectArguments / nodeOptions: 임의 코드 실행 경로를 막는다
- * - onlyLoadAppFromAsar: asar 밖의 앱 코드 로딩을 막는다
+ *
+ * 무엇을 어떤 값으로 거는지는 `fusePlan.cjs`가 정하고 테스트가 지킨다.
+ * 이 파일은 electron-builder가 부르는 얇은 배선이다 — 여기에 판단을 두면
+ * 유닛 테스트가 닿지 않는 곳에 보안 결정이 남는다.
  */
 exports.default = async function afterPack(context) {
   const { appOutDir, packager, electronPlatformName } = context
-  const appName = packager.appInfo.productFilename
 
-  // NOTE: each branch is computed lazily (not as an eagerly-evaluated object
-  // literal) because `packager.executableName` only exists on LinuxPackager —
-  // evaluating it unconditionally throws on darwin/win32 builds.
-  let executable
-  switch (electronPlatformName) {
-    case 'darwin':
-      executable = path.join(appOutDir, `${appName}.app`)
-      break
-    case 'win32':
-      executable = path.join(appOutDir, `${appName}.exe`)
-      break
-    case 'linux':
-      executable = path.join(appOutDir, packager.executableName)
-      break
-    default:
-      throw new Error(`unsupported platform: ${electronPlatformName}`)
-  }
+  const executable = resolveExecutablePath(electronPlatformName, appOutDir, packager)
+  const values = fuseValues(electronPlatformName)
 
   await flipFuses(executable, {
     version: FuseVersion.V1,
-    resetAdHocDarwinSignature: electronPlatformName === 'darwin',
-    [FuseV1Options.RunAsNode]: false,
-    [FuseV1Options.EnableNodeCliInspectArguments]: false,
-    [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-    [FuseV1Options.EnableCookieEncryption]: true,
-    [FuseV1Options.OnlyLoadAppFromAsar]: true,
-    [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+    resetAdHocDarwinSignature: values.resetAdHocDarwinSignature,
+    [FuseV1Options.RunAsNode]: values.runAsNode,
+    [FuseV1Options.EnableNodeCliInspectArguments]: values.nodeCliInspectArguments,
+    [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: values.nodeOptionsEnvironmentVariable,
+    [FuseV1Options.EnableCookieEncryption]: values.cookieEncryption,
+    [FuseV1Options.OnlyLoadAppFromAsar]: values.onlyLoadAppFromAsar,
+    [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: values.embeddedAsarIntegrityValidation,
   })
 }

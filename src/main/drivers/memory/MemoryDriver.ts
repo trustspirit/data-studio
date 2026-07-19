@@ -205,7 +205,14 @@ class MemoryDriverImpl implements Driver {
     }
   }
 
-  connect(): Promise<void> {
+  connect(config: ConnectionConfig): Promise<void> {
+    // id 불일치는 조용히 넘기면 안 된다. 매니저가 config.id로 키잉한 항목에
+    // 다른 커넥션의 드라이버가 들어앉으면, 질의가 엉뚱한 대상에서 성공한다.
+    if (config.id !== this.id) {
+      return Promise.reject(
+        new Error(`connect config id ${config.id} does not match driver id ${this.id}`),
+      )
+    }
     return Promise.resolve()
   }
 
@@ -457,8 +464,8 @@ const DEFAULT_SEED: MemorySeed = {
       name: 'contract_probe',
       kind: 'table',
       columns: [
-        { name: 'id', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: true },
-        { name: 'label', type: 'text', nullable: true, defaultValue: null, isPrimaryKey: false },
+        { name: 'id', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
+        { name: 'label', type: 'text', nullable: true, defaultValue: null, primaryKeyOrdinal: null },
       ],
       rows: [
         [1, 'one'],
@@ -473,7 +480,7 @@ const DEFAULT_SEED: MemorySeed = {
       name: 'contract_probe',
       kind: 'table',
       columns: [
-        { name: 'bucket', type: 'text', nullable: false, defaultValue: null, isPrimaryKey: true },
+        { name: 'bucket', type: 'text', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
       ],
       rows: [['a'], ['b']],
       indexes: [],

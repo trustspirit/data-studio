@@ -18,6 +18,15 @@ export interface Driver {
   readonly id: string
   readonly engine: EngineId
 
+  /**
+   * 커넥션을 연다.
+   *
+   * **`config.id`는 반드시 이 드라이버의 `id`와 같아야 한다.** 다르면 던진다.
+   * `PooledConnectionManager`는 `config.id`로 항목을 키잉하고 그 항목의
+   * `driver`를 내주므로, 둘이 어긋나면 A 커넥션으로 요청한 질의가 B 서버에서
+   * 실행되면서 아무 에러도 나지 않는다 — 맞아 보이는 틀린 데이터가 나가는
+   * 형태의 실패다.
+   */
   connect(config: ConnectionConfig): Promise<void>
   disconnect(): Promise<void>
   /** 왕복 지연을 밀리초로 돌려준다. */

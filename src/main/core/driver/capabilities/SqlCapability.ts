@@ -28,7 +28,20 @@ export interface ExplainPlan {
  * DB 수준에서 쓰기가 거부된다.
  */
 export interface ReadOnlyScope {
-  execute(ctx: ExecutionContext, sql: string, page: PageRequest): Promise<ResultSet>
+  /**
+   * 범위 안에서 문장을 실행한다.
+   *
+   * `params`를 받는 이유: AI 경로가 이 메서드의 **유일한** 소비자다. 여기에
+   * 파라미터 자리가 없으면 AI가 파라미터 바인딩을 쓸 수 없고, 값을 문자열로
+   * 이어 붙이도록 떠밀린다 — 파라미터가 존재하는 이유가 바로 그걸 피하기
+   * 위해서다.
+   */
+  execute(
+    ctx: ExecutionContext,
+    sql: string,
+    page: PageRequest,
+    params?: readonly unknown[],
+  ): Promise<ResultSet>
   end(): Promise<void>
 }
 

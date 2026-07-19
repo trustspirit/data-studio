@@ -77,6 +77,11 @@ interface Entry {
    * 마지막 하나만 map에 남고 나머지는 연결된 채 영영 새어 나간다.
    */
   opening: Promise<void> | null
+  /**
+   * 살아 있는 임차의 취소 컨트롤러. close가 이걸 전부 발화시켜, 진행 중인
+   * 작업이 커넥션이 사라졌다는 것을 알 수 있게 한다.
+   */
+  leases: Set<AbortController>
   /** 폐기된 항목. 남아 있던 임차의 반납이 슬롯을 되돌리지 못하게 막는다. */
   discarded: boolean
 }
@@ -132,6 +137,7 @@ export class PooledConnectionManager implements ConnectionManager {
       status: 'connecting',
       inUse: 0,
       waiters: [],
+      leases: new Set(),
       opening: null,
       discarded: false,
     }
@@ -261,6 +267,11 @@ export class PooledConnectionManager implements ConnectionManager {
     entry.waiters = []
     entry.status = 'closed'
 
+    // 살아 있는 임차에 알린다. 알리지 않으면 임차자는 끊긴 드라이버로 계속
+    // 돌고, 사용자는 닫았다고 생각한 커넥션에서 질의가 이어진다.
+    for (const controller of entry.leases) controller.abort()
+    entry.leases.clear()
+
     // 아직 연결 중이면 여기서 직접 끊지 않는다 — connectEntry가 자기가 연 소켓을
     // 책임지고 닫는다. 여기서도 끊으면 아직 열리지 않은 드라이버에
     // disconnect가 가고, 이어서 한 번 더 간다.
@@ -306,14 +317,23 @@ export class PooledConnectionManager implements ConnectionManager {
 
   private makeLease(connectionId: string, entry: Entry): LeasedConnection {
     let released = false
+    const controller = new AbortController()
+
+    // 이미 폐기된 항목에서 임차가 나오는 경로가 생기면, 그 임차는 처음부터
+    // 취소된 상태여야 한다.
+    if (entry.discarded) controller.abort()
+    else entry.leases.add(controller)
 
     return {
       driver: entry.driver,
+      signal: controller.signal,
       release: () => {
         // 중복 반납을 무시하지 않으면 슬롯이 실제보다 많이 열려
         // 동시 실행 제한이 무력화된다.
         if (released) return
         released = true
+
+        entry.leases.delete(controller)
 
         // 이미 닫힌 커넥션에 슬롯을 되돌려도 의미가 없고, 폐기된 큐에 남은
         // 대기자를 깨우면 끊긴 드라이버를 넘기게 된다.

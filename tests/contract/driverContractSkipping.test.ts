@@ -125,7 +125,12 @@ function createMinimalDriver(): Driver {
   return {
     id: 'minimal-1',
     engine: 'redis',
-    connect: () => {
+    connect: (config: ConnectionConfig) => {
+      // 계약이 요구하는 신원 검증. 매니저가 config.id로 키잉하므로, 어긋난
+      // config를 받아들이면 질의가 엉뚱한 대상에서 성공한다.
+      if (config.id !== 'minimal-1') {
+        return Promise.reject(new Error(`config id ${config.id} does not match driver id`))
+      }
       connected = true
       return Promise.resolve()
     },

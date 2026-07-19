@@ -6,6 +6,15 @@ const CORE_DIR = path.resolve('src/main/core')
 const RENDERER_DIR = path.resolve('src/renderer')
 const SHARED_DIR = path.resolve('src/shared')
 const SRC_DIR = path.resolve('src')
+const PRELOAD_DIR = path.resolve('src/preload')
+
+// Actor는 권한을 결정한다. renderer나 preload가 이걸 만들거나 IPC DTO에 실어
+// 보낼 수 있게 되는 순간 XSS 하나로 `{ type: 'user' }`를 위조해 쓰기 승인
+// 게이트 전체가 장식이 된다. actor는 언제나 main의 호출 경로가 만든다.
+//
+// 이건 한 줄짜리 import로 무너지는 성질이고, 코드 리뷰가 놓치기 쉽다.
+// 그래서 문서가 아니라 테스트로 지킨다.
+const ACTOR_MODULE_PATTERN = /['"][^'"]*core\/execution\/Actor['"]/
 
 // renderer(sandbox: true, nodeIntegration: false)가 import할 수 있는 shared 모듈
 // 안에서 이 전역들을 쓰면 타입은 통과하지만("types": ["node"]가 프로젝트 전역에
@@ -123,6 +132,40 @@ describe('의존성 경계', () => {
       const source = await readFile(file, 'utf8')
       if (/openExternal/.test(source)) {
         violations.push(path.relative(process.cwd(), file))
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
+
+  it('shared와 preload는 Actor를 참조하지 않는다', async () => {
+    // Actor가 IPC 계약에 들어가면 renderer가 자기 권한을 스스로 주장할 수 있게
+    // 된다. 지금은 참조가 없지만, 이 성질은 한 줄로 무너지므로 테스트로 지킨다.
+    const violations: string[] = []
+
+    for (const dir of [SHARED_DIR, PRELOAD_DIR]) {
+      for await (const file of walk(dir)) {
+        const source = await readFile(file, 'utf8')
+        if (ACTOR_MODULE_PATTERN.test(source)) {
+          violations.push(path.relative(process.cwd(), file))
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
+
+  it('IPC 채널 계약에 actor 필드가 없다', async () => {
+    // 위 테스트는 모듈 import를 막는다. 이건 타입을 베껴 적어 같은 구멍을 내는
+    // 것을 막는다 — renderer가 보낸 값이 actor 판정에 쓰이면 안 된다.
+    const violations: string[] = []
+
+    for (const dir of [SHARED_DIR, PRELOAD_DIR]) {
+      for await (const file of walk(dir)) {
+        const source = await readFile(file, 'utf8')
+        if (/\bactor\s*[?:]/i.test(source) || /\bsessionId\s*[?:]/.test(source)) {
+          violations.push(path.relative(process.cwd(), file))
+        }
       }
     }
 

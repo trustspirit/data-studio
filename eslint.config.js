@@ -7,14 +7,18 @@ export default tseslint.config(
     // scripts/afterPack.cjs는 electron-builder가 require()로 로딩하는 CJS 훅이다.
     // src/tests 바깥이라 tsconfig에도 포함되지 않는다 — 앱 소스가 아니라 빌드 도구이므로
     // 타입 인식 규칙(ESM 강제, no-unsafe-* 등) 대상에서 제외한다.
-    ignores: ['dist/**', 'dist-electron/**', 'node_modules/**', 'scripts/**'],
+    ignores: ['dist/**', 'dist-electron/**', 'node_modules/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
     languageOptions: {
       parserOptions: {
-        projectService: { allowDefaultProject: ['eslint.config.js'] },
+        projectService: {
+          // scripts/*.cjs는 tsconfig 프로젝트에 속하지 않지만 린트는 받아야 한다 —
+          // Electron 보안 fuse를 설정하는 코드가 검사 밖에 있으면 안 된다.
+          allowDefaultProject: ['eslint.config.js', 'scripts/*.cjs'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -95,6 +99,26 @@ export default tseslint.config(
           ],
         },
       ],
+    },
+  },
+  {
+    // 빌드 스크립트는 CommonJS다. **린트 대상에서 빼지 않는다** — 이 파일들이
+    // Electron 보안 fuse를 설정하므로, 검사받지 않는 자리에 보안 결정을 두면
+    // 안 된다. CJS 고유 형태(require/exports)와 타입 선언이 없는 외부 모듈에서
+    // 오는 any는 여기서 문제가 아니므로 그 규칙만 끈다.
+    files: ['scripts/**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { require: 'readonly', module: 'writable', exports: 'writable' },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-undef': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
 )

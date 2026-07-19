@@ -36,8 +36,8 @@ function seedWithUsers(): MemorySeed {
         schema: 'public',
         name: 'users',
         columns: [
-          { name: 'id', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: true },
-          { name: 'email', type: 'text', nullable: true, defaultValue: null, isPrimaryKey: false },
+          { name: 'id', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
+          { name: 'email', type: 'text', nullable: true, defaultValue: null, primaryKeyOrdinal: null },
         ],
         rows: [
           [1, 'a@x.com'],
@@ -69,7 +69,7 @@ describe('MemoryDriver 고유 동작', () => {
           schema: 'public',
           name: 'users',
           columns: [
-            { name: 'id', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: true },
+            { name: 'id', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
           ],
           rows: [[1]],
         },
@@ -78,7 +78,7 @@ describe('MemoryDriver 고유 동작', () => {
           name: 'orders',
           kind: 'view',
           columns: [
-            { name: 'id', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: true },
+            { name: 'id', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
           ],
           rows: [[1]],
         },
@@ -86,7 +86,7 @@ describe('MemoryDriver 고유 동작', () => {
           schema: 'other',
           name: 'elsewhere',
           columns: [
-            { name: 'id', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: true },
+            { name: 'id', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
           ],
           rows: [[1]],
         },
@@ -110,7 +110,7 @@ describe('MemoryDriver 고유 동작', () => {
           name: 'v_orders',
           kind: 'materialized_view',
           columns: [
-            { name: 'id', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: true },
+            { name: 'id', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
           ],
           rows: [[1], [2], [3]],
         },
@@ -138,7 +138,7 @@ describe('MemoryDriver 고유 동작', () => {
           schema: 'public',
           name: 'orders',
           columns: [
-            { name: 'id', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: true },
+            { name: 'id', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
           ],
           rows: [[1]],
           indexes: [{ name: 'orders_pkey', columns: ['id'], unique: true, sizeBytes: 4096 }],
@@ -195,12 +195,12 @@ describe('MemoryDriver 고유 동작', () => {
           schema: 'public',
           name: 'mixed',
           columns: [
-            { name: 'b', type: 'bool', nullable: false, defaultValue: null, isPrimaryKey: false },
-            { name: 'i', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: false },
-            { name: 'f', type: 'float8', nullable: false, defaultValue: null, isPrimaryKey: false },
-            { name: 'g', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: false },
-            { name: 'd', type: 'timestamptz', nullable: false, defaultValue: null, isPrimaryKey: false },
-            { name: 'j', type: 'jsonb', nullable: false, defaultValue: null, isPrimaryKey: false },
+            { name: 'b', type: 'bool', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
+            { name: 'i', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
+            { name: 'f', type: 'float8', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
+            { name: 'g', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
+            { name: 'd', type: 'timestamptz', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
+            { name: 'j', type: 'jsonb', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
           ],
           rows: [[true, 7, 1.5, 9007199254740993n, new Date('2024-01-02T03:04:05.000Z'), { a: 1 }]],
         },
@@ -239,7 +239,7 @@ describe('MemoryDriver 고유 동작', () => {
           schema: 'public',
           name: 'users',
           columns: [
-            { name: 'a', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: true },
+            { name: 'a', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
           ],
           rows: [[1], [2]],
         },
@@ -247,7 +247,7 @@ describe('MemoryDriver 고유 동작', () => {
           schema: 'analytics',
           name: 'users',
           columns: [
-            { name: 'b', type: 'text', nullable: false, defaultValue: null, isPrimaryKey: true },
+            { name: 'b', type: 'text', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
           ],
           rows: [['x']],
         },
@@ -319,7 +319,7 @@ describe('MemoryDriver 고유 동작', () => {
           schema: 'public',
           name: 'nums',
           columns: [
-            { name: 'n', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: false },
+            { name: 'n', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
           ],
           rows,
         },
@@ -363,7 +363,7 @@ describe('MemoryDriver 고유 동작', () => {
           schema: 'public',
           name: 'wide',
           columns: [
-            { name: 's', type: 'text', nullable: false, defaultValue: null, isPrimaryKey: false },
+            { name: 's', type: 'text', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
           ],
           rows: [[wide], [wide], [wide], [wide]],
         },
@@ -391,7 +391,7 @@ describe('MemoryDriver 고유 동작', () => {
           schema: 'public',
           name: 'a',
           columns: [
-            { name: 'n', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: false },
+            { name: 'n', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
           ],
           rows: [[1], [2]],
         },
@@ -399,7 +399,7 @@ describe('MemoryDriver 고유 동작', () => {
           schema: 'public',
           name: 'b',
           columns: [
-            { name: 'n', type: 'int8', nullable: false, defaultValue: null, isPrimaryKey: false },
+            { name: 'n', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
           ],
           rows: [[1], [2]],
         },
