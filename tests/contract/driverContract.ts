@@ -56,8 +56,16 @@ const FULL_PAGE: PageRequest = { cursor: null, maxRows: 1000, maxBytes: 8_000_00
 /** 페이지네이션이 끝나지 않을 때 무한 루프 대신 실패시키는 상한. */
 const MAX_PAGES = 200
 
-/** 어떤 드라이버도 발급했을 리 없는 커서. 커서 검증을 요구할 때 쓴다. */
-const GARBAGE_CURSOR = '__contract_cursor_that_no_driver_minted__'
+/**
+ * 어떤 드라이버도 발급했을 리 없는 커서들.
+ *
+ * 서로 다른 모양을 둘 넘긴다 — 한 가지 모양만 넘기면 그 모양 하나에만
+ * 반응하는 얕은 검사로도 통과할 수 있다. 다만 계약이 요구할 수 있는 것은
+ * "자기가 발급하지 않은 커서를 거부한다"까지다. 커서는 불투명한 값이므로
+ * 어떤 인코딩을 쓰는지는 드라이버의 자유이고, 계약이 특정 형식을 전제하면
+ * 그것은 더 이상 계약이 아니라 구현 지시가 된다.
+ */
+const GARBAGE_CURSORS = ['__contract_cursor_that_no_driver_minted__', '{"offset":1}']
 
 /** 어떤 드라이버도 갖고 있지 않을 스키마 이름. */
 const ABSENT_SCHEMA = '__contract_schema_that_does_not_exist__'
@@ -512,13 +520,15 @@ export function describeDriverContract(name: string, factory: DriverContractFact
         const read = readOf()
         const sql = sqlOf(await connected())
 
-        await expect(
-          sql.execute(ctx(), read.statement, {
-            cursor: GARBAGE_CURSOR,
-            maxRows: 1,
-            maxBytes: FULL_PAGE.maxBytes,
-          }),
-        ).rejects.toThrow()
+        for (const cursor of GARBAGE_CURSORS) {
+          await expect(
+            sql.execute(ctx(), read.statement, {
+              cursor,
+              maxRows: 1,
+              maxBytes: FULL_PAGE.maxBytes,
+            }),
+          ).rejects.toThrow()
+        }
       })
     })
 
