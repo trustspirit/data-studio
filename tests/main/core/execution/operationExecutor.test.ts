@@ -147,8 +147,10 @@ function createHarness(options: FakeOptions = {}) {
       : {}),
   }
 
+  const leaseController = new AbortController()
   const lease: LeasedConnection = {
     driver,
+    signal: leaseController.signal,
     release: () => {
       calls.release += 1
     },
@@ -208,6 +210,8 @@ function createHarness(options: FakeOptions = {}) {
     driver,
     timers,
     fireTimer: (index = 0) => timers[index]?.fn(),
+    /** 커넥션이 닫힌 상황을 흉내 낸다. */
+    closeConnection: () => leaseController.abort(),
   }
 }
 
@@ -454,6 +458,17 @@ describe('OperationExecutor — 취소와 timeout', () => {
     await h.executor.run(request(), USER)
 
     expect(h.timers[0]?.cleared).toBe(true)
+  })
+
+  it('커넥션이 닫히면 진행 중인 실행이 취소된다', async () => {
+    // 임차의 signal을 잇지 않으면, 사용자가 커넥션을 닫았는데 질의는 계속 돈다.
+    const h = createHarness({ gate: new Promise<void>(() => undefined) })
+
+    const running = h.executor.run(request(), USER)
+    await Promise.resolve()
+    h.closeConnection()
+
+    expect(await running).toEqual({ ok: false, reason: 'cancelled' })
   })
 
   it('모르는 requestId 취소는 조용히 무시한다', () => {

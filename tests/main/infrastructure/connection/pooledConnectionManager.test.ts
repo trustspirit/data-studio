@@ -750,4 +750,59 @@ describe('PooledConnectionManager', () => {
       })
     })
   })
+
+  describe('임차 취소 신호', () => {
+    it('새 임차의 signal은 발화하지 않은 상태다', async () => {
+      const manager = createManager(2)
+      await manager.open(CONFIG)
+
+      const lease = await manager.acquire('conn-1')
+
+      expect(lease.signal.aborted).toBe(false)
+      lease.release()
+    })
+
+    it('커넥션을 닫으면 살아 있는 임차의 signal이 발화한다', async () => {
+      const manager = createManager(2)
+      await manager.open(CONFIG)
+      const lease = await manager.acquire('conn-1')
+
+      await manager.close('conn-1')
+
+      expect(lease.signal.aborted).toBe(true)
+    })
+
+    it('closeAll도 살아 있는 임차에 알린다', async () => {
+      const manager = createManager(2)
+      await manager.open(CONFIG)
+      const lease = await manager.acquire('conn-1')
+
+      await manager.closeAll()
+
+      expect(lease.signal.aborted).toBe(true)
+    })
+
+    it('반납한 임차는 이후 close에 반응하지 않는다', async () => {
+      // 반납 후에도 남아 있으면 컨트롤러가 계속 쌓인다.
+      const manager = createManager(2)
+      await manager.open(CONFIG)
+      const lease = await manager.acquire('conn-1')
+      lease.release()
+
+      await manager.close('conn-1')
+
+      expect(lease.signal.aborted).toBe(false)
+    })
+
+    it('두 임차를 모두 깨운다', async () => {
+      const manager = createManager(2)
+      await manager.open(CONFIG)
+      const first = await manager.acquire('conn-1')
+      const second = await manager.acquire('conn-1')
+
+      await manager.close('conn-1')
+
+      expect([first.signal.aborted, second.signal.aborted]).toEqual([true, true])
+    })
+  })
 })

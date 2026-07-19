@@ -12,6 +12,15 @@ export type ConnectionStatus = 'closed' | 'connecting' | 'ready' | 'error'
  */
 export interface LeasedConnection {
   readonly driver: Driver
+  /**
+   * 이 임차가 더 이상 유효하지 않을 때 발화한다 — 지금은 커넥션이 닫힐 때다.
+   *
+   * 없으면 close가 진행 중인 작업에 아무것도 알리지 못한다. 임차자는 끊긴
+   * 드라이버를 손에 쥔 채 계속 돌고, `release()`는 아무 반응이 없으며,
+   * 사용자는 커넥션을 닫았는데 질의가 살아 있다. 이 signal을
+   * `ExecutionContext.signal`과 합치면 close가 곧 취소가 된다.
+   */
+  readonly signal: AbortSignal
   release(): void
 }
 

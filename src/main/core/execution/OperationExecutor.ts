@@ -72,7 +72,7 @@ export class OperationExecutor {
     }
 
     try {
-      return await this.runWithLease(req, actor, lease.driver)
+      return await this.runWithLease(req, actor, lease)
     } finally {
       // 어떤 경로로 빠져나가든 슬롯을 돌려준다. 반납하지 않으면 커넥션의
       // 동시 실행 슬롯이 영구히 잠긴다.
@@ -83,8 +83,10 @@ export class OperationExecutor {
   private async runWithLease(
     req: OperationRequest,
     actor: Actor,
-    driver: Driver,
+    lease: LeasedConnection,
   ): Promise<OperationResult> {
+    const driver = lease.driver
+
     // 제안서를 소비하기 **전에** 이 드라이버가 그 종류를 실행할 수 있는지부터
     // 본다. 순서를 뒤집으면, 실행에 닿지도 못한 요청이 승인 토큰을 태워 없애고
     // 사용자는 아무 일도 일어나지 않은 파괴적 쓰기를 다시 승인해야 한다.
@@ -121,7 +123,7 @@ export class OperationExecutor {
       return this.fail(req, actor, operation, decision.reason, statementHash)
     }
 
-    return this.execute(req, actor, operation, executor, decision, driver, statementHash)
+    return this.execute(req, actor, operation, executor, decision, lease, statementHash)
   }
 
   private async execute(
@@ -130,13 +132,16 @@ export class OperationExecutor {
     operation: Operation,
     executor: CapabilityExecutor,
     decision: { readonly limits: ExecutionLimits; readonly readOnlyScope: boolean },
-    driver: Driver,
+    lease: LeasedConnection,
     statementHash: string | undefined,
   ): Promise<OperationResult> {
     const controller = new AbortController()
     let timedOut = false
     let timer: unknown
     let startedAt = 0
+    const onLeaseAbort = (): void => {
+      controller.abort()
+    }
 
     // set/setTimeout/now를 try 밖에 두면 이들 중 하나가 던졌을 때 inFlight에
     // 항목이 남고, 그 requestId는 이후 영원히 duplicate_request가 된다.
@@ -147,10 +152,16 @@ export class OperationExecutor {
         timedOut = true
         controller.abort()
       }, decision.limits.timeoutMs)
+
+      // 커넥션이 닫히면 이 실행도 끝나야 한다. 임차의 signal을 잇지 않으면
+      // 사용자가 커넥션을 닫았는데 질의가 계속 도는 상태가 된다.
+      if (lease.signal.aborted) controller.abort()
+      else lease.signal.addEventListener('abort', onLeaseAbort, { once: true })
+
       startedAt = this.clock.now()
       const payload = await executor.execute({
         ctx: { requestId: req.requestId, signal: controller.signal },
-        driver,
+        driver: lease.driver,
         operation,
         page: this.pageFor(req, decision.limits),
         limits: decision.limits,
@@ -182,6 +193,11 @@ export class OperationExecutor {
     } finally {
       // 타이머를 지우지 않으면 실행이 끝난 뒤에도 핸들이 살아 있다.
       this.clock.clearTimeout(timer)
+      // 임차는 실행마다 새로 만들어져 곧 버려지므로 이 해제가 없어도 관측
+      // 가능한 누수는 생기지 않는다(그래서 변이 테스트로 잡히지 않는다).
+      // 그럼에도 지우는 이유는 임차를 재사용하는 호출자가 생기는 순간
+      // 조용히 리스너가 쌓이기 때문이다.
+      lease.signal.removeEventListener('abort', onLeaseAbort)
       this.inFlight.delete(req.requestId)
     }
   }
