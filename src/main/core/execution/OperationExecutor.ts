@@ -61,22 +61,33 @@ export class OperationExecutor {
     // 어느 실행을 겨누는지 모호해지고, 사용자가 취소를 눌렀는데 다른 실행이
     // 계속 도는 상황이 생긴다.
     if (this.inFlight.has(req.requestId)) {
-      return this.fail(req, actor, req.operation, 'duplicate_request')
+      return this.failed(req, actor, req.operation, 'duplicate_request')
     }
 
-    let lease: LeasedConnection
-    try {
-      lease = await this.connections.acquire(req.connectionId)
-    } catch {
-      return this.fail(req, actor, req.operation, 'error')
-    }
+    // **await 하기 전에** 등록한다. acquire를 기다리는 동안 등록이 비어 있으면
+    // 같은 requestId의 두 번째 호출이 검사를 통과해 버리고, 그러면 cancel이
+    // 어느 실행을 겨누는지 모호해진다 — 실제로 두 실행이 드라이버에 닿고
+    // cancel은 나중 것만 취소했다.
+    const controller = new AbortController()
+    this.inFlight.set(req.requestId, controller)
 
     try {
-      return await this.runWithLease(req, actor, lease)
+      let lease: LeasedConnection
+      try {
+        lease = await this.connections.acquire(req.connectionId)
+      } catch (error) {
+        return this.failed(req, actor, req.operation, 'error', summarize(error))
+      }
+
+      try {
+        return await this.runWithLease(req, actor, lease, controller)
+      } finally {
+        // 어떤 경로로 빠져나가든 슬롯을 돌려준다. 반납하지 않으면 커넥션의
+        // 동시 실행 슬롯이 영구히 잠긴다.
+        lease.release()
+      }
     } finally {
-      // 어떤 경로로 빠져나가든 슬롯을 돌려준다. 반납하지 않으면 커넥션의
-      // 동시 실행 슬롯이 영구히 잠긴다.
-      lease.release()
+      this.inFlight.delete(req.requestId)
     }
   }
 
@@ -84,6 +95,7 @@ export class OperationExecutor {
     req: OperationRequest,
     actor: Actor,
     lease: LeasedConnection,
+    controller: AbortController,
   ): Promise<OperationResult> {
     const driver = lease.driver
 
@@ -96,7 +108,7 @@ export class OperationExecutor {
 
     const executor = this.executors.get(kind)
     if (executor === undefined || !this.supports(driver, kind)) {
-      return this.fail(req, actor, req.operation, 'capability_missing')
+      return this.deny(req, actor, req.operation, 'capability_missing')
     }
 
     // 승인된 쓰기는 renderer가 보낸 문장이 아니라 main이 보관한 원문으로
@@ -104,7 +116,7 @@ export class OperationExecutor {
     // 보낸 값이 아니라 실제로 실행될 커넥션이어야 검사가 의미를 갖는다.
     const resolved = this.resolveOperation(req, actor)
     if (resolved === null) {
-      return this.fail(req, actor, req.operation, 'proposal_invalid')
+      return this.failed(req, actor, req.operation, 'proposal_invalid')
     }
 
     const { operation, statementHash } = resolved
@@ -120,10 +132,10 @@ export class OperationExecutor {
     })
 
     if (!decision.allow) {
-      return this.fail(req, actor, operation, decision.reason, statementHash)
+      return this.deny(req, actor, operation, decision.reason, statementHash)
     }
 
-    return this.execute(req, actor, operation, executor, decision, lease, statementHash)
+    return this.execute(req, actor, operation, executor, decision, lease, controller, statementHash)
   }
 
   private async execute(
@@ -133,9 +145,9 @@ export class OperationExecutor {
     executor: CapabilityExecutor,
     decision: { readonly limits: ExecutionLimits; readonly readOnlyScope: boolean },
     lease: LeasedConnection,
+    controller: AbortController,
     statementHash: string | undefined,
   ): Promise<OperationResult> {
-    const controller = new AbortController()
     let timedOut = false
     let timer: unknown
     let startedAt = 0
@@ -146,8 +158,10 @@ export class OperationExecutor {
     // set/setTimeout/now를 try 밖에 두면 이들 중 하나가 던졌을 때 inFlight에
     // 항목이 남고, 그 requestId는 이후 영원히 duplicate_request가 된다.
     // run()이 결과 대신 reject하는 것도 계약 위반이다.
+    // 실패 경로에서 durationMs가 epoch 크기의 숫자로 남지 않도록 먼저 잡는다.
+    startedAt = this.clock.now()
+
     try {
-      this.inFlight.set(req.requestId, controller)
       timer = this.clock.setTimeout(() => {
         timedOut = true
         controller.abort()
@@ -157,8 +171,6 @@ export class OperationExecutor {
       // 사용자가 커넥션을 닫았는데 질의가 계속 도는 상태가 된다.
       if (lease.signal.aborted) controller.abort()
       else lease.signal.addEventListener('abort', onLeaseAbort, { once: true })
-
-      startedAt = this.clock.now()
       const payload = await executor.execute({
         ctx: { requestId: req.requestId, signal: controller.signal },
         driver: lease.driver,
@@ -198,7 +210,6 @@ export class OperationExecutor {
       // 그럼에도 지우는 이유는 임차를 재사용하는 호출자가 생기는 순간
       // 조용히 리스너가 쌓이기 때문이다.
       lease.signal.removeEventListener('abort', onLeaseAbort)
-      this.inFlight.delete(req.requestId)
     }
   }
 
@@ -247,9 +258,12 @@ export class OperationExecutor {
   private pageFor(req: OperationRequest, limits: ExecutionLimits): PageRequest {
     return {
       cursor: req.page?.cursor ?? DEFAULT_PAGE.cursor,
-      // 정책이 정한 상한을 넘겨 요청해도 상한으로 눌러 담는다.
-      maxRows: Math.min(limits.maxRows, req.page?.maxRows ?? limits.maxRows),
-      maxBytes: Math.min(limits.maxBytes, req.page?.maxBytes ?? limits.maxBytes),
+      // 정책이 정한 상한을 넘겨 요청해도 상한으로 눌러 담고, 0이나 음수도
+      // 상한으로 되돌린다. page는 renderer가 보내는 값이고, maxRows: 0이면
+      // 한 행도 못 돌려주면서 커서도 전진하지 않아 호출자가 무한 루프에 빠진다
+      // (`resolveLimits`가 limits에 대해 같은 이유로 하는 일이다).
+      maxRows: tighten(limits.maxRows, req.page?.maxRows),
+      maxBytes: tighten(limits.maxBytes, req.page?.maxBytes),
     }
   }
 
@@ -274,18 +288,34 @@ export class OperationExecutor {
     this.inFlight.get(requestId)?.abort()
   }
 
-  private fail(
+  /**
+   * 정책이 내린 거부. `denialReason`이 반드시 붙는다.
+   *
+   * 정책과 무관한 실패를 여기로 보내면 감사 로그에 "이유 없는 거부"가 남는다 —
+   * 무슨 일이 있었는지 설명하는 것이 존재 이유인 층에서 특히 나쁘다.
+   * 그런 경우는 `failed()`를 쓴다.
+   */
+  private deny(
+    req: OperationRequest,
+    actor: Actor,
+    operation: Operation,
+    reason: DenialReason,
+    statementHash?: string,
+  ): OperationResult {
+    this.record(req, actor, operation, 'denied', { statementHash, denialReason: reason })
+
+    return { ok: false, reason }
+  }
+
+  /** 정책 판정에 닿기 전에 끝난 실패(커넥션 획득 실패, 잘못된 승인 토큰 등). */
+  private failed(
     req: OperationRequest,
     actor: Actor,
     operation: Operation,
     reason: FailureReason,
-    statementHash?: string,
+    errorMessage?: string,
   ): OperationResult {
-    // 거부도 기록한다. 성공만 남기면 AI가 무엇을 시도했는지 알 수 없다.
-    this.record(req, actor, operation, 'denied', {
-      statementHash,
-      denialReason: isDenialReason(reason) ? reason : undefined,
-    })
+    this.record(req, actor, operation, 'failed', { errorMessage: errorMessage ?? reason })
 
     return { ok: false, reason }
   }
@@ -323,24 +353,9 @@ export class OperationExecutor {
   }
 }
 
-const DENIAL_REASONS = [
-  'ai_write_requires_proposal',
-  'ai_multi_statement',
-  'ai_read_only_unsupported',
-  'capability_missing',
-] as const
-
-/**
- * 컴파일 타임 완전성 검사. `DenialReason`에 값을 추가하면서 위 목록을 갱신하지
- * 않으면 여기서 타입 에러가 난다 — 갱신을 잊으면 그 거부는 감사 로그에
- * `denialReason` 없이 남는다. "이유 없는 거부"는 무슨 일이 있었는지 설명하는
- * 것이 존재 이유인 층에서 특히 나쁘다.
- */
-const _exhaustiveDenials: (typeof DENIAL_REASONS)[number] = null as unknown as DenialReason
-void _exhaustiveDenials
-
-function isDenialReason(reason: FailureReason): reason is DenialReason {
-  return (DENIAL_REASONS as readonly string[]).includes(reason)
+function tighten(cap: number, requested: number | undefined): number {
+  if (requested === undefined || !Number.isFinite(requested) || requested <= 0) return cap
+  return Math.min(cap, requested)
 }
 
 /** 감사 로그에 남길 문장. sql은 원문 그대로, 그 외는 무엇을 했는지 적는다. */

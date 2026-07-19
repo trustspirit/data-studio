@@ -40,7 +40,7 @@ export class SqlCapabilityExecutor implements CapabilityExecutor {
     // 드라이버 구현이 자기 상태를 참조할 수 있으므로 객체를 통해 부른다.
     const scope = await sql.beginReadOnly(ctx)
     try {
-      return { kind: 'rows', rows: await scope.execute(ctx, operation.sql, page) }
+      return { kind: 'rows', rows: await scope.execute(ctx, operation.sql, page, operation.params) }
     } finally {
       // end()를 빠뜨리면 읽기 전용 트랜잭션이 열린 채 남아 커넥션이 잠긴다.
       // 본문이 던져도 반드시 닫는다.

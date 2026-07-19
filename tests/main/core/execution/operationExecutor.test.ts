@@ -90,8 +90,8 @@ function createHarness(options: FakeOptions = {}) {
   }
 
   const scope: ReadOnlyScope = {
-    async execute(ctx, sql, page) {
-      calls.scopedExecute.push({ sql, page, requestId: ctx.requestId })
+    async execute(ctx, sql, page, params) {
+      calls.scopedExecute.push({ sql, page, params, requestId: ctx.requestId })
       await runBody(ctx)
       return emptyResult(ctx.requestId)
     },
@@ -373,6 +373,19 @@ describe('OperationExecutor — 제한', () => {
     })
   })
 
+  it('page의 0이나 음수는 상한으로 되돌린다', async () => {
+    // maxRows: 0이면 한 행도 못 돌려주면서 커서도 전진하지 않아 호출자가
+    // 무한 루프에 빠진다. page는 renderer가 보내는 값이다.
+    const h = createHarness()
+
+    await h.executor.run(request({ page: { cursor: null, maxRows: 0, maxBytes: -5 } }), USER)
+
+    expect(h.calls.execute[0]?.page).toMatchObject({
+      maxRows: DEFAULT_USER_LIMITS.maxRows,
+      maxBytes: DEFAULT_USER_LIMITS.maxBytes,
+    })
+  })
+
   it('요청이 제한보다 엄격하면 요청을 받아들인다', async () => {
     const h = createHarness()
 
@@ -394,6 +407,19 @@ describe('OperationExecutor — 파라미터와 컨텍스트', () => {
     )
 
     expect(h.calls.execute[0]?.params).toEqual([42])
+  })
+
+  it('AI 경로에서도 쿼리 파라미터를 잃지 않는다', async () => {
+    // 읽기 전용 스코프는 AI 경로의 유일한 실행 통로다. 여기서 파라미터가
+    // 조용히 떨어지면 AI는 값을 문자열로 이어 붙이도록 떠밀린다.
+    const h = createHarness()
+
+    await h.executor.run(
+      request({ operation: { kind: 'sql', sql: 'SELECT * FROM t WHERE id = $1', params: [7] } }),
+      AI,
+    )
+
+    expect(h.calls.scopedExecute[0]?.params).toEqual([7])
   })
 
   it('requestId를 ExecutionContext로 전달한다', async () => {
@@ -491,6 +517,21 @@ describe('OperationExecutor — 취소와 timeout', () => {
     await first
   })
 
+  it('acquire를 기다리는 동안에도 중복 요청을 막는다', async () => {
+    // 등록이 acquire 뒤에 있으면 두 번째 호출이 검사를 통과해 둘 다 드라이버에
+    // 닿고, cancel은 나중 것만 취소한다.
+    const h = createHarness({ gate: new Promise<void>(() => undefined) })
+
+    const first = h.executor.run(request(), USER)
+    const second = h.executor.run(request(), USER)
+
+    expect(await second).toEqual({ ok: false, reason: 'duplicate_request' })
+    expect(h.calls.execute.length).toBeLessThanOrEqual(1)
+
+    h.executor.cancel('req-1')
+    await first
+  })
+
   it('끝난 뒤에는 같은 requestId를 다시 쓸 수 있다', async () => {
     const h = createHarness()
 
@@ -542,6 +583,29 @@ describe('OperationExecutor — 실패 처리', () => {
 
     expect(result).toEqual({ ok: false, reason: 'error' })
     expect(h.calls.execute).toHaveLength(0)
+  })
+
+  it('정책과 무관한 실패는 거부가 아니라 실패로 기록한다', async () => {
+    // 'denied'로 남기면 denialReason 없는 거부가 되고, 감사 로그가 무슨 일이
+    // 있었는지 설명하지 못한다.
+    const h = createHarness({ acquireFails: true })
+
+    await h.executor.run(request(), USER)
+
+    const entry = h.log.recent(1)[0]
+    expect(entry?.outcome).toBe('failed')
+    expect(entry?.denialReason).toBeUndefined()
+    expect(entry?.errorMessage).toBeDefined()
+  })
+
+  it('정책 거부에는 반드시 denialReason이 붙는다', async () => {
+    const h = createHarness({ classify: 'write' })
+
+    await h.executor.run(request(), AI)
+
+    const entry = h.log.recent(1)[0]
+    expect(entry?.outcome).toBe('denied')
+    expect(entry?.denialReason).toBe('ai_write_requires_proposal')
   })
 })
 
