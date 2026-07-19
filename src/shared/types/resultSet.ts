@@ -19,6 +19,16 @@ export interface ResultMeta {
   readonly durationMs: number
   readonly truncatedRows: boolean
   readonly truncatedBytes: boolean
+  /**
+   * 이 실행이 실제로 변경한 행 수(`UPDATE`/`DELETE`/`INSERT` 등). 엔진이 이
+   * 값을 보고하지 않으면 `null`이다.
+   *
+   * `null`과 `0`은 다른 뜻이다: `null`은 "이 엔진/드라이버가 이 값을 보고하지
+   * 않는다"는 뜻이고, `0`은 "실제로 0개 행이 영향을 받았다"는 뜻이다. 이 둘을
+   * 섞으면 "0 rows updated"와 "modified count unavailable"을 사용자에게
+   * 구분해 보여줄 수 없다.
+   */
+  readonly rowsAffected?: number | null
   readonly notices?: readonly string[]
 }
 
@@ -61,6 +71,13 @@ export interface BuildResultSetInput {
    */
   readonly cursorAt: (index: number) => string | null
   readonly notices?: readonly string[]
+  /**
+   * 쓰기 문장이 실제로 변경한 행 수. 드라이버가 `SqlCapability.execute`에서
+   * `UPDATE`/`DELETE`/`INSERT` 결과를 조립할 때 넘긴다. 생략하면
+   * `meta.rowsAffected`는 `null`이 된다(엔진이 값을 보고하지 않는 것과 동일하게
+   * 취급) — `SELECT`처럼 이 개념이 없는 문장에서는 생략하면 된다.
+   */
+  readonly rowsAffected?: number | null
 }
 
 /**
@@ -126,6 +143,7 @@ export function buildResultSet(input: BuildResultSetInput): ResultSet {
       durationMs: input.durationMs,
       truncatedRows,
       truncatedBytes,
+      rowsAffected: input.rowsAffected ?? null,
       ...(input.notices === undefined ? {} : { notices: input.notices }),
     },
   }
