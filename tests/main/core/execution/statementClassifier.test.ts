@@ -267,3 +267,91 @@ describe('classifyStatement', () => {
     expect(classifyStatement('SELECT 1 -- comment\rDROP TABLE x')).toBe('write')
   })
 })
+
+// ---------------------------------------------------------------------------
+// 방언 어휘 모델 (§ StatementClassifier.ts 최상단 주석)
+//
+// 아래는 "어떤 엔진에서는 코드이고 다른 엔진에서는 주석/문자열인" 토큰들의
+// 목록이다. 각각이 하나의 우회 사례가 아니라 **같은 결함 클래스의 인스턴스**다.
+// 새 토큰을 발견하면 여기에 케이스를 추가하고 `LEXICAL_DIALECTS`에 플래그를
+// 채우는 것으로 끝나야 한다.
+// ---------------------------------------------------------------------------
+describe('classifyStatement — 방언이 갈리는 어휘 토큰', () => {
+  it('$는 MySQL/SQLite/SQL Server에서 식별자 문자다 (달러 인용이 아니다)', () => {
+    // 이 태스크를 촉발한 재발 사례. PostgreSQL에서는 `$b$`가 닫히지 않은 달러
+    // 인용이라 뒤를 통째로 삼키지만, MySQL 등에서는 `a$b$c`가 그냥 식별자
+    // 하나이고 `; DROP TABLE x`는 진짜 두 번째 문장이다.
+    expect(classifyStatement('SELECT a$b$c FROM t; DROP TABLE x')).toBe('write')
+    expect(classifyStatement('SELECT a$$b FROM t; DROP TABLE x')).toBe('write')
+    // PostgreSQL에서도 앞 문자가 식별자 문자면 달러 인용이 아니다.
+    expect(stripCommentsAndLiterals('SELECT a$b$c FROM t; DROP TABLE x')).toMatch(/DROP/i)
+    // 토큰 시작 위치의 진짜 달러 인용은 여전히 리터럴이다.
+    expect(stripCommentsAndLiterals('SELECT $tag$ DELETE FROM x $tag$')).not.toMatch(/DELETE/i)
+    // 토큰 시작 위치에서도 달러 인용이 **없는** 방언 해석이 반드시 필요하다:
+    // PostgreSQL에서는 통째로 리터럴이지만 MySQL/SQLite/SQL Server에서는
+    // `$tag$`가 식별자고 `;`가 진짜 문장 구분자다.
+    expect(classifyStatement('SELECT $tag$; DROP TABLE x$tag$')).toBe('write')
+  })
+
+  it('#는 MySQL에서만 줄 주석이다', () => {
+    // MySQL 해석에서만 `'`가 주석 처리되어 뒤의 `; DROP`이 코드로 드러난다.
+    expect(classifyStatement("SELECT 1 # ' \n ; DROP TABLE x")).toBe('write')
+    // 반대 방향: PostgreSQL 해석에서만 `#` 뒤가 코드다.
+    expect(classifyStatement('SELECT 1 # ; DROP TABLE x')).toBe('write')
+  })
+
+  it('--x는 MySQL에서 주석이 아니다 (뒤에 공백류가 있어야 한다)', () => {
+    // PostgreSQL/SQLite/SQL Server는 `--x`도 주석이지만 MySQL은 마이너스 두 개다.
+    expect(classifyStatement("SELECT 1 --' \n ; DROP TABLE x")).toBe('write')
+    expect(classifyStatement('SELECT 1 --; DROP TABLE x')).toBe('write')
+  })
+
+  it('블록 주석은 PostgreSQL/SQL Server에서 중첩된다', () => {
+    // 중첩하지 않는 엔진에서는 첫 `*/`에서 주석이 끝나 뒤가 코드다.
+    expect(classifyStatement('SELECT 1 /* /* */ ; DROP TABLE x */')).toBe('write')
+    // 반대 방향: 중첩하는 엔진에서만 `'`가 주석 안에 갇혀 뒤가 코드로 드러난다.
+    expect(classifyStatement("SELECT 1 /* /* */ ' */ ; DROP TABLE x")).toBe('write')
+  })
+
+  it('`ident`는 MySQL/SQLite에서만 인용 식별자다', () => {
+    expect(classifyStatement('SELECT `a`; DROP TABLE x')).toBe('write')
+    // 인용 식별자를 쓰는 평범한 읽기는 그대로 읽기여야 한다 (오탐 방지).
+    expect(classifyStatement('select * from `users` where `id` = 1')).toBe('read')
+  })
+
+  it('[ident]는 SQL Server/SQLite에서만 인용 식별자다', () => {
+    expect(classifyStatement('SELECT [a]; DROP TABLE x')).toBe('write')
+    // 대괄호 해석이 **드러내는** 쓰기: SQLite/SQL Server에서는 `[';]`가 식별자라
+    // 뒤의 `; DROP`이 코드지만, PostgreSQL/MySQL에서는 `'`가 리터럴을 열어
+    // 나머지를 통째로 삼킨다.
+    expect(classifyStatement("SELECT [';] FROM t; DROP TABLE x")).toBe('write')
+    expect(classifyStatement('SELECT * FROM [dbo].[Users] WHERE [Id] = 1')).toBe('read')
+  })
+
+  it("E'...'는 PostgreSQL에서도 백슬래시를 이스케이프로 쓴다", () => {
+    expect(classifyStatement("SELECT E'a\\'; DROP TABLE x")).toBe('write')
+  })
+
+  it('버전 조건부 주석 안에 다른 방언 토큰을 숨겨도 잡는다', () => {
+    // 이미 고쳐진 결함이 새 토큰 위에서 재발하지 않는지 — 이 태스크의 요지.
+    for (const sql of [
+      'SELECT 1 /*!`*/; DROP TABLE x',
+      'SELECT 1 /*![*/; DROP TABLE x',
+      'SELECT 1 /*!#*/; DROP TABLE x',
+      'SELECT 1 /*!/*!*/; DROP TABLE x',
+    ]) {
+      expect(classifyStatement(sql)).toBe('write')
+    }
+  })
+
+  it('닫히지 않은 구분자는 그 방언에서 구문 오류이므로 read라고 단언하지 않는다', () => {
+    // 마스커가 닫히지 않은 구분자를 끝까지 삼키면 그 안의 진짜 코드도 함께
+    // 사라진다. 어느 쪽으로도 단정할 수 없으니 read는 아니다.
+    expect(classifyStatement("SELECT 'unterminated")).toBe('unknown')
+    expect(classifyStatement('SELECT `unterminated')).toBe('unknown')
+    expect(classifyStatement('SELECT 1 /* unterminated')).toBe('unknown')
+    expect(classifyStatement('SELECT $$ unterminated')).toBe('unknown')
+    // 확실한 쓰기 신호는 여전히 write로 남는다 (unknown으로 뭉개지 않는다).
+    expect(classifyStatement("DROP TABLE x; SELECT 'unterminated")).toBe('write')
+  })
+})
