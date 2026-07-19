@@ -477,8 +477,67 @@ const WRITE_ANYWHERE =
   /\b(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s|drop\s|alter\s|create\s|grant\s|revoke\s)/i
 
 /**
- * `(` 바로 앞에 붙는 SQL 키워드들. 키워드 뒤의 괄호는 함수 호출이 아니라
- * 문법 구조다 — `IN (1,2,3)`, `WHERE (a=1 AND b=2)`, `GROUP BY (a)` 등.
+ * # 읽기로 시작하지만 쓰기/부작용을 수행하는 구문
+ *
+ * `WRITE_ANYWHERE`와 선두 키워드 분석은 "머리가 읽기면 읽기"라는 가정 위에 있다.
+ * 그 가정이 깨지는 구문들을 **하나의 표**로 모은다. 여기도 §방언 어휘 모델과
+ * 같은 원칙이다 — 새 구문을 발견하면 표에 줄을 추가할 뿐 분기를 늘리지 않는다.
+ *
+ * 마스킹된 단일 문장에 대해 검사하므로, 리터럴·주석 안의 같은 단어에는 반응하지
+ * 않는다.
+ */
+const READ_HEADED_SIDE_EFFECTS: readonly {
+  readonly pattern: RegExp
+  readonly verdict: StatementClassification
+  readonly why: string
+}[] = [
+  {
+    // 읽기 머리 뒤의 `INTO`는 어느 방언에서든 부작용을 뜻한다:
+    //   - `SELECT ... INTO newtbl`      — SQL Server·PostgreSQL에서 **테이블을 만든다**
+    //   - `SELECT ... INTO OUTFILE 'f'` — MySQL에서 **서버 파일시스템에 쓴다**
+    //   - `SELECT ... INTO DUMPFILE 'f'` — 같음
+    //   - `SELECT ... INTO @var`        — MySQL 변수 대입. 이것만은 쓰기가 아니지만
+    //     최엄격 규칙상 한 엔진에서라도 쓰기면 쓰기다.
+    // OUTFILE/DUMPFILE을 위한 별도 규칙은 **의도적으로 두지 않았다** — 이 규칙이
+    // 정확히 같은 입력을 잡으므로 어떤 테스트로도 구별할 수 없고, 반증 불가능한
+    // 가드는 이 코드베이스의 대표적 결함 유형이다.
+    pattern: /\binto\b/i,
+    verdict: 'write',
+    why: 'SELECT ... INTO creates a table, writes a server file, or assigns a variable',
+  },
+  {
+    // 행 잠금을 잡는다. 데이터를 바꾸지는 않으므로 `write`는 과하지만,
+    // PostgreSQL의 read-only 트랜잭션은 이것을 **거부**하고, 다른 세션을
+    // 블로킹하거나 데드락을 만들 수 있으며, 실무에서 이 구문은 거의 언제나
+    // 곧이어 UPDATE를 하기 위한 것이다. 평범한 읽기라고 단언할 수 없다.
+    // → `unknown`(사용자 승인 요구)이 정확한 답이다.
+    pattern: /\bfor\s+(?:update|share|key\s+share|no\s+key\s+update)\b/i,
+    verdict: 'unknown',
+    why: 'SELECT ... FOR UPDATE/SHARE takes locks and is rejected by read-only transactions',
+  },
+  {
+    // MySQL의 같은 것.
+    pattern: /\block\s+in\s+share\s+mode\b/i,
+    verdict: 'unknown',
+    why: 'MySQL SELECT ... LOCK IN SHARE MODE takes locks',
+  },
+]
+
+/**
+ * `(` 바로 앞에 붙어도 **함수 호출이 아님이 문법으로 보장되는** 토큰들.
+ *
+ * 판정 기준은 딱 하나다: **PostgreSQL에서 인용 없이 함수 이름이 될 수 없는가.**
+ * (예약어이거나 `type_func_name_reserved`면 그렇다. 인용해서 함수를 만들면
+ * `QUOTED_CALL_LIKE`가 원문에서 잡는다.) 이 기준을 통과하지 못하는 단어를
+ * 여기 넣으면 `SELECT <그단어>(1)`이 곧바로 `read`가 되어 우회면이 된다.
+ *
+ * 그래서 다음은 **일부러 빠져 있다**:
+ *   - `delete` `update` `insert` `set` `filter` `over` `within` `partition`
+ *     `recursive` `of` — PostgreSQL에서 전부 인용 없이 함수 이름이 될 수 있고
+ *     (`insert`는 MySQL 내장 문자열 함수이기도 하다), 실제로 `SELECT delete(1)`
+ *     같은 입력이 `read`로 새어 나갔다.
+ *   - `left` `right` — PostgreSQL/MySQL의 실재 내장 함수다. `LEFT JOIN`에는
+ *     괄호가 붙지 않으므로 제외해도 오탐이 늘지 않는다.
  *
  * 여기에 **내장 함수는 넣지 않는다**. `count()`, `now()`, `sum()`도
  * `unknown`으로 남는다 — 내장 함수 허용 목록은 그 자체가 우회면이 되고
@@ -486,13 +545,12 @@ const WRITE_ANYWHERE =
  * 것을 확신하지 않는 것이다.
  */
 const NON_CALL_KEYWORDS = new Set([
-  'in', 'and', 'or', 'not', 'where', 'on', 'values', 'over', 'case', 'when',
+  'in', 'and', 'or', 'not', 'where', 'on', 'values', 'case', 'when',
   'then', 'else', 'end', 'between', 'like', 'ilike', 'exists', 'from', 'select',
   'by', 'having', 'group', 'order', 'union', 'intersect', 'except', 'all',
-  'any', 'some', 'is', 'null', 'as', 'join', 'inner', 'outer', 'left', 'right',
+  'any', 'some', 'is', 'null', 'as', 'join', 'inner', 'outer',
   'full', 'cross', 'lateral', 'using', 'limit', 'offset', 'fetch', 'returning',
-  'distinct', 'with', 'recursive', 'partition', 'filter', 'within', 'into',
-  'set', 'table', 'insert', 'update', 'delete', 'asc', 'desc', 'for', 'of',
+  'distinct', 'with', 'into', 'table', 'asc', 'desc', 'for',
 ])
 
 /**
@@ -568,18 +626,24 @@ function classifySingleStatement(raw: string, d: DialectLexicon): StatementClass
 
   if (WRITE_HEADS.has(head)) return 'write'
 
+  const isReadHead = READ_HEADS.has(head) || head === 'with'
+  if (!isReadHead) return 'unknown'
+
+  // 머리가 읽기여도 부작용을 수행하는 구문이 있다 (§ READ_HEADED_SIDE_EFFECTS).
+  let verdict: StatementClassification = 'read'
+  for (const rule of READ_HEADED_SIDE_EFFECTS) {
+    if (rule.pattern.test(masked)) verdict = stricter(verdict, rule.verdict)
+  }
+  if (verdict === 'write') return 'write'
+
   if (head === 'with') {
     // CTE 본문의 쓰기는 WRITE_ANYWHERE가 이미 잡았다. 여기까지 왔으면
     // 읽기 전용 CTE다.
-    return 'read'
+    return verdict
   }
 
-  if (READ_HEADS.has(head)) {
-    // SELECT drop_everything() — 함수의 부작용은 정적으로 알 수 없다.
-    return hasCallLike(raw, masked) ? 'unknown' : 'read'
-  }
-
-  return 'unknown'
+  // SELECT drop_everything() — 함수의 부작용은 정적으로 알 수 없다.
+  return hasCallLike(raw, masked) ? 'unknown' : verdict
 }
 
 function classifyUnder(sql: string, d: DialectLexicon): StatementClassification {

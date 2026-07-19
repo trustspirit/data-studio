@@ -355,3 +355,62 @@ describe('classifyStatement — 방언이 갈리는 어휘 토큰', () => {
     expect(classifyStatement("DROP TABLE x; SELECT 'unterminated")).toBe('write')
   })
 })
+
+describe('classifyStatement — 읽기로 시작하지만 쓰기를 하는 구문', () => {
+  it('SELECT ... INTO 는 테이블을 만든다 (SQL Server/PostgreSQL)', () => {
+    expect(classifyStatement('SELECT * INTO newtbl FROM t')).toBe('write')
+  })
+
+  it('SELECT ... INTO OUTFILE/DUMPFILE 은 서버에 파일을 쓴다 (MySQL)', () => {
+    expect(classifyStatement("SELECT a INTO OUTFILE '/tmp/p' FROM t")).toBe('write')
+    expect(classifyStatement("SELECT a INTO DUMPFILE '/tmp/p' FROM t")).toBe('write')
+  })
+
+  it('FOR UPDATE/SHARE 는 잠금을 잡으므로 평범한 읽기가 아니다', () => {
+    // read-only 트랜잭션이 거부하고 다른 세션을 블로킹할 수 있다. 데이터를
+    // 바꾸지는 않으므로 write는 과하다 — unknown(승인 요구)이 정확하다.
+    expect(classifyStatement('SELECT * FROM t FOR UPDATE')).toBe('unknown')
+    expect(classifyStatement('SELECT * FROM t FOR SHARE')).toBe('unknown')
+    expect(classifyStatement('SELECT * FROM t FOR NO KEY UPDATE')).toBe('unknown')
+    expect(classifyStatement('SELECT * FROM t LOCK IN SHARE MODE')).toBe('unknown')
+  })
+
+  it('CTE 안에 숨긴 쓰기는 이미 잡혀 있다 (회귀 방지)', () => {
+    expect(classifyStatement('WITH d AS (DELETE FROM x RETURNING *) SELECT * FROM d')).toBe('write')
+    expect(classifyStatement('WITH d AS (INSERT INTO x VALUES (1) RETURNING *) SELECT * FROM d')).toBe('write')
+  })
+
+  it('REPLACE/LOAD/RENAME 은 선두 키워드 또는 INTO 규칙이 잡는다', () => {
+    // WRITE_ANYWHERE에 이들을 위한 별도 대안을 추가하지 **않았다** — 아래 셋은
+    // 전부 WRITE_HEADS나 INTO 규칙이 이미 잡으므로 추가해도 반증 불가능한
+    // 죽은 가드가 된다.
+    expect(classifyStatement('WITH d AS (SELECT 1) REPLACE INTO t VALUES (1)')).toBe('write')
+    expect(classifyStatement('SELECT 1; LOAD DATA INFILE \'x\' INTO TABLE t')).toBe('write')
+    expect(classifyStatement('SELECT 1; RENAME TABLE a TO b')).toBe('write')
+  })
+})
+
+describe('classifyStatement — 키워드 제외 목록의 구멍', () => {
+  it('PostgreSQL에서 함수 이름이 될 수 있는 키워드는 제외 목록에 없다', () => {
+    // 비예약어는 인용 없이 함수 이름이 될 수 있다. 제외 목록에 넣으면
+    // `SELECT delete(1)` 한 줄로 호출 검사가 통째로 뚫린다.
+    for (const name of [
+      'delete', 'update', 'insert', 'set', 'filter', 'over', 'within',
+      'partition', 'recursive', 'of', 'left', 'right',
+    ]) {
+      expect(classifyStatement(`SELECT ${name}(1)`)).toBe('unknown')
+    }
+  })
+
+  it('문법상 호출이 아님이 보장되는 키워드는 여전히 read다 (오탐 방지)', () => {
+    expect(classifyStatement('SELECT id FROM users WHERE id IN (1,2,3)')).toBe('read')
+    expect(classifyStatement('SELECT * FROM t WHERE (a=1 AND b=2)')).toBe('read')
+    expect(classifyStatement('SELECT * FROM t WHERE a IN (SELECT b FROM u)')).toBe('read')
+    expect(classifyStatement('SELECT a FROM t ORDER BY (a)')).toBe('read')
+    expect(classifyStatement('SELECT a FROM t1 FULL OUTER JOIN t2 USING (id)')).toBe('read')
+    expect(classifyStatement('SELECT a FROM t WHERE EXISTS (SELECT 1 FROM u)')).toBe('read')
+    expect(classifyStatement('SELECT CASE WHEN (a=1) THEN 2 ELSE 3 END FROM t')).toBe('read')
+    expect(classifyStatement('SELECT a, b FROM t WHERE (a, b) IN ((1,2),(3,4))')).toBe('read')
+    expect(classifyStatement('WITH RECURSIVE r AS (SELECT 1) SELECT * FROM r')).toBe('read')
+  })
+})
