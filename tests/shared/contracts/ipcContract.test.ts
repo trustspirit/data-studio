@@ -29,6 +29,8 @@ describe('IPC_CONTRACT', () => {
         'connection:save',
         'operation:cancel',
         'operation:run',
+        'secrets:has',
+        'secrets:set',
         'secrets:status',
       ].sort(),
     )

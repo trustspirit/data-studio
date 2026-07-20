@@ -37,12 +37,24 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
 
   register('connection:delete', async ({ id }) => {
     await services.repository.delete(id)
+    // 연결이 사라지면 그 비밀도 지운다 — 고아 비밀 방지.
+    await services.secrets.delete({ kind: 'db-password', ownerId: id })
     return null
   })
 
   register('secrets:status', () =>
     Promise.resolve({ persistent: services.secrets.isPersistent() }),
   )
+
+  register('secrets:set', async ({ connectionId, value }) => {
+    await services.secrets.set({ kind: 'db-password', ownerId: connectionId }, value)
+    return null
+  })
+
+  register('secrets:has', async ({ connectionId }) => {
+    const stored = await services.secrets.get({ kind: 'db-password', ownerId: connectionId })
+    return { exists: stored !== null }
+  })
 
   register('operation:run', (input) => {
     const actor = buildUserActor(input.proposalId)
