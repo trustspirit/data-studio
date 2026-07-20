@@ -33,6 +33,11 @@ const Warn = styled.div`
   font: ${({ theme }) => theme.font.ui};
   font-size: 12px;
 `
+const Hint = styled.div`
+  color: ${({ theme }) => theme.color.textDim};
+  font: ${({ theme }) => theme.font.ui};
+  font-size: 12px;
+`
 
 interface Props {
   draft: ConnectionConfig
@@ -42,6 +47,10 @@ interface Props {
   onEngineChange: (engine: EngineId) => void
   onSave: () => void
   onDelete: () => void
+  password: string
+  onPasswordChange: (value: string) => void
+  hasSavedSecret: boolean
+  secretsPersistent: boolean
 }
 
 const engineOptions = ENGINE_IDS.map((id) => ({ value: id, label: id }))
@@ -66,6 +75,10 @@ export function ConnectionForm({
   onEngineChange,
   onSave,
   onDelete,
+  password,
+  onPasswordChange,
+  hasSavedSecret,
+  secretsPersistent,
 }: Props) {
   const [confirming, setConfirming] = useState(false)
   const showPort = defaultPort(draft.engine) !== null
@@ -123,6 +136,21 @@ export function ConnectionForm({
           {...errorProp(errors, 'username')}
         />
       </Row>
+      {showPort && (
+        <>
+          <TextField
+            label="Password"
+            type="password"
+            value={password}
+            onValueChange={onPasswordChange}
+            placeholder={hasSavedSecret ? '●●●●●●' : ''}
+          />
+          {hasSavedSecret && <Hint>저장됨 — 비우면 유지, 입력하면 교체됩니다.</Hint>}
+          {!secretsPersistent && (
+            <Warn>이 기기는 재시작 시 비밀번호를 다시 입력해야 합니다.</Warn>
+          )}
+        </>
+      )}
       <TextField
         label="AI read-only user"
         value={draft.aiReadOnlyUsername ?? ''}
