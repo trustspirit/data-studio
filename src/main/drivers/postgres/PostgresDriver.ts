@@ -1,7 +1,9 @@
 import { Client } from 'pg'
 import type { ConnectionConfig } from '../../../shared/types/connection'
 import type { Driver } from '../../core/driver/Driver'
+import type { SqlCapability } from '../../core/driver/capabilities/SqlCapability'
 import { pgSslConfig } from './pgSsl'
+import { PostgresSqlCapability } from './PostgresSqlCapability'
 
 export interface PgConnParams {
   host: string
@@ -53,6 +55,7 @@ function defaultCreateClient(params: PgConnParams): PgClientLike {
 export class PostgresDriver implements Driver {
   readonly id: string
   readonly engine = 'postgres' as const
+  readonly sql: SqlCapability
   private conn: PgClientLike | null = null
 
   constructor(
@@ -60,6 +63,7 @@ export class PostgresDriver implements Driver {
     private readonly deps: PostgresDriverDeps,
   ) {
     this.id = config.id
+    this.sql = new PostgresSqlCapability(() => this.requireConn())
   }
 
   private makeClient(): (params: PgConnParams) => PgClientLike {
