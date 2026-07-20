@@ -26,6 +26,12 @@ function createHarness() {
     secretSet: [] as { ref: unknown; value: string }[],
     secretDelete: [] as unknown[],
     secretHasReturns: null as string | null,
+    open: [] as unknown[],
+    closeConn: [] as string[],
+    statusOf: [] as string[],
+    openThrows: false,
+    getReturns: { id: 'c1' } as unknown,
+    statusReturns: 'ready' as string,
   }
 
   const register = ((channel, handler) => {
@@ -38,7 +44,8 @@ function createHarness() {
         calls.listCalled += 1
         return Promise.resolve([])
       },
-      get: () => Promise.resolve(null),
+      get: (id: string) =>
+        Promise.resolve(calls.getReturns === null ? null : { ...(calls.getReturns as object), id }),
       save: (config: unknown) => {
         calls.save.push(config)
         return Promise.resolve()
@@ -46,6 +53,20 @@ function createHarness() {
       delete: (id: string) => {
         calls.delete.push(id)
         return Promise.resolve()
+      },
+    },
+    connections: {
+      open: (config: unknown) => {
+        calls.open.push(config)
+        return calls.openThrows ? Promise.reject(new Error('connect refused')) : Promise.resolve()
+      },
+      close: (id: string) => {
+        calls.closeConn.push(id)
+        return Promise.resolve()
+      },
+      status: (id: string) => {
+        calls.statusOf.push(id)
+        return calls.statusReturns
       },
     },
     secrets: {
@@ -213,5 +234,43 @@ describe('registerIpcRoutes', () => {
     expect(h.calls.delete).toEqual(['c1'])
     // 비밀 삭제를 빠뜨리면 고아 비밀이 남는다.
     expect(h.calls.secretDelete).toEqual([{ kind: 'db-password', ownerId: 'c1' }])
+  })
+
+  it('connection:open은 repository config로 매니저를 열고 opened:true', async () => {
+    const h = createHarness()
+    const r = await h.invoke('connection:open', { connectionId: 'c1' })
+    expect(h.calls.open).toHaveLength(1)
+    expect(r).toEqual({ opened: true })
+  })
+
+  it('connection:open은 없는 연결이면 opened:false', async () => {
+    const h = createHarness()
+    h.calls.getReturns = null
+    const r = await h.invoke('connection:open', { connectionId: 'missing' })
+    expect(h.calls.open).toHaveLength(0)
+    expect(r).toMatchObject({ opened: false })
+  })
+
+  it('connection:open은 connect 실패를 opened:false + reason으로', async () => {
+    const h = createHarness()
+    h.calls.openThrows = true
+    const r = await h.invoke('connection:open', { connectionId: 'c1' })
+    expect(r).toMatchObject({
+      opened: false,
+      reason: expect.stringContaining('refused') as unknown,
+    })
+  })
+
+  it('connection:close는 매니저를 부른다', async () => {
+    const h = createHarness()
+    await h.invoke('connection:close', { connectionId: 'c1' })
+    expect(h.calls.closeConn).toEqual(['c1'])
+  })
+
+  it('connection:status는 상태를 돌려준다', async () => {
+    const h = createHarness()
+    h.calls.statusReturns = 'connecting'
+    const r = await h.invoke('connection:status', { connectionId: 'c1' })
+    expect(r).toEqual({ status: 'connecting' })
   })
 })

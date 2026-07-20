@@ -24,9 +24,12 @@ describe('IPC_CONTRACT', () => {
     expect([...contractChannels()].sort()).toEqual(
       [
         'audit:recent',
+        'connection:close',
         'connection:delete',
         'connection:list',
+        'connection:open',
         'connection:save',
+        'connection:status',
         'operation:cancel',
         'operation:run',
         'secrets:has',
