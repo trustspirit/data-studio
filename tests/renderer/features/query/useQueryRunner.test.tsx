@@ -22,6 +22,18 @@ function gatewayReturning(outcome: OperationOutcome): OperationGateway & { run: 
   }
 }
 
+interface Deferred<T> {
+  readonly promise: Promise<T>
+  resolve: (v: T) => void
+}
+function deferred<T>(): Deferred<T> {
+  let resolve!: (v: T) => void
+  const promise = new Promise<T>((r) => {
+    resolve = r
+  })
+  return { promise, resolve }
+}
+
 describe('useQueryRunner', () => {
   it('run이 게이트웨이를 부르고 결과를 노출한다', async () => {
     const gw = gatewayReturning({ ok: true, payload: { kind: 'rows', rows: resultSet() } })
@@ -84,12 +96,69 @@ describe('useQueryRunner', () => {
     expect(result.current.rows).toHaveLength(0)
   })
 
-  it('cancel이 진행 중 요청을 취소한다', async () => {
-    const gw = gatewayReturning({ ok: true, payload: { kind: 'rows', rows: resultSet() } })
+  it('loadMore이 진행 중이면 같은 커서로 중복 fetch하지 않는다', async () => {
+    const page1 = resultSet({ rows: [[{ t: 'int', v: 1 }]], page: { cursor: 'pg:1', hasMore: true, rowCount: 1, bytes: 10 } })
+    const page2Outcome: OperationOutcome = {
+      ok: true,
+      payload: {
+        kind: 'rows',
+        rows: resultSet({ rows: [[{ t: 'int', v: 2 }]], page: { cursor: null, hasMore: false, rowCount: 1, bytes: 10 } }),
+      },
+    }
+    const page2 = deferred<OperationOutcome>()
+    const run = vi.fn()
+      .mockResolvedValueOnce({ ok: true, payload: { kind: 'rows', rows: page1 } })
+      .mockReturnValueOnce(page2.promise)
+    const gw: OperationGateway = {
+      run,
+      cancel: vi.fn().mockResolvedValue(undefined),
+      recentAudit: vi.fn().mockResolvedValue([]),
+    }
     const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
     await act(async () => { await result.current.run() })
+    expect(result.current.hasMore).toBe(true)
+
+    let firstCall: Promise<void> = Promise.resolve()
+    let secondCall: Promise<void> = Promise.resolve()
+    act(() => {
+      firstCall = result.current.loadMore()
+      secondCall = result.current.loadMore()
+    })
+    await act(async () => {
+      page2.resolve(page2Outcome)
+      await Promise.all([firstCall, secondCall])
+    })
+
+    // run: 1회(첫 run) + 1회(page2 fetch) = 2회. in-flight 가드가 없으면
+    // 두 번째 loadMore 호출이 같은 커서로 또 fetch해 3회가 된다.
+    expect(run).toHaveBeenCalledTimes(2)
+    expect(result.current.rows).toHaveLength(2)
+  })
+
+  it('cancel이 진행 중 요청을 취소한다', async () => {
+    const inFlight = deferred<OperationOutcome>()
+    const run = vi.fn().mockReturnValue(inFlight.promise)
+    const gw: OperationGateway = {
+      run,
+      cancel: vi.fn().mockResolvedValue(undefined),
+      recentAudit: vi.fn().mockResolvedValue([]),
+    }
+    const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
+
+    let runCall: Promise<void> = Promise.resolve()
+    act(() => {
+      runCall = result.current.run()
+    })
+    expect(result.current.running).toBe(true)
+    const requestId = (run.mock.calls[0] as [{ requestId: string }])[0].requestId
+
     act(() => result.current.cancel())
     // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
-    expect(gw.cancel).toHaveBeenCalled()
+    expect(gw.cancel).toHaveBeenCalledWith(requestId)
+
+    await act(async () => {
+      inFlight.resolve({ ok: true, payload: { kind: 'rows', rows: resultSet() } })
+      await runCall
+    })
   })
 })

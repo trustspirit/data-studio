@@ -37,6 +37,7 @@ export function useQueryRunner(gateway: OperationGateway, connectionId: string):
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const activeRequestId = useRef<string | null>(null)
+  const inFlight = useRef(false)
 
   const apply = useCallback((rs: ResultSet, append: boolean) => {
     setColumns(rs.columns)
@@ -49,6 +50,11 @@ export function useQueryRunner(gateway: OperationGateway, connectionId: string):
 
   const execute = useCallback(
     async (pageCursor: string | null, append: boolean) => {
+      // 같은 틱에서 재진입을 막는 동기 가드. state(running)는 갱신이
+      // 비동기라 스크롤 이벤트가 연달아 들어오는 사이 재확인해도 아직
+      // false로 보일 수 있다 — ref만 그 자리에서 즉시 막을 수 있다.
+      if (inFlight.current) return
+      inFlight.current = true
       const requestId = crypto.randomUUID()
       activeRequestId.current = requestId
       setRunning(true)
@@ -70,6 +76,8 @@ export function useQueryRunner(gateway: OperationGateway, connectionId: string):
         setError(messageOf(e))
       } finally {
         setRunning(false)
+        if (activeRequestId.current === requestId) activeRequestId.current = null
+        inFlight.current = false
       }
     },
     [gateway, connectionId, sql, apply],
