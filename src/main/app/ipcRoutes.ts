@@ -42,6 +42,26 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
     return null
   })
 
+  register('connection:open', async ({ connectionId }) => {
+    const config = await services.repository.get(connectionId)
+    if (config === null) return { opened: false as const, reason: `unknown connection: ${connectionId}` }
+    try {
+      await services.connections.open(config)
+      return { opened: true as const }
+    } catch (error) {
+      return { opened: false as const, reason: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  register('connection:close', async ({ connectionId }) => {
+    await services.connections.close(connectionId)
+    return null
+  })
+
+  register('connection:status', ({ connectionId }) =>
+    Promise.resolve({ status: services.connections.status(connectionId) }),
+  )
+
   register('secrets:status', () =>
     Promise.resolve({ persistent: services.secrets.isPersistent() }),
   )

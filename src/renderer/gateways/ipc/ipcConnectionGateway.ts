@@ -1,5 +1,5 @@
 import type { ConnectionConfig } from '../../../shared/types/connection'
-import type { ConnectionGateway } from '../ports/ConnectionGateway'
+import type { ConnectionGateway, ConnectionStatus, OpenResult } from '../ports/ConnectionGateway'
 import { invokeUnwrapped, type DataconBridge } from './ipcInvoke'
 
 /**
@@ -31,6 +31,19 @@ export function createIpcConnectionGateway(bridge: DataconBridge): ConnectionGat
         undefined,
       )
       return result.persistent
+    },
+    open: (connectionId) =>
+      invokeUnwrapped<OpenResult>(bridge, 'connection:open', { connectionId }),
+    close: async (connectionId) => {
+      await invokeUnwrapped<null>(bridge, 'connection:close', { connectionId })
+    },
+    status: async (connectionId) => {
+      const result = await invokeUnwrapped<{ status: ConnectionStatus }>(
+        bridge,
+        'connection:status',
+        { connectionId },
+      )
+      return result.status
     },
   }
 }
