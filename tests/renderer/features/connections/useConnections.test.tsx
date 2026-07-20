@@ -39,6 +39,9 @@ function fakeGateway(initial: ConnectionConfig[]): ConnectionGateway & { store: 
     setSecret: vi.fn(() => Promise.resolve()),
     hasSecret: vi.fn(() => Promise.resolve(false)),
     secretsPersistent: vi.fn(() => Promise.resolve(true)),
+    open: vi.fn(() => Promise.resolve({ opened: true }) as ReturnType<ConnectionGateway['open']>),
+    close: vi.fn(() => Promise.resolve()),
+    status: vi.fn(() => Promise.resolve('ready') as ReturnType<ConnectionGateway['status']>),
   }
 }
 

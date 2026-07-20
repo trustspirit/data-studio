@@ -1,5 +1,13 @@
 import type { ConnectionConfig } from '../../../shared/types/connection'
 
+/** 커넥션의 실시간 연결 상태. */
+export type ConnectionStatus = 'closed' | 'connecting' | 'ready' | 'error'
+
+/** `open` 호출 결과. 실패해도 예외가 아니라 이 값으로 사유를 준다. */
+export type OpenResult =
+  | { readonly opened: true }
+  | { readonly opened: false; readonly reason: string }
+
 /**
  * feature가 커넥션을 다룰 때 의존하는 인터페이스.
  *
@@ -16,6 +24,12 @@ export interface ConnectionGateway {
   hasSecret(connectionId: string): Promise<boolean>
   /** 비밀 저장소가 재시작 후에도 값을 유지하는지. */
   secretsPersistent(): Promise<boolean>
+  /** 실제 DB 연결을 연다. */
+  open(connectionId: string): Promise<OpenResult>
+  /** 실제 DB 연결을 닫는다. */
+  close(connectionId: string): Promise<void>
+  /** 커넥션의 현재 연결 상태를 조회한다. */
+  status(connectionId: string): Promise<ConnectionStatus>
 }
 
 /** secret 저장소가 재시작 후에도 값을 유지하는지. */

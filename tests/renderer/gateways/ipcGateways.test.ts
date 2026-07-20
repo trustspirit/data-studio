@@ -90,6 +90,29 @@ describe('ipcConnectionGateway', () => {
     expect(calls[0]?.channel).toBe('secrets:status')
     expect(result).toBe(false)
   })
+
+  it('open을 connection:open 채널로 부르고 opened 유니온을 푼다', async () => {
+    const { bridge: b, calls } = bridge({ ok: true, value: { opened: true } })
+    const gateway = createIpcConnectionGateway(b)
+    const r = await gateway.open('c1')
+    expect(calls[0]).toEqual({ channel: 'connection:open', input: { connectionId: 'c1' } })
+    expect(r).toEqual({ opened: true })
+  })
+
+  it('close를 connection:close 채널로 부른다', async () => {
+    const { bridge: b, calls } = bridge({ ok: true, value: null })
+    const gateway = createIpcConnectionGateway(b)
+    await gateway.close('c1')
+    expect(calls[0]).toEqual({ channel: 'connection:close', input: { connectionId: 'c1' } })
+  })
+
+  it('status를 connection:status 채널로 부르고 status를 푼다', async () => {
+    const { bridge: b, calls } = bridge({ ok: true, value: { status: 'ready' } })
+    const gateway = createIpcConnectionGateway(b)
+    const s = await gateway.status('c1')
+    expect(calls[0]?.channel).toBe('connection:status')
+    expect(s).toBe('ready')
+  })
 })
 
 describe('ipcOperationGateway', () => {

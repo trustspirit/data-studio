@@ -1,13 +1,15 @@
 import type { OperationRequestDto } from '../../../shared/contracts/operationDto'
+import type { ResultSet } from '../../../shared/types/resultSet'
 
 /**
  * 실행 결과의 renderer 표현. main의 `OperationResult`를 그대로 받는다.
  *
  * main 타입을 재선언하지 않고 여기서 얇게 다시 적는다 — renderer는 main을
- * import하지 않으므로(boundaries 테스트가 강제) 구조만 맞춘다.
+ * import하지 않으므로(boundaries 테스트가 강제) 구조만 맞춘다. `rows`는
+ * `ResultSet`(shared)이다 — main의 실제 페이로드와 구조가 같다.
  */
 export type OperationPayload =
-  | { readonly kind: 'rows'; readonly rows: unknown }
+  | { readonly kind: 'rows'; readonly rows: ResultSet }
   | { readonly kind: 'schemas'; readonly schemas: unknown }
   | { readonly kind: 'tables'; readonly tables: unknown }
   | { readonly kind: 'tableDetail'; readonly detail: unknown }
