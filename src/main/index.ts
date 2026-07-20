@@ -12,6 +12,7 @@ import { FileConnectionRepository } from './infrastructure/FileConnectionReposit
 import { FileOperationLog } from './infrastructure/execution/FileOperationLog'
 import { createSecretStore } from './infrastructure/createSecretStore'
 import { systemClock, systemTimers, randomId, sha256Hex } from './infrastructure/systemClock'
+import { createPostgresDriver } from './drivers/postgres'
 
 /** 만료된 쓰기 제안서를 이 간격으로 버린다. 문장 원문을 오래 들고 있지 않기 위해서. */
 const PROPOSAL_SWEEP_MS = 60_000
@@ -107,20 +108,29 @@ async function wireServices(): Promise<void> {
     consoleLogger,
   )
 
+  const secrets = createSecretStore({
+    safeStorage,
+    filePath: path.join(userData, 'secrets.json'),
+    platform: process.platform,
+    logger: consoleLogger,
+  })
+
   const services = buildAppServices({
     logger: consoleLogger,
     repository: new FileConnectionRepository(path.join(userData, 'connections.json'), consoleLogger),
-    secrets: createSecretStore({
-      safeStorage,
-      filePath: path.join(userData, 'secrets.json'),
-      platform: process.platform,
-      logger: consoleLogger,
-    }),
+    secrets,
     log,
     clock: systemTimers,
     randomId,
     hash: sha256Hex,
     pool: { maxConcurrent: 4, queueTimeoutMs: 30_000 },
+    registerDrivers: (registry) => {
+      registry.register('postgres', (config) =>
+        createPostgresDriver(config, {
+          getPassword: () => secrets.get({ kind: 'db-password', ownerId: config.id }),
+        }),
+      )
+    },
   })
 
   const guard = createSenderGuard(allowedRendererUrls())

@@ -107,6 +107,12 @@ export class PostgresSchemaCapability implements SchemaCapability {
       // 서브쿼리가 null을 준다.
       primaryKeyOrdinal: row.pk_pos === null ? null : Number(row.pk_pos),
     }))
+    // 스키마나 테이블이 없으면 위 질의가 조용히 0행을 준다 — 컬럼 없는 빈
+    // TableDetail을 "존재하는 테이블"처럼 돌려주면 안 된다. 스키마 한정자를
+    // 실제로 쓰는지 증명하는 계약 조항이 바로 이 경로를 짚는다.
+    if (columns.length === 0) {
+      throw new Error(`table not found: ${schema}.${table}`)
+    }
     return { schema, name: table, columns }
   }
 
