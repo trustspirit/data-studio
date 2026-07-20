@@ -15,7 +15,14 @@ function wrap(node: React.ReactNode) {
   return render(<ThemeProvider theme={darkTheme}>{node}</ThemeProvider>)
 }
 const noop = {
-  onChange: () => {}, onEngineChange: () => {}, onSave: () => {}, onDelete: () => {},
+  onChange: () => {},
+  onEngineChange: () => {},
+  onSave: () => {},
+  onDelete: () => {},
+  onPasswordChange: () => {},
+  password: '',
+  hasSavedSecret: false,
+  secretsPersistent: true,
 }
 
 describe('ConnectionForm', () => {
@@ -59,5 +66,56 @@ describe('ConnectionForm', () => {
   it('새 연결(isNew)에는 Delete가 없다', () => {
     wrap(<ConnectionForm draft={draft()} errors={{}} isNew={true} {...noop} />)
     expect(screen.queryByText('Delete')).toBeNull()
+  })
+
+  it('포트 있는 엔진에서는 Password 필드를 보여준다', () => {
+    wrap(<ConnectionForm draft={draft({ engine: 'postgres' })} errors={{}} isNew={false} {...noop} />)
+    expect(screen.getByLabelText('Password')).toBeTruthy()
+  })
+
+  it('sqlite에서는 Password 필드를 숨긴다', () => {
+    wrap(<ConnectionForm draft={draft({ engine: 'sqlite', port: 0 })} errors={{}} isNew={false} {...noop} />)
+    expect(screen.queryByLabelText('Password')).toBeNull()
+  })
+
+  it('Password 입력이 onPasswordChange를 부른다', () => {
+    const onPasswordChange = vi.fn()
+    wrap(
+      <ConnectionForm
+        draft={draft({ engine: 'postgres' })}
+        errors={{}}
+        isNew={false}
+        {...noop}
+        onPasswordChange={onPasswordChange}
+      />,
+    )
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 's3cret' } })
+    expect(onPasswordChange).toHaveBeenCalledWith('s3cret')
+  })
+
+  it('hasSavedSecret이면 저장됨 안내를 보인다', () => {
+    wrap(
+      <ConnectionForm
+        draft={draft({ engine: 'postgres' })}
+        errors={{}}
+        isNew={false}
+        {...noop}
+        hasSavedSecret={true}
+      />,
+    )
+    expect(screen.getByText(/저장됨/)).toBeTruthy()
+  })
+
+  it('secretsPersistent가 false면 재입력 경고를 보인다', () => {
+    wrap(
+      <ConnectionForm
+        draft={draft({ engine: 'postgres' })}
+        errors={{}}
+        isNew={false}
+        {...noop}
+        secretsPersistent={false}
+      />,
+    )
+    expect(screen.getByText(/재시작 시/)).toBeTruthy()
   })
 })

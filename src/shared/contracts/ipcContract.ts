@@ -17,6 +17,10 @@ export const IPC_CONTRACT = {
   'connection:save': { input: connectionConfigSchema },
   'connection:delete': { input: z.object({ id: z.string().min(1) }) },
   'secrets:status': { input: z.undefined() },
+  'secrets:set': {
+    input: z.object({ connectionId: z.string().min(1), value: z.string().min(1).max(4096) }),
+  },
+  'secrets:has': { input: z.object({ connectionId: z.string().min(1) }) },
   'operation:run': { input: operationRequestSchema },
   'operation:cancel': { input: z.object({ requestId: z.string().min(1) }) },
   'audit:recent': { input: z.object({ limit: z.number().int() }) },

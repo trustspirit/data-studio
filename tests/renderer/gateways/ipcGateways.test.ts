@@ -61,6 +61,35 @@ describe('ipcConnectionGateway', () => {
       channel: 'connection:list',
     })
   })
+
+  it('setSecret을 secrets:set 채널로 connectionId·value와 함께 부른다', async () => {
+    const { bridge: b, calls } = bridge({ ok: true, value: null })
+    const gateway = createIpcConnectionGateway(b)
+
+    await gateway.setSecret('c1', 'pw')
+
+    expect(calls[0]).toEqual({ channel: 'secrets:set', input: { connectionId: 'c1', value: 'pw' } })
+  })
+
+  it('hasSecret은 secrets:has의 exists를 boolean으로 푼다', async () => {
+    const { bridge: b, calls } = bridge({ ok: true, value: { exists: true } })
+    const gateway = createIpcConnectionGateway(b)
+
+    const result = await gateway.hasSecret('c1')
+
+    expect(calls[0]).toEqual({ channel: 'secrets:has', input: { connectionId: 'c1' } })
+    expect(result).toBe(true)
+  })
+
+  it('secretsPersistent는 secrets:status의 persistent를 boolean으로 푼다', async () => {
+    const { bridge: b, calls } = bridge({ ok: true, value: { persistent: false } })
+    const gateway = createIpcConnectionGateway(b)
+
+    const result = await gateway.secretsPersistent()
+
+    expect(calls[0]?.channel).toBe('secrets:status')
+    expect(result).toBe(false)
+  })
 })
 
 describe('ipcOperationGateway', () => {

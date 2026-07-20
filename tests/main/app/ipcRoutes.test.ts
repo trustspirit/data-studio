@@ -23,6 +23,9 @@ function createHarness() {
     recent: [] as number[],
     listCalled: 0,
     statusCalled: 0,
+    secretSet: [] as { ref: unknown; value: string }[],
+    secretDelete: [] as unknown[],
+    secretHasReturns: null as string | null,
   }
 
   const register = ((channel, handler) => {
@@ -50,9 +53,15 @@ function createHarness() {
         calls.statusCalled += 1
         return true
       },
-      set: () => Promise.resolve(),
-      get: () => Promise.resolve(null),
-      delete: () => Promise.resolve(),
+      set: (ref: unknown, value: string) => {
+        calls.secretSet.push({ ref, value })
+        return Promise.resolve()
+      },
+      get: () => Promise.resolve(calls.secretHasReturns),
+      delete: (ref: unknown) => {
+        calls.secretDelete.push(ref)
+        return Promise.resolve()
+      },
     },
     log: {
       record: () => undefined,
@@ -175,5 +184,34 @@ describe('registerIpcRoutes', () => {
       connectionId: 'c1',
       page: { maxRows: 10 },
     })
+  })
+
+  it('secrets:set은 db-password ref와 value로 store.set을 부른다', async () => {
+    const h = createHarness()
+    await h.invoke('secrets:set', { connectionId: 'c1', value: 'pw' })
+    // 잘못된 kind나 ownerId면 드라이버가 다른 키로 저장해 연결 시 비밀을 못 찾는다.
+    expect(h.calls.secretSet).toEqual([
+      { ref: { kind: 'db-password', ownerId: 'c1' }, value: 'pw' },
+    ])
+  })
+
+  it('secrets:has는 존재 여부 boolean만 반환한다 (값 아님)', async () => {
+    const h = createHarness()
+    h.calls.secretHasReturns = 'super-secret'
+    const present = await h.invoke('secrets:has', { connectionId: 'c1' })
+    // 값을 새어 보내면 이 단언이 깨진다 — 정확히 {exists:true}여야 한다.
+    expect(present).toEqual({ exists: true })
+
+    h.calls.secretHasReturns = null
+    const absent = await h.invoke('secrets:has', { connectionId: 'c1' })
+    expect(absent).toEqual({ exists: false })
+  })
+
+  it('connection:delete는 config와 db-password 비밀을 함께 지운다', async () => {
+    const h = createHarness()
+    await h.invoke('connection:delete', { id: 'c1' })
+    expect(h.calls.delete).toEqual(['c1'])
+    // 비밀 삭제를 빠뜨리면 고아 비밀이 남는다.
+    expect(h.calls.secretDelete).toEqual([{ kind: 'db-password', ownerId: 'c1' }])
   })
 })

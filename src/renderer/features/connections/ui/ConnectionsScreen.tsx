@@ -38,6 +38,13 @@ export function ConnectionsScreen() {
   const [draft, setDraft] = useState<ConnectionConfig>(emptyDraft)
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({})
   const [mode, setMode] = useState<'new' | 'edit' | 'none'>('none')
+  const [password, setPassword] = useState('')
+  const [hasSavedSecret, setHasSavedSecret] = useState(false)
+  const [secretsPersistent, setSecretsPersistent] = useState(true)
+
+  useEffect(() => {
+    void gateways.connection.secretsPersistent().then(setSecretsPersistent)
+  }, [gateways.connection])
 
   useEffect(() => {
     if (state.selectedId === null) return
@@ -46,13 +53,17 @@ export function ConnectionsScreen() {
       setDraft(found)
       setErrors({})
       setMode('edit')
+      setPassword('')
+      void gateways.connection.hasSecret(found.id).then(setHasSavedSecret)
     }
-  }, [state.selectedId, state.connections])
+  }, [state.selectedId, state.connections, gateways.connection])
 
   const startNew = () => {
     setDraft(emptyDraft())
     setErrors({})
     setMode('new')
+    setPassword('')
+    setHasSavedSecret(false)
     state.clearSelection()
   }
 
@@ -64,6 +75,11 @@ export function ConnectionsScreen() {
     }
     setErrors({})
     await state.save(draft)
+    if (password !== '') {
+      await gateways.connection.setSecret(draft.id, password)
+      setHasSavedSecret(true)
+      setPassword('')
+    }
     setMode('edit')
   }
 
@@ -94,6 +110,10 @@ export function ConnectionsScreen() {
             onEngineChange={(engine: EngineId) => setDraft((d) => applyEngine(d, engine))}
             onSave={() => void onSave()}
             onDelete={() => void onDelete()}
+            password={password}
+            onPasswordChange={setPassword}
+            hasSavedSecret={hasSavedSecret}
+            secretsPersistent={secretsPersistent}
           />
         )}
       </Detail>
