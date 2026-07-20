@@ -2,6 +2,7 @@ import { Client } from 'pg'
 import type { ConnectionConfig } from '../../../shared/types/connection'
 import type { Driver } from '../../core/driver/Driver'
 import type { SqlCapability } from '../../core/driver/capabilities/SqlCapability'
+import { cancelBackend } from './pgCancel'
 import { pgSslConfig } from './pgSsl'
 import { PostgresSqlCapability } from './PostgresSqlCapability'
 
@@ -57,13 +58,26 @@ export class PostgresDriver implements Driver {
   readonly engine = 'postgres' as const
   readonly sql: SqlCapability
   private conn: PgClientLike | null = null
+  private password: string | undefined = undefined
 
   constructor(
     private readonly config: ConnectionConfig,
     private readonly deps: PostgresDriverDeps,
   ) {
     this.id = config.id
-    this.sql = new PostgresSqlCapability(() => this.requireConn())
+    this.sql = new PostgresSqlCapability(
+      () => this.requireConn(),
+      async () => {
+        const pid = this.backendPid
+        if (pid === null) return
+        // 취소는 best-effort다 — 사이드 커넥션이 실패(잘못된 비밀번호, 연결 거부 등)해도
+        // 메인 쿼리의 결과/거부는 그대로 유효하다. 여기서 삼키지 않으면 unhandled
+        // rejection이 프로세스로 새어나간다. 이 계층엔 아직 Logger가 배선돼 있지 않다.
+        await cancelBackend(() => this.makeClient()(this.connParams(this.password)), pid).catch(
+          () => {},
+        )
+      },
+    )
   }
 
   private makeClient(): (params: PgConnParams) => PgClientLike {
@@ -73,12 +87,13 @@ export class PostgresDriver implements Driver {
   async connect(config: ConnectionConfig): Promise<void> {
     if (config.id !== this.id) throw new ConnectionIdentityError(this.id, config.id)
     const password = await this.deps.getPassword()
+    this.password = password ?? undefined
     const params: PgConnParams = {
       host: config.host,
       port: config.port,
       database: config.database,
       user: config.username,
-      password: password ?? undefined,
+      password: this.password,
       ssl: pgSslConfig(config.tlsMode, config.host),
     }
     const client = this.makeClient()(params)

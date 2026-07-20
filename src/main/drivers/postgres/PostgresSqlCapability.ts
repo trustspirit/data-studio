@@ -27,7 +27,10 @@ function encodeCursor(statement: string, offset: number): string {
 const NO_ROWS_COMMANDS = new Set(['SELECT', 'SHOW', 'EXPLAIN'])
 
 export class PostgresSqlCapability implements SqlCapability {
-  constructor(private readonly getConn: () => PgClientLike) {}
+  constructor(
+    private readonly getConn: () => PgClientLike,
+    private readonly cancel: () => Promise<void>,
+  ) {}
 
   async execute(
     ctx: ExecutionContext,
@@ -41,11 +44,27 @@ export class PostgresSqlCapability implements SqlCapability {
 
     // offset 기반: 전체를 읽고 offset부터 buildResultSet에 넘긴다. (keyset은 UI 슬라이스에서.)
     const offset = page.cursor === null ? 0 : decodeCursor(page.cursor, sql)
-    const result = await conn.query({
+
+    const queryPromise = conn.query({
       text: sql,
       ...(params === undefined ? {} : { values: params }),
       rowMode: 'array',
     })
+
+    const onAbort = (): void => {
+      void this.cancel()
+    }
+    if (ctx.signal.aborted) onAbort()
+    else ctx.signal.addEventListener('abort', onAbort, { once: true })
+
+    let result
+    try {
+      // 취소를 보내도 주 쿼리는 취소 에러로 "끝난다" — 그 종료를 기다린다.
+      // 이렇게 해야 백엔드가 조용해진 뒤에 커넥션을 반납한다(quiescent).
+      result = await queryPromise
+    } finally {
+      ctx.signal.removeEventListener('abort', onAbort)
+    }
 
     const columns = result.fields.map((f) => ({ name: f.name, type: String(f.dataTypeID) }))
     const rawRows = (result.rows as unknown[][]).slice(offset)
