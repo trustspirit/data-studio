@@ -48,6 +48,11 @@ export function verifyUpdate(input: VerifyInput): VerifyResult {
  * electron-updater `latest-mac.yml`에서 우리가 쓰는 필드만 뽑는다.
  * 전체 YAML 파서는 새 의존성이라 쓰지 않는다 — version과 files의
  * url/sha512/size만 라인 기반으로 읽는다. 형식이 어긋나면 throw.
+ *
+ * **줄 끝은 LF를 가정한다.** electron-builder는 macOS 러너에서 LF로 매니페스트를
+ * 내며, 서명은 그 바이트 위에 걸린다 — 서명자와 파서가 같은 바이트를 본다.
+ * CRLF 매니페스트는 malformed로 **거부**된다(fail-closed): 파싱을 못 해 나쁜
+ * 매니페스트를 통과시키는 것이 아니라 거부하는 쪽이므로 보안상 안전하다.
  */
 export function parseManifest(yaml: string): UpdateManifest {
   const lines = yaml.split('\n')
