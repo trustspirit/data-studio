@@ -27,7 +27,7 @@ const Banner = styled.div`
   padding: 8px 12px;
   border-radius: 6px;
   background: ${({ theme }) => theme.color.red};
-  color: #fff;
+  color: ${({ theme }) => theme.color.onDanger};
   font: ${({ theme }) => theme.font.ui};
   font-size: 13px;
 `
@@ -86,6 +86,7 @@ export function ConnectionsScreen() {
           <Empty>왼쪽에서 연결을 고르거나 사이드바의 추가 버튼으로 새로 만드세요.</Empty>
         ) : (
           <ConnectionForm
+            key={draft.id}
             draft={draft}
             errors={errors}
             isNew={mode === 'new'}

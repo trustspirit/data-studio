@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { ThemeProvider, darkTheme } from '../shared/theme'
 import { GatewayProvider } from './GatewayProvider'
 import { buildGateways } from './container'
@@ -14,7 +15,7 @@ function resolveBridge(): DataconBridge {
 }
 
 export function App() {
-  const gateways = buildGateways(resolveBridge())
+  const gateways = useMemo(() => buildGateways(resolveBridge()), [])
   return (
     <ThemeProvider theme={darkTheme}>
       <GatewayProvider gateways={gateways}>

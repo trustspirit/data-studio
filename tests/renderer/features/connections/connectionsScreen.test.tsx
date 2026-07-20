@@ -54,4 +54,28 @@ describe('ConnectionsScreen', () => {
     const calls = vi.mocked(bridge.invoke).mock.calls.map((c) => c[0])
     expect(calls).not.toContain('connection:save')
   })
+
+  it('레코드를 전환하면 삭제 확인 상태가 초기화된다', async () => {
+    const connA = {
+      id: 'a', name: 'A', engine: 'postgres', host: 'h', port: 5432, database: 'd',
+      username: 'u', tlsMode: 'disable', aiReadOnlyUsername: null, maskedColumnPatterns: [],
+    }
+    const connB = {
+      id: 'b', name: 'B', engine: 'postgres', host: 'h', port: 5432, database: 'd',
+      username: 'u', tlsMode: 'disable', aiReadOnlyUsername: null, maskedColumnPatterns: [],
+    }
+    renderScreen(bridgeWith([connA, connB]))
+    await waitFor(() => expect(screen.getByText('A')).toBeTruthy())
+
+    // A를 선택하고 삭제를 눌러 확인 상태로 만든다.
+    fireEvent.click(screen.getByText('A'))
+    await waitFor(() => expect(screen.getByText('Delete')).toBeTruthy())
+    fireEvent.click(screen.getByText('Delete'))
+    await waitFor(() => expect(screen.getByText(/Confirm delete/i)).toBeTruthy())
+
+    // B로 전환하면 B의 폼은 확인 상태가 아니어야 한다.
+    fireEvent.click(screen.getByText('B'))
+    await waitFor(() => expect(screen.queryByText(/Confirm delete/i)).toBeNull())
+    expect(screen.getByText('Delete')).toBeTruthy()
+  })
 })

@@ -1,12 +1,11 @@
 import styled, { css } from 'styled-components'
-import type { ButtonHTMLAttributes } from 'react'
 
 type Variant = 'primary' | 'secondary' | 'danger'
 
 const variants = {
   primary: css`
     background: ${({ theme }) => theme.color.accent};
-    color: #fff;
+    color: ${({ theme }) => theme.color.onAccent};
     border-color: transparent;
   `,
   secondary: css`
@@ -16,7 +15,7 @@ const variants = {
   `,
   danger: css`
     background: ${({ theme }) => theme.color.red};
-    color: #fff;
+    color: ${({ theme }) => theme.color.onDanger};
     border-color: transparent;
   `,
 } as const
@@ -34,5 +33,3 @@ export const Button = styled.button<{ variant?: Variant }>`
   }
 `
 Button.displayName = 'Button'
-
-export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }

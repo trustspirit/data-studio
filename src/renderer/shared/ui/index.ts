@@ -1,4 +1,4 @@
-export { Button, type ButtonProps } from './Button'
+export { Button } from './Button'
 export { TextField } from './TextField'
 export { Select } from './Select'
 export { Panel } from './Panel'

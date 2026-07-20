@@ -27,6 +27,8 @@ export const darkTheme = {
     teal: '#40c8e0',
     yellow: '#ffd60a',
     blue: '#5e9eff',
+    onAccent: '#ffffff',
+    onDanger: '#ffffff',
   },
   syntax: {
     keyword: '#ff7ab2',
