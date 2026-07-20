@@ -96,13 +96,21 @@ export class PostgresSqlCapability implements SqlCapability {
     const isWrite = !NO_ROWS_COMMANDS.has(result.command)
     const total = (result.rows as unknown[][]).length
 
+    // 쓰기 문장(INSERT/UPDATE/DELETE ... RETURNING 포함)은 커서를 내지 않는다.
+    // execute는 커서를 받으면 statement 전체를 재실행하므로, 쓰기에 커서를
+    // 내주면 상위 레이어가 다음 페이지를 읽으려다 쓰기를 다시 실행해
+    // (예: `SET n = n + 1`) 결과를 이중으로 반영하게 된다.
+    const cursorAt = isWrite
+      ? () => null
+      : (kept: number) => (offset + kept < total ? encodeCursor(sql, offset + kept) : null)
+
     return buildResultSet({
       requestId: ctx.requestId,
       columns,
       rows,
       page,
       durationMs: performance.now() - start,
-      cursorAt: (kept) => (offset + kept < total ? encodeCursor(sql, offset + kept) : null),
+      cursorAt,
       ...(isWrite ? { rowsAffected: result.rowCount ?? null } : {}),
     })
   }

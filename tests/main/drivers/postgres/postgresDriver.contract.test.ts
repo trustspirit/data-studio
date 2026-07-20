@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest'
+import { afterAll, describe, it } from 'vitest'
 import type { ConnectionConfig } from '@shared/types/connection'
 import { createPostgresDriver } from '@main/drivers/postgres'
 import { describeDriverContract } from '../../../contract/driverContract'
@@ -49,6 +49,18 @@ if (PG_AVAILABLE) {
     write: { statement: `UPDATE ${schema}.w SET id = id + 100`, expectedRowsAffected: 2 },
     requiresConnection: true,
   }))
+
+  // 계약용으로 만든 고정 스키마는 datacon_test에 영구히 남는다 — 실행할 때마다
+  // 새 c_<uuid> 스키마가 쌓이지 않도록 모든 계약 테스트가 끝난 뒤 지운다.
+  afterAll(async () => {
+    const admin = new Client({ connectionString: TEST_DB_URL })
+    await admin.connect()
+    try {
+      await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`)
+    } finally {
+      await admin.end()
+    }
+  })
 } else {
   describe.skip('PostgresDriver 계약 (pg 없음)', () => {
     it('스킵됨', () => {})

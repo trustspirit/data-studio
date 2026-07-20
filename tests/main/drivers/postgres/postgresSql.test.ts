@@ -57,6 +57,27 @@ describe.skipIf(!PG_AVAILABLE)('PostgresSqlCapability (실제 pg 필요)', () =>
     )
   })
 
+  it('RETURNING 행이 maxRows를 넘는 쓰기 문장은 커서를 내지 않는다 (재실행 방지)', async () => {
+    await withSchema(
+      'CREATE TABLE t (id int primary key); INSERT INTO t VALUES (1),(2),(3);',
+      async (schema) => {
+        const d = driver()
+        await d.connect(configForSchema())
+        try {
+          const r = await d.sql.execute(
+            ctx(),
+            `UPDATE ${schema}.t SET id = id + 100 RETURNING id`,
+            { cursor: null, maxRows: 1, maxBytes: PAGE.maxBytes },
+          )
+          expect(r.page.cursor).toBeNull()
+          expect(r.meta.rowsAffected).toBe(3)
+        } finally {
+          await d.disconnect()
+        }
+      },
+    )
+  })
+
   it('커서로 이어 읽은 시퀀스가 한 번에 읽은 것과 같다', async () => {
     await withSchema(
       'CREATE TABLE t (id int primary key); INSERT INTO t SELECT generate_series(1, 5);',
