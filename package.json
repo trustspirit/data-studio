@@ -19,6 +19,7 @@
     "package:dir": "npm run build && electron-builder --dir --publish never"
   },
   "dependencies": {
+    "pg": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "styled-components": "^6.4.3",
@@ -30,6 +31,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^26.1.1",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
