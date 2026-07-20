@@ -1,11 +1,19 @@
 import { buildResultSet, type PageRequest, type ResultSet } from '../../../shared/types/resultSet'
 import type { ExecutionContext } from '../../core/driver/ExecutionContext'
-import type { SqlCapability, StatementClassification } from '../../core/driver/capabilities/SqlCapability'
+import type {
+  ReadOnlyScope,
+  SqlCapability,
+  StatementClassification,
+} from '../../core/driver/capabilities/SqlCapability'
 import { classifyStatement } from '../../core/execution/StatementClassifier'
 import { mapPgValue } from './pgTypeMap'
 import type { PgClientLike } from './PostgresDriver'
 
 const CURSOR_PREFIX = 'pg:1:'
+
+/** RO 범위 안에서만 걸리는 statement_timeout. 실행 제한 연동은 OperationExecutor 몫이며
+ *  이 슬라이스에서는 인터페이스 변경 없이 상수로 둔다. */
+const READ_ONLY_TIMEOUT_MS = 30_000
 
 function decodeCursor(cursor: string, statement: string): number {
   if (!cursor.startsWith(CURSOR_PREFIX)) throw new Error(`malformed cursor: ${cursor}`)
@@ -38,8 +46,21 @@ export class PostgresSqlCapability implements SqlCapability {
     page: PageRequest,
     params?: readonly unknown[],
   ): Promise<ResultSet> {
+    return this.executeOn(this.getConn(), ctx, sql, page, params)
+  }
+
+  /**
+   * `execute`의 본문. 커넥션을 인자로 받아, `beginReadOnly`가 연 RO 트랜잭션의
+   * 커넥션에서도 같은 실행/취소 배선을 재사용할 수 있게 한다.
+   */
+  private async executeOn(
+    conn: PgClientLike,
+    ctx: ExecutionContext,
+    sql: string,
+    page: PageRequest,
+    params?: readonly unknown[],
+  ): Promise<ResultSet> {
     if (ctx.signal.aborted) throw new Error(`execution aborted: ${ctx.requestId}`)
-    const conn = this.getConn()
     const start = performance.now()
 
     // offset 기반: 전체를 읽고 offset부터 buildResultSet에 넘긴다. (keyset은 UI 슬라이스에서.)
@@ -84,6 +105,31 @@ export class PostgresSqlCapability implements SqlCapability {
       cursorAt: (kept) => (offset + kept < total ? encodeCursor(sql, offset + kept) : null),
       ...(isWrite ? { rowsAffected: result.rowCount ?? null } : {}),
     })
+  }
+
+  async beginReadOnly(ctx: ExecutionContext): Promise<ReadOnlyScope> {
+    if (ctx.signal.aborted) throw new Error(`execution aborted: ${ctx.requestId}`)
+    const conn = this.getConn()
+    await conn.query({ text: 'BEGIN TRANSACTION READ ONLY' })
+    try {
+      // RO 범위 안에서만 걸리는 timeout.
+      await conn.query({ text: `SET LOCAL statement_timeout = ${READ_ONLY_TIMEOUT_MS}` })
+    } catch (e) {
+      // 이 드라이버는 커넥션을 풀링하지 않는다 — BEGIN 이후 실패를 그냥 던지면
+      // 이 커넥션은 "aborted transaction" 상태로 갇혀 이후 모든 실행(RO scope뿐
+      // 아니라 일반 execute까지)이 막힌다. 설정 실패 시 트랜잭션을 되돌려
+      // 커넥션을 다시 쓸 수 있게 한다.
+      await conn.query({ text: 'ROLLBACK' }).catch(() => {})
+      throw e
+    }
+
+    return {
+      execute: (scopeCtx: ExecutionContext, sql: string, page: PageRequest, params?: readonly unknown[]) =>
+        this.executeOn(conn, scopeCtx, sql, page, params),
+      end: async () => {
+        await conn.query({ text: 'COMMIT' })
+      },
+    }
   }
 
   classify(sql: string): StatementClassification {
