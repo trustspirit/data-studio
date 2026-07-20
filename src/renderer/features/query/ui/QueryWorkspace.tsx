@@ -8,7 +8,7 @@ import { ResultArea } from './ResultArea'
 const Layout = styled.div`
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   background: ${({ theme }) => theme.color.winBg};
   color: ${({ theme }) => theme.color.text};
 `
