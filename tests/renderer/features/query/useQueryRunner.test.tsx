@@ -67,6 +67,23 @@ describe('useQueryRunner', () => {
     expect(result.current.hasMore).toBe(false)
   })
 
+  it('성공 후 실패한 run은 이전 결과(columns/rows)를 지운다', async () => {
+    const gw: OperationGateway = {
+      run: vi.fn()
+        .mockResolvedValueOnce({ ok: true, payload: { kind: 'rows', rows: resultSet() } })
+        .mockResolvedValueOnce({ ok: false, reason: 'syntax error' }),
+      cancel: vi.fn().mockResolvedValue(undefined),
+      recentAudit: vi.fn().mockResolvedValue([]),
+    }
+    const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
+    await act(async () => { await result.current.run() })
+    expect(result.current.columns).toHaveLength(1)
+    await act(async () => { await result.current.run() })
+    expect(result.current.error).toBe('syntax error')
+    expect(result.current.columns).toHaveLength(0)
+    expect(result.current.rows).toHaveLength(0)
+  })
+
   it('cancel이 진행 중 요청을 취소한다', async () => {
     const gw = gatewayReturning({ ok: true, payload: { kind: 'rows', rows: resultSet() } })
     const { result } = renderHook(() => useQueryRunner(gw, 'c1'))

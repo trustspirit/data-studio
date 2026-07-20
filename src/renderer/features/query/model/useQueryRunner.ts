@@ -77,6 +77,11 @@ export function useQueryRunner(gateway: OperationGateway, connectionId: string):
 
   const run = useCallback(async () => {
     setRows([])
+    setColumns([])
+    setRowsAffected(null)
+    setNotices([])
+    setCursor(null)
+    setHasMore(false)
     await execute(null, false)
   }, [execute])
 
