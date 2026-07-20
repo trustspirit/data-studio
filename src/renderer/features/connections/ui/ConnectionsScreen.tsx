@@ -38,10 +38,13 @@ export function ConnectionsScreen() {
   const [draft, setDraft] = useState<ConnectionConfig>(emptyDraft)
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({})
   const [mode, setMode] = useState<'new' | 'edit' | 'none'>('none')
-  // TODO(secret-storage task 4): 컨테이너가 gateways.connection.setSecret/hasSecret/
-  // secretsPersistent로 실제 배선을 해야 한다. 지금은 ConnectionForm의 새 필수 props를
-  // 채우기 위한 임시 스텁이다(빌드 유지 목적, Task 3 스코프 아님).
   const [password, setPassword] = useState('')
+  const [hasSavedSecret, setHasSavedSecret] = useState(false)
+  const [secretsPersistent, setSecretsPersistent] = useState(true)
+
+  useEffect(() => {
+    void gateways.connection.secretsPersistent().then(setSecretsPersistent)
+  }, [gateways.connection])
 
   useEffect(() => {
     if (state.selectedId === null) return
@@ -51,14 +54,16 @@ export function ConnectionsScreen() {
       setErrors({})
       setMode('edit')
       setPassword('')
+      void gateways.connection.hasSecret(found.id).then(setHasSavedSecret)
     }
-  }, [state.selectedId, state.connections])
+  }, [state.selectedId, state.connections, gateways.connection])
 
   const startNew = () => {
     setDraft(emptyDraft())
     setErrors({})
     setMode('new')
     setPassword('')
+    setHasSavedSecret(false)
     state.clearSelection()
   }
 
@@ -70,6 +75,11 @@ export function ConnectionsScreen() {
     }
     setErrors({})
     await state.save(draft)
+    if (password !== '') {
+      await gateways.connection.setSecret(draft.id, password)
+      setHasSavedSecret(true)
+      setPassword('')
+    }
     setMode('edit')
   }
 
@@ -102,8 +112,8 @@ export function ConnectionsScreen() {
             onDelete={() => void onDelete()}
             password={password}
             onPasswordChange={setPassword}
-            hasSavedSecret={false}
-            secretsPersistent={true}
+            hasSavedSecret={hasSavedSecret}
+            secretsPersistent={secretsPersistent}
           />
         )}
       </Detail>

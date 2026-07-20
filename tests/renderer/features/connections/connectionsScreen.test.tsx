@@ -17,6 +17,9 @@ function bridgeWith(list: unknown[]): DataconBridge {
         return Promise.resolve({ ok: true, value: null })
       }
       if (channel === 'connection:delete') return Promise.resolve({ ok: true, value: null })
+      if (channel === 'secrets:status') return Promise.resolve({ ok: true, value: { persistent: true } })
+      if (channel === 'secrets:has') return Promise.resolve({ ok: true, value: { exists: false } })
+      if (channel === 'secrets:set') return Promise.resolve({ ok: true, value: null })
       return Promise.resolve({ ok: false, code: 'internal_error' })
     }),
   }
@@ -77,5 +80,50 @@ describe('ConnectionsScreen', () => {
     fireEvent.click(screen.getByText('B'))
     await waitFor(() => expect(screen.queryByText(/Confirm delete/i)).toBeNull())
     expect(screen.getByText('Delete')).toBeTruthy()
+  })
+
+  it('비밀번호를 입력하고 저장하면 connection:save 후 secrets:set을 부른다', async () => {
+    const bridge = bridgeWith([])
+    renderScreen(bridge)
+    fireEvent.click(screen.getByText(/New/i))
+    // 필수 필드 채우기 (검증 통과용)
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } })
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'db.local' } })
+    fireEvent.change(screen.getByLabelText('Database'), { target: { value: 'shop' } })
+    fireEvent.change(screen.getByLabelText('User'), { target: { value: 'admin' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw' } })
+    fireEvent.click(screen.getByText('Save'))
+
+    await waitFor(() => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
+      const channels = vi.mocked(bridge.invoke).mock.calls.map((c) => c[0])
+      expect(channels).toContain('connection:save')
+      expect(channels).toContain('secrets:set')
+    })
+    // save가 secret보다 먼저여야 한다 (config가 있어야 소유 비밀이 의미를 갖는다).
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
+    const order = vi.mocked(bridge.invoke).mock.calls.map((c) => c[0])
+    expect(order.indexOf('connection:save')).toBeLessThan(order.indexOf('secrets:set'))
+  })
+
+  it('비밀번호가 비어 있으면 secrets:set을 부르지 않는다', async () => {
+    const bridge = bridgeWith([])
+    renderScreen(bridge)
+    fireEvent.click(screen.getByText(/New/i))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } })
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'db.local' } })
+    fireEvent.change(screen.getByLabelText('Database'), { target: { value: 'shop' } })
+    fireEvent.change(screen.getByLabelText('User'), { target: { value: 'admin' } })
+    fireEvent.click(screen.getByText('Save'))
+
+    await waitFor(() => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
+      const channels = vi.mocked(bridge.invoke).mock.calls.map((c) => c[0])
+      expect(channels).toContain('connection:save')
+    })
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
+    const channels = vi.mocked(bridge.invoke).mock.calls.map((c) => c[0])
+    // 빈 비밀번호로 setSecret을 부르면 빈 값을 저장해 기존 비밀을 덮는다.
+    expect(channels).not.toContain('secrets:set')
   })
 })
