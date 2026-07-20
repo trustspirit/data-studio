@@ -36,6 +36,9 @@ function fakeGateway(initial: ConnectionConfig[]): ConnectionGateway & { store: 
       if (i >= 0) store.splice(i, 1)
       return Promise.resolve()
     }),
+    setSecret: vi.fn(() => Promise.resolve()),
+    hasSecret: vi.fn(() => Promise.resolve(false)),
+    secretsPersistent: vi.fn(() => Promise.resolve(true)),
   }
 }
 
