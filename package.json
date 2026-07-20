@@ -19,7 +19,12 @@
     "package:dir": "npm run build && electron-builder --dir --publish never"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.10.4",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/state": "^6.7.1",
+    "@codemirror/view": "^6.43.6",
     "@tanstack/react-virtual": "^3.14.7",
+    "codemirror": "^6.0.2",
     "pg": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
