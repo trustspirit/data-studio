@@ -50,6 +50,7 @@ export function useTableStructure(
 
   useEffect(() => {
     if (schema === null || table === null) {
+      latest.current += 1 // 진행 중이던 이전 선택의 응답을 무효화
       setColumns([])
       setIndexes([])
       setForeignKeys([])

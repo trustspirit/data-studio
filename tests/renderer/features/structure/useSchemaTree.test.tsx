@@ -85,4 +85,30 @@ describe('useSchemaTree', () => {
     await waitFor(() => expect(result.current.tablesBySchema['public']).toBeUndefined())
     expect(result.current.expanded['public']).toBeUndefined()
   })
+
+  it('listTables가 실패하면 재확장 시 다시 시도한다', async () => {
+    let failNext = true
+    const gw = gateway((op) => {
+      if (op.op === 'listSchemas')
+        return { ok: true, payload: { kind: 'schemas', schemas: [{ name: 'public' }] } }
+      if (failNext) {
+        failNext = false
+        return { ok: false, reason: 'load failed' }
+      }
+      return {
+        ok: true,
+        payload: {
+          kind: 'tables',
+          tables: [{ schema: 'public', name: 'users', kind: 'table', estimatedRows: null }],
+        },
+      }
+    })
+    const { result } = renderHook(() => useSchemaTree(gw, 'c1'))
+    await waitFor(() => expect(result.current.schemas).toHaveLength(1))
+    await act(async () => result.current.toggle('public'))
+    await waitFor(() => expect(result.current.error).toBe('load failed'))
+    // 실패 후 requested가 비워졌으므로 다음 toggle이 재시도해 테이블을 채운다.
+    await act(async () => result.current.toggle('public'))
+    await waitFor(() => expect(result.current.tablesBySchema['public']).toHaveLength(1))
+  })
 })

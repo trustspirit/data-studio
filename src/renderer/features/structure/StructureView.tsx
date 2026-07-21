@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
 import { useSchemaTree } from './model/useSchemaTree'
@@ -27,6 +27,10 @@ interface StructureViewProps {
 export function StructureView({ gateway, connectionId }: StructureViewProps) {
   const tree = useSchemaTree(gateway, connectionId)
   const [selected, setSelected] = useState<TableSelection | null>(null)
+  useEffect(() => {
+    // 연결이 바뀌면 선택을 초기화한다 (useSchemaTree의 캐시 리셋과 일관).
+    setSelected(null)
+  }, [connectionId])
   const structure = useTableStructure(gateway, connectionId, selected)
 
   return (

@@ -67,4 +67,26 @@ describe('StructureView', () => {
     await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
     expect(screen.getByText(/테이블을 선택/)).toBeTruthy()
   })
+
+  it('연결이 바뀌면 선택이 초기화된다', async () => {
+    const gw = gateway()
+    const { rerender } = render(
+      <ThemeProvider theme={darkTheme}>
+        <StructureView gateway={gw} connectionId="c1" />
+      </ThemeProvider>,
+    )
+    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+    fireEvent.click(screen.getByText(/public/))
+    await waitFor(() => expect(screen.getByText('users')).toBeTruthy())
+    fireEvent.click(screen.getByText('users'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Columns' })).toBeTruthy())
+
+    // 연결 전환: 선택이 풀려 안내 문구로 돌아간다.
+    rerender(
+      <ThemeProvider theme={darkTheme}>
+        <StructureView gateway={gw} connectionId="c2" />
+      </ThemeProvider>,
+    )
+    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
+  })
 })

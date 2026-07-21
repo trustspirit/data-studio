@@ -78,9 +78,11 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
             const tables = outcome.payload.tables
             setTablesBySchema((cur) => ({ ...cur, [schema]: tables }))
           } else if (!outcome.ok) {
+            requested.current.delete(schema) // 실패 시 재요청 허용
             setError(outcome.reason)
           }
         } catch (e) {
+          requested.current.delete(schema) // 실패 시 재요청 허용
           if (mounted.current) setError(messageOf(e))
         }
       })()

@@ -17,6 +17,12 @@ const Table = styled.table`
   }
 `
 
+const Empty = styled.div`
+  padding: 6px 10px;
+  color: ${({ theme }) => theme.color.textFaint};
+  font-size: 12px;
+`
+
 export function IndexList({ indexes }: { indexes: readonly IndexInfo[] }) {
   if (indexes.length === 0) return <Empty>인덱스 없음</Empty>
   return (
@@ -42,9 +48,3 @@ export function IndexList({ indexes }: { indexes: readonly IndexInfo[] }) {
     </Table>
   )
 }
-
-const Empty = styled.div`
-  padding: 6px 10px;
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: 12px;
-`
