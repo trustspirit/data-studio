@@ -3,8 +3,10 @@ import type { ConnectionConfig } from '../../../shared/types/connection'
 import type { Driver } from '../../core/driver/Driver'
 import type { SchemaCapability } from '../../core/driver/capabilities/SchemaCapability'
 import type { SqlCapability } from '../../core/driver/capabilities/SqlCapability'
+import type { DataCapability } from '../../core/driver/capabilities/DataCapability'
 import { cancelBackend } from './pgCancel'
 import { pgSslConfig } from './pgSsl'
+import { PostgresDataCapability } from './PostgresDataCapability'
 import { PostgresSchemaCapability } from './PostgresSchemaCapability'
 import { PostgresSqlCapability } from './PostgresSqlCapability'
 
@@ -60,6 +62,7 @@ export class PostgresDriver implements Driver {
   readonly engine = 'postgres' as const
   readonly sql: SqlCapability
   readonly schema: SchemaCapability
+  readonly data: DataCapability
   private conn: PgClientLike | null = null
   private password: string | undefined = undefined
 
@@ -82,6 +85,7 @@ export class PostgresDriver implements Driver {
       },
     )
     this.schema = new PostgresSchemaCapability(() => this.requireConn())
+    this.data = new PostgresDataCapability()
   }
 
   private makeClient(): (params: PgConnParams) => PgClientLike {

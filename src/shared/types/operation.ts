@@ -1,5 +1,10 @@
 import type { PageRequest } from './resultSet'
 
+export interface BrowseSort {
+  readonly column: string
+  readonly direction: 'asc' | 'desc'
+}
+
 /** SQL 문장 실행. `params`는 위치 기반이다. */
 export interface SqlOperation {
   readonly kind: 'sql'

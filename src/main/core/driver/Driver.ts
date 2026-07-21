@@ -1,6 +1,7 @@
 import type { ConnectionConfig, EngineId } from '../../../shared/types/connection'
 import type { SqlCapability } from './capabilities/SqlCapability'
 import type { SchemaCapability } from './capabilities/SchemaCapability'
+import type { DataCapability } from './capabilities/DataCapability'
 
 /**
  * 하나의 데이터소스 연결.
@@ -34,7 +35,8 @@ export interface Driver {
 
   readonly sql?: SqlCapability
   readonly schema?: SchemaCapability
+  readonly data?: DataCapability
 }
 
 /** IPC로 renderer에 내려보내는 능력 식별자. */
-export type Capability = 'sql' | 'schema'
+export type Capability = 'sql' | 'schema' | 'data'
