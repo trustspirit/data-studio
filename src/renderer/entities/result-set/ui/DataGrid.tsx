@@ -43,6 +43,15 @@ const CellInput = styled.input`
   color: inherit;
   border: 1px solid ${({ theme }) => theme.color.border};
 `
+const NullButton = styled.button`
+  flex: 0 0 auto;
+  margin-left: 2px;
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid ${({ theme }) => theme.color.border};
+  background: ${({ theme }) => theme.color.gridHeader};
+  color: ${({ theme }) => theme.color.textDim};
+`
 const DeleteToggleCell = styled.div`
   flex: 0 0 28px;
   display: flex;
@@ -54,6 +63,10 @@ export interface EditingProps {
   onCommitCell: (rowIndex: number, column: string, text: string) => void
   deletedRows: ReadonlySet<number>
   onToggleDelete: (rowIndex: number) => void
+  newRows: readonly ReadonlyMap<string, WireValue>[]
+  onCommitNewCell: (newRowIndex: number, column: string, text: string) => void
+  onSetNull: (rowIndex: number, column: string) => void
+  onSetNewCellNull: (newRowIndex: number, column: string) => void
 }
 
 interface Props {
@@ -152,7 +165,7 @@ export function DataGrid({
                   editingCell !== null && editingCell.row === rowIndex && editingCell.col === ci
                 if (editing !== undefined && isEditingThisCell) {
                   return (
-                    <Cell key={ci} data-cell>
+                    <Cell key={ci} data-cell style={{ display: 'flex', alignItems: 'center' }}>
                       <CellInput
                         autoFocus
                         defaultValue={rawCellText(value)}
@@ -169,6 +182,19 @@ export function DataGrid({
                         }}
                         onBlur={() => setEditingCell(null)}
                       />
+                      <NullButton
+                        type="button"
+                        aria-label={`행 ${rowIndex} ${columns[ci]?.name ?? ''} NULL`}
+                        // 인풋 blur가 먼저 나 편집이 닫히면 클릭이 사라진다 — 막는다.
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          const column = columns[ci]
+                          if (column !== undefined) editing.onSetNull(rowIndex, column.name)
+                          setEditingCell(null)
+                        }}
+                      >
+                        ∅
+                      </NullButton>
                     </Cell>
                   )
                 }
@@ -188,6 +214,37 @@ export function DataGrid({
           )
         })}
       </div>
+      {editing !== undefined && editing.newRows.length > 0 && (
+        <div data-new-rows>
+          {editing.newRows.map((newRow, i) => (
+            <div key={`new-${i}`} style={{ display: 'flex' }}>
+              <DeleteToggleCell aria-hidden />
+              {columns.map((c, ci) => {
+                const staged = newRow.get(c.name)
+                const isNull = staged?.t === 'null'
+                const text = staged !== undefined && staged.t === 'str' ? staged.v : ''
+                return (
+                  <Cell key={ci} data-cell style={{ display: 'flex', alignItems: 'center' }}>
+                    <CellInput
+                      aria-label={`새 행 ${i} ${c.name}`}
+                      value={text}
+                      placeholder={isNull ? 'NULL' : ''}
+                      onChange={(e) => editing.onCommitNewCell(i, c.name, e.currentTarget.value)}
+                    />
+                    <NullButton
+                      type="button"
+                      aria-label={`새 행 ${i} ${c.name} NULL`}
+                      onClick={() => editing.onSetNewCellNull(i, c.name)}
+                    >
+                      ∅
+                    </NullButton>
+                  </Cell>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      )}
     </Scroll>
   )
 }

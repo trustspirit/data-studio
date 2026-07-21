@@ -93,7 +93,15 @@ describe('DataGrid', () => {
       <DataGrid
         columns={[{ name: 'id', type: '23' }, { name: 'name', type: '25' }]}
         rows={[[{ t: 'int', v: 1 }, { t: 'str', v: 'a' }]]}
-        editing={{ onCommitCell, deletedRows: new Set(), onToggleDelete: vi.fn() }}
+        editing={{
+          onCommitCell,
+          deletedRows: new Set(),
+          onToggleDelete: vi.fn(),
+          newRows: [],
+          onCommitNewCell: vi.fn(),
+          onSetNull: vi.fn(),
+          onSetNewCellNull: vi.fn(),
+        }}
       />,
     )
     // 'a' 셀을 더블클릭 → 인풋 → 값 입력 → Enter로 commit.
@@ -109,5 +117,81 @@ describe('DataGrid', () => {
     fireEvent.doubleClick(screen.getByText('a'))
     // 인풋이 생기지 않는다.
     expect(screen.queryByDisplayValue('a')).toBeNull()
+  })
+
+  function editingProps(over: Partial<import('@renderer/entities/result-set/ui/DataGrid').EditingProps> = {}) {
+    return {
+      onCommitCell: vi.fn(),
+      deletedRows: new Set<number>(),
+      onToggleDelete: vi.fn(),
+      newRows: [] as ReadonlyMap<string, WireValue>[],
+      onCommitNewCell: vi.fn(),
+      onSetNull: vi.fn(),
+      onSetNewCellNull: vi.fn(),
+      ...over,
+    }
+  }
+
+  it('스테이징 새 행을 그리드 하단에 렌더한다', () => {
+    const newRows = [new Map<string, WireValue>([['name', { t: 'str', v: 'draft' }]])]
+    const ep = editingProps({ newRows })
+    wrap(
+      <DataGrid
+        columns={[{ name: 'id', type: '23' }, { name: 'name', type: '25' }]}
+        rows={[]}
+        editing={ep}
+      />,
+    )
+    // 새 행의 name 셀 인풋에 'draft'가 보인다.
+    expect(screen.getByDisplayValue('draft')).toBeTruthy()
+  })
+
+  it('새 행 셀 입력이 onCommitNewCell을 부른다', () => {
+    const onCommitNewCell = vi.fn()
+    const newRows = [new Map<string, WireValue>()]
+    wrap(
+      <DataGrid
+        columns={[{ name: 'id', type: '23' }]}
+        rows={[]}
+        editing={editingProps({ newRows, onCommitNewCell })}
+      />,
+    )
+    fireEvent.change(screen.getByLabelText('새 행 0 id'), { target: { value: '7' } })
+    expect(onCommitNewCell).toHaveBeenCalledWith(0, 'id', '7')
+  })
+
+  it('새 행 NULL 버튼이 onSetNewCellNull을 부른다', () => {
+    const onSetNewCellNull = vi.fn()
+    const newRows = [new Map<string, WireValue>()]
+    wrap(
+      <DataGrid
+        columns={[{ name: 'id', type: '23' }]}
+        rows={[]}
+        editing={editingProps({ newRows, onSetNewCellNull })}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('새 행 0 id NULL'))
+    expect(onSetNewCellNull).toHaveBeenCalledWith(0, 'id')
+  })
+
+  it('기존 셀 편집 중 NULL 버튼이 onSetNull을 부른다', () => {
+    const onSetNull = vi.fn()
+    wrap(
+      <DataGrid
+        columns={[{ name: 'name', type: '25' }]}
+        rows={[[{ t: 'str', v: 'a' }]]}
+        editing={editingProps({ onSetNull })}
+      />,
+    )
+    fireEvent.doubleClick(screen.getByText('a'))
+    fireEvent.click(screen.getByLabelText('행 0 name NULL'))
+    expect(onSetNull).toHaveBeenCalledWith(0, 'name')
+  })
+
+  it('editing 미전달이면 새-행 섹션·NULL 버튼이 없다(읽기 전용 무영향)', () => {
+    wrap(<DataGrid columns={[{ name: 'name', type: '25' }]} rows={[[{ t: 'str', v: 'a' }]]} />)
+    expect(screen.queryByLabelText(/NULL/)).toBeNull()
+    fireEvent.doubleClick(screen.getByText('a'))
+    expect(screen.queryByLabelText(/NULL/)).toBeNull()
   })
 })

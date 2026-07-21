@@ -117,6 +117,7 @@ export function DataView({ gateway, connectionId }: DataViewProps) {
             {canEdit ? (
               <Toolbar>
                 <span>{editor.changeCount} changes</span>
+                <ToolbarButton onClick={editor.addRow}>Add row</ToolbarButton>
                 <ToolbarButton disabled={!editor.dirty} onClick={editor.discard}>Discard</ToolbarButton>
                 <ToolbarButton disabled={!editor.dirty} onClick={handleSave}>Save</ToolbarButton>
               </Toolbar>
@@ -131,7 +132,7 @@ export function DataView({ gateway, connectionId }: DataViewProps) {
               {...(sort ? { sort } : {})}
               onHeaderClick={toggleSort}
               {...(canEdit
-                ? { editing: { onCommitCell: editor.editCell, deletedRows: editor.deleted, onToggleDelete: editor.deleteRow } }
+                ? { editing: { onCommitCell: editor.editCell, deletedRows: editor.deleted, onToggleDelete: editor.deleteRow, newRows: editor.newRows, onCommitNewCell: editor.editNewCell, onSetNull: editor.setNull, onSetNewCellNull: editor.setNewCellNull } }
                 : {})}
             />
           </>

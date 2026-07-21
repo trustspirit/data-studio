@@ -15,6 +15,7 @@ export interface TableEditorState {
   setNull: (rowIndex: number, column: string) => void
   addRow: () => void
   editNewCell: (newRowIndex: number, column: string, text: string) => void
+  setNewCellNull: (newRowIndex: number, column: string) => void
   deleteRow: (rowIndex: number) => void
   discard: () => void
   save: () => Promise<boolean>
@@ -63,6 +64,14 @@ export function useTableEditor(
       return next
     })
   }, [])
+  const setNewCellNull = useCallback((i: number, c: string) => {
+    setNewRows((prev) => {
+      const next = prev.map((m) => new Map(m))
+      const row = next[i]
+      if (row !== undefined) row.set(c, NULL_VALUE)
+      return next
+    })
+  }, [])
   const deleteRow = useCallback((rowIndex: number) => {
     setDeleted((prev) => new Set(prev).add(rowIndex))
   }, [])
@@ -104,7 +113,10 @@ export function useTableEditor(
   const save = useCallback(async (): Promise<boolean> => {
     if (inFlight.current) return false
     const changes = buildChanges()
-    if (changes.length === 0) return true
+    if (changes.length === 0) {
+      setEdits(new Map()); setNewRows([]); setDeleted(new Set())
+      return true
+    }
     inFlight.current = true
     setSaving(true); setError(null)
     try {
@@ -127,7 +139,7 @@ export function useTableEditor(
   }, [gateway, connectionId, schema, table, buildChanges])
 
   return useMemo(
-    () => ({ dirty, changeCount, edits, newRows, deleted, editCell, setNull, addRow, editNewCell, deleteRow, discard, save, saving, error }),
-    [dirty, changeCount, edits, newRows, deleted, editCell, setNull, addRow, editNewCell, deleteRow, discard, save, saving, error],
+    () => ({ dirty, changeCount, edits, newRows, deleted, editCell, setNull, addRow, editNewCell, setNewCellNull, deleteRow, discard, save, saving, error }),
+    [dirty, changeCount, edits, newRows, deleted, editCell, setNull, addRow, editNewCell, setNewCellNull, deleteRow, discard, save, saving, error],
   )
 }

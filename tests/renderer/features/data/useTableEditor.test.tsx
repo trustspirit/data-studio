@@ -64,6 +64,17 @@ describe('useTableEditor', () => {
     expect(changes).toEqual([{ op: 'update', pk: { id: { t: 'int', v: 1 } }, set: { name: { t: 'null' } } }])
   })
 
+  it('setNewCellNull은 새 행 셀을 NULL로 넣어 insert에 포함한다', async () => {
+    const run = vi.fn().mockResolvedValue({ ok: true, payload: { kind: 'applied', affected: 1 } }) as OperationGateway['run']
+    const { result } = editor(run)
+    act(() => result.current.addRow())
+    act(() => result.current.editNewCell(0, 'id', '9'))
+    act(() => result.current.setNewCellNull(0, 'name'))
+    await act(async () => { await result.current.save() })
+    const changes = ((run as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [AppliedRequest])[0].operation.changes
+    expect(changes).toContainEqual({ op: 'insert', values: { id: { t: 'str', v: '9' }, name: { t: 'null' } } })
+  })
+
   it('save 실패면 false·error·스테이징 유지', async () => {
     const run = vi.fn().mockResolvedValue({ ok: false, reason: 'constraint' }) as OperationGateway['run']
     const { result } = editor(run)
@@ -81,5 +92,18 @@ describe('useTableEditor', () => {
     act(() => result.current.editCell(0, 'name', 'A'))
     act(() => result.current.discard())
     expect(result.current.dirty).toBe(false)
+  })
+
+  it('빈 새 행만 있을 때 save는 스테이징을 비우고 게이트웨이를 부르지 않는다', async () => {
+    const run = vi.fn() as OperationGateway['run']
+    const { result } = editor(run)
+    act(() => result.current.addRow())
+    expect(result.current.dirty).toBe(true)   // 빈 새 행이 dirty로 잡힌다
+    let ok = false
+    await act(async () => { ok = await result.current.save() })
+    expect(ok).toBe(true)
+    expect(result.current.dirty).toBe(false)  // 스테이징이 비워졌다
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock
+    expect(vi.mocked(run)).not.toHaveBeenCalled()  // 보낼 게 없으니 apply 미전송
   })
 })
