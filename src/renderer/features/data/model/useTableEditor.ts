@@ -113,7 +113,10 @@ export function useTableEditor(
   const save = useCallback(async (): Promise<boolean> => {
     if (inFlight.current) return false
     const changes = buildChanges()
-    if (changes.length === 0) return true
+    if (changes.length === 0) {
+      setEdits(new Map()); setNewRows([]); setDeleted(new Set())
+      return true
+    }
     inFlight.current = true
     setSaving(true); setError(null)
     try {

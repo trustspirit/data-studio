@@ -93,4 +93,17 @@ describe('useTableEditor', () => {
     act(() => result.current.discard())
     expect(result.current.dirty).toBe(false)
   })
+
+  it('빈 새 행만 있을 때 save는 스테이징을 비우고 게이트웨이를 부르지 않는다', async () => {
+    const run = vi.fn() as OperationGateway['run']
+    const { result } = editor(run)
+    act(() => result.current.addRow())
+    expect(result.current.dirty).toBe(true)   // 빈 새 행이 dirty로 잡힌다
+    let ok = false
+    await act(async () => { ok = await result.current.save() })
+    expect(ok).toBe(true)
+    expect(result.current.dirty).toBe(false)  // 스테이징이 비워졌다
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock
+    expect(vi.mocked(run)).not.toHaveBeenCalled()  // 보낼 게 없으니 apply 미전송
+  })
 })
