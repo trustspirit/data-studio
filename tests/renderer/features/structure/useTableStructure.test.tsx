@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
 import {
@@ -57,6 +57,18 @@ function gateway(): OperationGateway {
   }
 }
 
+interface Deferred<T> {
+  readonly promise: Promise<T>
+  resolve: (v: T) => void
+}
+function deferred<T>(): Deferred<T> {
+  let resolve!: (v: T) => void
+  const promise = new Promise<T>((r) => {
+    resolve = r
+  })
+  return { promise, resolve }
+}
+
 const SEL: TableSelection = { schema: 'public', table: 'orders' }
 
 describe('useTableStructure', () => {
@@ -93,14 +105,34 @@ describe('useTableStructure', () => {
     await waitFor(() => expect(result.current.error).toBe('index read failed'))
   })
 
-  it('선택이 바뀌면 이전 선택의 결과로 덮어쓰지 않는다', async () => {
-    // 느린 첫 응답이 두 번째 선택 뒤에 도착해도 최신 선택만 반영해야 한다.
+  it('이전 선택의 in-flight 응답이 뒤늦게 도착해도 새 선택을 덮어쓰지 않는다', async () => {
+    // orders 선택의 세 응답을 보류시킨 채 items로 전환한다. 보류됐던 orders
+    // 응답이 뒤늦게 resolve돼도 latest-wins 가드가 그것을 버려야 한다.
+    const gate = deferred<void>()
+    const run = vi.fn((req: { operation: { op: string; table?: string } }) => {
+      const table = req.operation.table ?? '?'
+      if (table === 'orders') {
+        return gate.promise.then(() => payloadFor(req.operation.op, 'orders'))
+      }
+      return Promise.resolve(payloadFor(req.operation.op, table))
+    })
+    const gw: OperationGateway = {
+      run,
+      cancel: vi.fn().mockResolvedValue(undefined),
+      recentAudit: vi.fn().mockResolvedValue([]),
+    }
     const { result, rerender } = renderHook(
-      ({ sel }: { sel: TableSelection }) => useTableStructure(gateway(), 'c1', sel),
+      ({ sel }: { sel: TableSelection }) => useTableStructure(gw, 'c1', sel),
       { initialProps: { sel: { schema: 'public', table: 'orders' } } },
     )
-    await waitFor(() => expect(result.current.foreignKeys[0]?.name).toBe('orders_fk'))
+    // orders 응답은 아직 보류 중 — 두 번째 선택으로 전환.
     rerender({ sel: { schema: 'public', table: 'items' } })
     await waitFor(() => expect(result.current.foreignKeys[0]?.name).toBe('items_fk'))
+    // 보류됐던 orders 응답이 이제 도착한다. 가드가 없으면 orders_fk로 덮어써진다.
+    await act(async () => {
+      gate.resolve()
+      await gate.promise
+    })
+    expect(result.current.foreignKeys[0]?.name).toBe('items_fk')
   })
 })
