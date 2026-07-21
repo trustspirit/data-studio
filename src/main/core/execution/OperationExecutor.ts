@@ -369,6 +369,10 @@ function describeOperation(operation: Operation): string {
       return `schema:listTables ${operation.schema}`
     case 'describeTable':
       return `schema:describeTable ${operation.schema}.${operation.table}`
+    case 'listIndexes':
+      return `schema:listIndexes ${operation.schema}.${operation.table}`
+    case 'listForeignKeys':
+      return `schema:listForeignKeys ${operation.schema}.${operation.table}`
   }
 }
 

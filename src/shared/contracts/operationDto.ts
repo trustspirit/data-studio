@@ -28,6 +28,18 @@ const schemaOperationSchema = z.discriminatedUnion('op', [
     schema: z.string(),
     table: z.string(),
   }),
+  z.object({
+    kind: z.literal('schema'),
+    op: z.literal('listIndexes'),
+    schema: z.string(),
+    table: z.string(),
+  }),
+  z.object({
+    kind: z.literal('schema'),
+    op: z.literal('listForeignKeys'),
+    schema: z.string(),
+    table: z.string(),
+  }),
 ])
 
 const operationSchema = z.union([sqlOperationSchema, schemaOperationSchema])

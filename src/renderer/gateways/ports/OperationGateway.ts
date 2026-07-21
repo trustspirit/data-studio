@@ -1,5 +1,12 @@
 import type { OperationRequestDto } from '../../../shared/contracts/operationDto'
 import type { ResultSet } from '../../../shared/types/resultSet'
+import type {
+  SchemaInfo,
+  TableInfo,
+  TableDetail,
+  IndexInfo,
+  ForeignKeyInfo,
+} from '../../../shared/types/schema'
 
 /**
  * 실행 결과의 renderer 표현. main의 `OperationResult`를 그대로 받는다.
@@ -10,9 +17,11 @@ import type { ResultSet } from '../../../shared/types/resultSet'
  */
 export type OperationPayload =
   | { readonly kind: 'rows'; readonly rows: ResultSet }
-  | { readonly kind: 'schemas'; readonly schemas: unknown }
-  | { readonly kind: 'tables'; readonly tables: unknown }
-  | { readonly kind: 'tableDetail'; readonly detail: unknown }
+  | { readonly kind: 'schemas'; readonly schemas: readonly SchemaInfo[] }
+  | { readonly kind: 'tables'; readonly tables: readonly TableInfo[] }
+  | { readonly kind: 'tableDetail'; readonly detail: TableDetail }
+  | { readonly kind: 'indexes'; readonly indexes: readonly IndexInfo[] }
+  | { readonly kind: 'foreignKeys'; readonly foreignKeys: readonly ForeignKeyInfo[] }
 
 export type OperationOutcome =
   | { readonly ok: true; readonly payload: OperationPayload }

@@ -45,6 +45,8 @@ interface Calls {
   scopeEnd: number
   listSchemas: number
   listTables: string[]
+  listIndexes: Array<{ schema: string; table: string }>
+  listForeignKeys: Array<{ schema: string; table: string }>
   release: number
 }
 
@@ -74,6 +76,8 @@ function createHarness(options: FakeOptions = {}) {
     scopeEnd: 0,
     listSchemas: 0,
     listTables: [],
+    listIndexes: [],
+    listForeignKeys: [],
     release: 0,
   }
 
@@ -140,8 +144,24 @@ function createHarness(options: FakeOptions = {}) {
             },
             describeTable: (): Promise<TableDetail> =>
               Promise.reject(new Error('not used in this test')),
-            listIndexes: () => Promise.resolve([]),
-            listForeignKeys: () => Promise.resolve([]),
+            listIndexes: (_ctx, schemaName: string, table: string) => {
+              calls.listIndexes.push({ schema: schemaName, table })
+              return Promise.resolve([
+                { name: `${table}_pkey`, columns: ['id'], unique: true, sizeBytes: null },
+              ])
+            },
+            listForeignKeys: (_ctx, schemaName: string, table: string) => {
+              calls.listForeignKeys.push({ schema: schemaName, table })
+              return Promise.resolve([
+                {
+                  name: `${table}_fk`,
+                  columns: ['ref_id'],
+                  referencedSchema: 'public',
+                  referencedTable: 'other',
+                  referencedColumns: ['id'],
+                },
+              ])
+            },
           },
         }
       : {}),
@@ -673,6 +693,35 @@ describe('OperationExecutor — capability 라우팅', () => {
     const result = await h.executor.run(request(), AI)
 
     expect(result).toEqual({ ok: false, reason: 'ai_read_only_unsupported' })
+    expect(h.calls.execute).toHaveLength(0)
+  })
+
+  it('listIndexes 요청을 schema executor로 보내고 indexes payload를 준다', async () => {
+    const h = createHarness()
+
+    const result = await h.executor.run(
+      request({ operation: { kind: 'schema', op: 'listIndexes', schema: 'public', table: 'users' } }),
+      USER,
+    )
+
+    expect(result).toMatchObject({ ok: true, payload: { kind: 'indexes' } })
+    expect(h.calls.listIndexes).toEqual([{ schema: 'public', table: 'users' }])
+    // sql 경로에 닿지 않아야 한다 — 메타 조회에 임의 SQL 통로가 생기면 안 된다.
+    expect(h.calls.execute).toHaveLength(0)
+  })
+
+  it('listForeignKeys 요청을 schema executor로 보내고 foreignKeys payload를 준다', async () => {
+    const h = createHarness()
+
+    const result = await h.executor.run(
+      request({
+        operation: { kind: 'schema', op: 'listForeignKeys', schema: 'public', table: 'orders' },
+      }),
+      USER,
+    )
+
+    expect(result).toMatchObject({ ok: true, payload: { kind: 'foreignKeys' } })
+    expect(h.calls.listForeignKeys).toEqual([{ schema: 'public', table: 'orders' }])
     expect(h.calls.execute).toHaveLength(0)
   })
 })
