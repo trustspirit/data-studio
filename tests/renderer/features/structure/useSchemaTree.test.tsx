@@ -8,7 +8,7 @@ function gateway(handler: (op: { op: string; schema?: string }) => OperationOutc
   return {
     run: vi.fn((req: { operation: { op: string; schema?: string } }) =>
       Promise.resolve(handler(req.operation)),
-    ),
+    ) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
   }

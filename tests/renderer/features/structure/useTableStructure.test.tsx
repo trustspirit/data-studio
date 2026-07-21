@@ -51,7 +51,7 @@ function gateway(): OperationGateway {
   return {
     run: vi.fn((req: { operation: { op: string; table?: string } }) =>
       Promise.resolve(payloadFor(req.operation.op, req.operation.table ?? '?')),
-    ),
+    ) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
   }
@@ -97,7 +97,7 @@ describe('useTableStructure', () => {
             ? ({ ok: false, reason: 'index read failed' } as OperationOutcome)
             : payloadFor(req.operation.op, 'orders'),
         ),
-      ),
+      ) as OperationGateway['run'],
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
     }
@@ -115,7 +115,7 @@ describe('useTableStructure', () => {
         return gate.promise.then(() => payloadFor(req.operation.op, 'orders'))
       }
       return Promise.resolve(payloadFor(req.operation.op, table))
-    })
+    }) as OperationGateway['run']
     const gw: OperationGateway = {
       run,
       cancel: vi.fn().mockResolvedValue(undefined),

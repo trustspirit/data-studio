@@ -75,7 +75,8 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
           })
           if (!mounted.current) return
           if (outcome.ok && outcome.payload.kind === 'tables') {
-            setTablesBySchema((cur) => ({ ...cur, [schema]: outcome.payload.tables }))
+            const tables = outcome.payload.tables
+            setTablesBySchema((cur) => ({ ...cur, [schema]: tables }))
           } else if (!outcome.ok) {
             setError(outcome.reason)
           }

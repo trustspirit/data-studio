@@ -42,7 +42,7 @@ function gateway(): OperationGateway {
   return {
     run: vi.fn((req: { operation: { op: string; schema?: string; table?: string } }) =>
       Promise.resolve(outcomeFor(req.operation.op, req.operation.schema, req.operation.table)),
-    ),
+    ) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
   }
