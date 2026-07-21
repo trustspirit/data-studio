@@ -126,6 +126,7 @@ export class OperationExecutor {
       operation,
       hasSql: driver.sql !== undefined,
       hasSchema: driver.schema !== undefined,
+      hasData: driver.data !== undefined,
       supportsReadOnlyScope: driver.sql?.beginReadOnly !== undefined,
       driverClassify: (sql) => driver.sql?.classify(sql) ?? 'unknown',
       requestedLimits: req.limits,
@@ -252,6 +253,8 @@ export class OperationExecutor {
         return driver.sql !== undefined
       case 'schema':
         return driver.schema !== undefined
+      case 'data':
+        return driver.data !== undefined
     }
   }
 
@@ -361,6 +364,7 @@ function tighten(cap: number, requested: number | undefined): number {
 /** 감사 로그에 남길 문장. sql은 원문 그대로, 그 외는 무엇을 했는지 적는다. */
 function describeOperation(operation: Operation): string {
   if (operation.kind === 'sql') return operation.sql
+  if (operation.kind === 'data') return `data:${operation.op} ${operation.schema}.${operation.table}`
 
   switch (operation.op) {
     case 'listSchemas':

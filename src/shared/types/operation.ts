@@ -22,11 +22,20 @@ export type SchemaOperationOp =
 
 export type SchemaOperation = { readonly kind: 'schema' } & SchemaOperationOp
 
+export type DataOperationOp = {
+  readonly op: 'browse'
+  readonly schema: string
+  readonly table: string
+  readonly sort?: BrowseSort
+}
+
+export type DataOperation = { readonly kind: 'data' } & DataOperationOp
+
 /**
  * 실행 요청. 판별 유니온이므로 document/keyvalue/stream은 해당 드라이버가
  * 생길 때 순수 확장으로 추가한다 — 소비자 없이 지금 설계하지 않는다.
  */
-export type Operation = SqlOperation | SchemaOperation
+export type Operation = SqlOperation | SchemaOperation | DataOperation
 
 export interface ExecutionLimits {
   /** 엔진 네이티브 statement timeout */

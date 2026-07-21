@@ -36,4 +36,26 @@ describe('operationRequestSchema — schema ops', () => {
     const parsed = operationRequestSchema.parse(req({ kind: 'schema', op: 'listSchemas' }))
     expect(parsed.operation).toEqual({ kind: 'schema', op: 'listSchemas' })
   })
+
+  it('data:browse를 schema/table과 함께 받아들인다', () => {
+    const parsed = operationRequestSchema.parse(
+      req({ kind: 'data', op: 'browse', schema: 'public', table: 'users' }),
+    )
+    expect(parsed.operation).toEqual({ kind: 'data', op: 'browse', schema: 'public', table: 'users' })
+  })
+
+  it('data:browse의 sort를 받아들인다', () => {
+    const parsed = operationRequestSchema.parse(
+      req({ kind: 'data', op: 'browse', schema: 'public', table: 'users', sort: { column: 'id', direction: 'desc' } }),
+    )
+    expect(parsed.operation).toMatchObject({ sort: { column: 'id', direction: 'desc' } })
+  })
+
+  it('data:browse의 잘못된 정렬 방향은 거부한다', () => {
+    expect(() =>
+      operationRequestSchema.parse(
+        req({ kind: 'data', op: 'browse', schema: 'public', table: 'users', sort: { column: 'id', direction: 'sideways' } }),
+      ),
+    ).toThrow()
+  })
 })
