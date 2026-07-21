@@ -53,6 +53,9 @@ export function layoutGraph(
   for (const edge of edges) {
     if (sizes.has(edge.fromTable) && sizes.has(edge.toTable)) g.setEdge(edge.fromTable, edge.toTable)
   }
+  // dagre의 graphlib.Graph는 라벨 제네릭이 any라 layout()의 파라미터 타입과
+  // 어긋난다 — 서드파티 타이핑 갭이므로 이 호출만 예외 처리한다.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   dagre.layout(g)
 
   const byTable = new Map<string, PositionedNode>()
