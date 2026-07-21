@@ -131,7 +131,7 @@ export function DataView({ gateway, connectionId }: DataViewProps) {
               {...(sort ? { sort } : {})}
               onHeaderClick={toggleSort}
               {...(canEdit
-                ? { editing: { onCommitCell: editor.editCell, deletedRows: editor.deleted, onToggleDelete: editor.deleteRow } }
+                ? { editing: { onCommitCell: editor.editCell, deletedRows: editor.deleted, onToggleDelete: editor.deleteRow, newRows: editor.newRows, onCommitNewCell: editor.editNewCell, onSetNull: editor.setNull, onSetNewCellNull: editor.setNewCellNull } }
                 : {})}
             />
           </>
