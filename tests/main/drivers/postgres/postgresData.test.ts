@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { PostgresDataCapability } from '@main/drivers/postgres/PostgresDataCapability'
 
-const data = new PostgresDataCapability()
+const data = new PostgresDataCapability(() => {
+  throw new Error('not used in this test')
+})
 
 describe('PostgresDataCapability.buildBrowse', () => {
   it('스키마·테이블을 인용해 SELECT를 만든다', () => {
