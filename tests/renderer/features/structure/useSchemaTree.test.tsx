@@ -60,4 +60,29 @@ describe('useSchemaTree', () => {
     const { result } = renderHook(() => useSchemaTree(gw, 'c1'))
     await waitFor(() => expect(result.current.error).toBe('not open'))
   })
+
+  it('연결이 바뀌면 이전 연결의 테이블 캐시를 버린다', async () => {
+    const gw = gateway((op) => {
+      if (op.op === 'listSchemas')
+        return { ok: true, payload: { kind: 'schemas', schemas: [{ name: 'public' }] } }
+      return {
+        ok: true,
+        payload: {
+          kind: 'tables',
+          tables: [{ schema: 'public', name: 'users', kind: 'table', estimatedRows: null }],
+        },
+      }
+    })
+    const { result, rerender } = renderHook(({ id }: { id: string }) => useSchemaTree(gw, id), {
+      initialProps: { id: 'c1' },
+    })
+    await waitFor(() => expect(result.current.schemas).toHaveLength(1))
+    await act(async () => result.current.toggle('public'))
+    await waitFor(() => expect(result.current.tablesBySchema['public']).toHaveLength(1))
+
+    // 연결 전환: 캐시 리셋으로 옛 테이블이 사라져야 한다.
+    rerender({ id: 'c2' })
+    await waitFor(() => expect(result.current.tablesBySchema['public']).toBeUndefined())
+    expect(result.current.expanded['public']).toBeUndefined()
+  })
 })
