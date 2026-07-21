@@ -14,14 +14,14 @@ describe('useTableColumns', () => {
   it('describeTable로 컬럼과 PK 컬럼(ordinal 순)을 준다', async () => {
     const g = gw({ ok: true, payload: { kind: 'tableDetail', detail: {
       schema: 'public', name: 'users', columns: [
-        { name: 'id', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
         { name: 'email', type: 'text', nullable: false, defaultValue: null, primaryKeyOrdinal: null },
-        { name: 'org', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 2 },
+        { name: 'b', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 2 },
+        { name: 'a', type: 'int8', nullable: false, defaultValue: null, primaryKeyOrdinal: 1 },
       ] } } })
     const { result } = renderHook(() => useTableColumns(g, 'c1', SEL))
     await waitFor(() => expect(result.current.columns).toHaveLength(3))
-    // ordinal 순: id(1), org(2)
-    expect(result.current.pkColumns).toEqual(['id', 'org'])
+    // ordinal 순은 a(1), b(2) — 컬럼 순서(b, a)의 역이다. 정렬 없이 컬럼 순서면 [b,a]가 된다.
+    expect(result.current.pkColumns).toEqual(['a', 'b'])
   })
 
   it('선택이 없으면 조회하지 않는다', () => {
