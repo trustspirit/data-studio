@@ -85,7 +85,7 @@ export class PostgresDriver implements Driver {
       },
     )
     this.schema = new PostgresSchemaCapability(() => this.requireConn())
-    this.data = new PostgresDataCapability()
+    this.data = new PostgresDataCapability(() => this.requireConn())
   }
 
   private makeClient(): (params: PgConnParams) => PgClientLike {

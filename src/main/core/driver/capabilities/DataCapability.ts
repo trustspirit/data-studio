@@ -1,4 +1,5 @@
-import type { BrowseSort } from '../../../../shared/types/operation'
+import type { BrowseSort, RowChange } from '../../../../shared/types/operation'
+import type { ExecutionContext } from '../ExecutionContext'
 
 /** 조립된 파라미터 바인딩 문장. 실행은 호출자(실행기)가 한다. */
 export interface BuiltStatement {
@@ -6,13 +7,21 @@ export interface BuiltStatement {
   readonly params: readonly unknown[]
 }
 
+export interface ApplyResult {
+  readonly affected: number
+}
+
 /**
- * 테이블 데이터 접근을 위한 **안전한 SQL 조립**. 실행하지 않는다 — 문자열과
- * 파라미터만 돌려준다. 식별자 인용은 드라이버가 dialect에 맞춰 책임진다
- * (renderer가 식별자를 인용하면 인젝션 통로가 되므로 여기서 한다).
- *
- * 사이클 2에서 `buildApply(...)`(트랜잭션 편집)가 순수 확장으로 추가된다.
+ * 테이블 데이터 접근. `buildBrowse`는 안전하게 **조립만** 한다(실행 안 함).
+ * `applyChanges`는 편집을 **하나의 트랜잭션으로 원자 실행**한다 — 원자성은
+ * 하나의 임차 연결 안에서만 성립하므로 조립/실행 분리 대신 여기서 실행한다.
  */
 export interface DataCapability {
   buildBrowse(schema: string, table: string, sort?: BrowseSort): BuiltStatement
+  applyChanges(
+    ctx: ExecutionContext,
+    schema: string,
+    table: string,
+    changes: readonly RowChange[],
+  ): Promise<ApplyResult>
 }

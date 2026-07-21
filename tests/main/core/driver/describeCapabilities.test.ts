@@ -154,7 +154,12 @@ describe('describeCapabilities', () => {
   it('data 능력이 있으면 목록에 data를 넣는다', () => {
     const driver: Driver = {
       ...baseDriver(),
-      data: { buildBrowse: () => ({ sql: '', params: [] }) },
+      data: {
+        buildBrowse: () => ({ sql: '', params: [] }),
+        applyChanges: () => {
+          throw new Error('not used in this test')
+        },
+      },
     }
 
     expect(describeCapabilities(driver)).toContain('data')

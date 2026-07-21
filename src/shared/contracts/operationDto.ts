@@ -42,13 +42,39 @@ const schemaOperationSchema = z.discriminatedUnion('op', [
   }),
 ])
 
-const dataOperationSchema = z.object({
-  kind: z.literal('data'),
-  op: z.literal('browse'),
-  schema: z.string(),
-  table: z.string(),
-  sort: z.object({ column: z.string(), direction: z.enum(['asc', 'desc']) }).optional(),
-})
+const wireValueSchema = z.discriminatedUnion('t', [
+  z.object({ t: z.literal('null') }),
+  z.object({ t: z.literal('bool'), v: z.boolean() }),
+  z.object({ t: z.literal('int'), v: z.number() }),
+  z.object({ t: z.literal('bigint'), v: z.string() }),
+  z.object({ t: z.literal('float'), v: z.number() }),
+  z.object({ t: z.literal('decimal'), v: z.string() }),
+  z.object({ t: z.literal('str'), v: z.string() }),
+  z.object({ t: z.literal('bytes'), v: z.string(), enc: z.literal('base64'), truncated: z.boolean() }),
+  z.object({ t: z.literal('date'), v: z.string() }),
+  z.object({ t: z.literal('json'), v: z.string(), truncated: z.boolean() }),
+  z.object({ t: z.literal('oid'), v: z.string() }),
+  z.object({ t: z.literal('unknown'), v: z.string(), note: z.string() }),
+])
+
+const rowChangeSchema = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('insert'), values: z.record(z.string(), wireValueSchema) }),
+  z.object({ op: z.literal('update'), pk: z.record(z.string(), wireValueSchema), set: z.record(z.string(), wireValueSchema) }),
+  z.object({ op: z.literal('delete'), pk: z.record(z.string(), wireValueSchema) }),
+])
+
+const dataOperationSchema = z.discriminatedUnion('op', [
+  z.object({
+    kind: z.literal('data'), op: z.literal('browse'),
+    schema: z.string(), table: z.string(),
+    sort: z.object({ column: z.string(), direction: z.enum(['asc', 'desc']) }).optional(),
+  }),
+  z.object({
+    kind: z.literal('data'), op: z.literal('apply'),
+    schema: z.string(), table: z.string(),
+    changes: z.array(rowChangeSchema),
+  }),
+])
 
 const operationSchema = z.union([sqlOperationSchema, schemaOperationSchema, dataOperationSchema])
 

@@ -70,4 +70,13 @@ describe('useTableData', () => {
     const { result } = renderHook(() => useTableData(gw, 'c1', SEL, undefined))
     await waitFor(() => expect(result.current.error).toBe('denied'))
   })
+
+  it('reload()가 현재 선택으로 다시 조회한다', async () => {
+    const run = vi.fn().mockResolvedValue({ ok: true, payload: { kind: 'rows', rows: rowsResult() } })
+    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
+    const { result } = renderHook(() => useTableData(gw, 'c1', SEL, undefined))
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+    act(() => { result.current.reload() })
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
+  })
 })

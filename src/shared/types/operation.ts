@@ -1,9 +1,20 @@
 import type { PageRequest } from './resultSet'
+import type { WireValue } from './wire'
 
 export interface BrowseSort {
   readonly column: string
   readonly direction: 'asc' | 'desc'
 }
+
+/** 편집 한 건. 값은 WireValue라 타입·정밀도를 보존한다. */
+export type RowChange =
+  | { readonly op: 'insert'; readonly values: Readonly<Record<string, WireValue>> }
+  | {
+      readonly op: 'update'
+      readonly pk: Readonly<Record<string, WireValue>>
+      readonly set: Readonly<Record<string, WireValue>>
+    }
+  | { readonly op: 'delete'; readonly pk: Readonly<Record<string, WireValue>> }
 
 /** SQL 문장 실행. `params`는 위치 기반이다. */
 export interface SqlOperation {
@@ -22,12 +33,9 @@ export type SchemaOperationOp =
 
 export type SchemaOperation = { readonly kind: 'schema' } & SchemaOperationOp
 
-export type DataOperationOp = {
-  readonly op: 'browse'
-  readonly schema: string
-  readonly table: string
-  readonly sort?: BrowseSort
-}
+export type DataOperationOp =
+  | { readonly op: 'browse'; readonly schema: string; readonly table: string; readonly sort?: BrowseSort }
+  | { readonly op: 'apply'; readonly schema: string; readonly table: string; readonly changes: readonly RowChange[] }
 
 export type DataOperation = { readonly kind: 'data' } & DataOperationOp
 

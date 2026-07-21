@@ -25,6 +25,7 @@ export type OperationPayload =
   | { readonly kind: 'tableDetail'; readonly detail: TableDetail }
   | { readonly kind: 'indexes'; readonly indexes: readonly IndexInfo[] }
   | { readonly kind: 'foreignKeys'; readonly foreignKeys: readonly ForeignKeyInfo[] }
+  | { readonly kind: 'applied'; readonly affected: number }
 
 export interface CapabilityExecuteInput {
   readonly ctx: ExecutionContext
