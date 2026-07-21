@@ -13,6 +13,7 @@ export interface TableDataState {
   readonly rows: readonly (readonly WireValue[])[]
   readonly hasMore: boolean
   loadMore: () => Promise<void>
+  reload: () => void
   readonly loading: boolean
   readonly error: string | null
 }
@@ -33,6 +34,7 @@ export function useTableData(
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [reloadTick, setReloadTick] = useState(0)
   const mounted = useRef(true)
   const latest = useRef(0)
   const inFlight = useRef(false)
@@ -87,12 +89,14 @@ export function useTableData(
     setRows([]); setColumns([]); setCursor(null); setHasMore(false)
     if (schema === null || table === null) { setLoading(false); setError(null); return }
     void runBrowse(null, false, token)
-  }, [gateway, connectionId, schema, table, sortKey])
+  }, [gateway, connectionId, schema, table, sortKey, reloadTick])
 
   const loadMore = useCallback(async () => {
     if (!hasMore || cursor === null) return
     await runBrowse(cursor, true, latest.current)
   }, [hasMore, cursor, runBrowse])
 
-  return { columns, rows, hasMore, loadMore, loading, error }
+  const reload = useCallback(() => setReloadTick((n) => n + 1), [])
+
+  return { columns, rows, hasMore, loadMore, reload, loading, error }
 }
