@@ -21,15 +21,21 @@ const Banner = styled.div`
 interface StructureViewProps {
   gateway: OperationGateway
   connectionId: string
+  externalSelection?: TableSelection | null
 }
 
-export function StructureView({ gateway, connectionId }: StructureViewProps) {
+export function StructureView({ gateway, connectionId, externalSelection }: StructureViewProps) {
   const tree = useSchemaTree(gateway, connectionId)
   const [selected, setSelected] = useState<TableSelection | null>(null)
   useEffect(() => {
     // 연결이 바뀌면 선택을 초기화한다 (useSchemaTree의 캐시 리셋과 일관).
     setSelected(null)
   }, [connectionId])
+  useEffect(() => {
+    // ER 뷰 등 상위가 특정 테이블을 열도록 요청하면 내부 선택을 시드한다.
+    // prop 미전달(undefined)·null이면 아무 것도 하지 않아 기존 동작이 그대로 유지된다.
+    if (externalSelection) setSelected(externalSelection)
+  }, [externalSelection])
   const structure = useTableStructure(gateway, connectionId, selected)
 
   return (

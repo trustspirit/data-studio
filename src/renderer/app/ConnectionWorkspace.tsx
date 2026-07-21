@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
+import type { TableSelection } from '../entities/schema-tree'
 import { QueryWorkspace } from '../features/query'
 import { StructureView } from '../features/structure'
 import { DataView } from '../features/data'
+import { ErView } from '../features/er'
 
 const Layout = styled.div`
   display: flex;
@@ -33,7 +35,7 @@ const Body = styled.div`
   min-height: 0;
 `
 
-type View = 'query' | 'structure' | 'data'
+type View = 'query' | 'structure' | 'data' | 'er'
 
 interface ConnectionWorkspaceProps {
   gateway: OperationGateway
@@ -43,6 +45,7 @@ interface ConnectionWorkspaceProps {
 
 export function ConnectionWorkspace({ gateway, connectionId, connectionName }: ConnectionWorkspaceProps) {
   const [view, setView] = useState<View>('query')
+  const [erJump, setErJump] = useState<TableSelection | null>(null)
   return (
     <Layout>
       <SubTabs>
@@ -65,14 +68,26 @@ export function ConnectionWorkspace({ gateway, connectionId, connectionName }: C
         <SubTab type="button" data-testid="subtab-data" $active={view === 'data'} onClick={() => setView('data')}>
           Data
         </SubTab>
+        <SubTab type="button" data-testid="subtab-er" $active={view === 'er'} onClick={() => setView('er')}>
+          ER
+        </SubTab>
       </SubTabs>
       <Body>
         {view === 'query' ? (
           <QueryWorkspace gateway={gateway} connectionId={connectionId} connectionName={connectionName} />
         ) : view === 'structure' ? (
-          <StructureView gateway={gateway} connectionId={connectionId} />
-        ) : (
+          <StructureView gateway={gateway} connectionId={connectionId} externalSelection={erJump} />
+        ) : view === 'data' ? (
           <DataView gateway={gateway} connectionId={connectionId} />
+        ) : (
+          <ErView
+            gateway={gateway}
+            connectionId={connectionId}
+            onOpenTable={(schema, table) => {
+              setErJump({ schema, table })
+              setView('structure')
+            }}
+          />
         )}
       </Body>
     </Layout>
