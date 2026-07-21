@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { PostgresDataCapability } from '@main/drivers/postgres/PostgresDataCapability'
 import type { PgClientLike } from '@main/drivers/postgres/PostgresDriver'
 import type { ExecutionContext } from '@main/core/driver/ExecutionContext'

@@ -76,7 +76,7 @@ describe('useTableData', () => {
     const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
     const { result } = renderHook(() => useTableData(gw, 'c1', SEL, undefined))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
-    await act(async () => { result.current.reload() })
+    act(() => { result.current.reload() })
     await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
   })
 })
