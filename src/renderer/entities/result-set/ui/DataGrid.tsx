@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDescriptor } from '@shared/types/resultSet'
 import type { WireValue } from '@shared/types/wire'
+import type { BrowseSort } from '@shared/types/operation'
 import { renderCell } from '../renderers'
 
 const ROW_HEIGHT = 28
@@ -40,9 +41,11 @@ interface Props {
   rows: readonly (readonly WireValue[])[]
   hasMore?: boolean
   onLoadMore?: () => void
+  sort?: BrowseSort
+  onHeaderClick?: (column: string) => void
 }
 
-export function DataGrid({ columns, rows, hasMore = false, onLoadMore }: Props) {
+export function DataGrid({ columns, rows, hasMore = false, onLoadMore, sort, onHeaderClick }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -61,9 +64,18 @@ export function DataGrid({ columns, rows, hasMore = false, onLoadMore }: Props) 
   return (
     <Scroll ref={scrollRef} data-grid-scroll onScroll={onScroll}>
       <HeaderRow>
-        {columns.map((c, i) => (
-          <HeaderCell key={i}>{c.name}</HeaderCell>
-        ))}
+        {columns.map((c, i) => {
+          const dir = sort?.column === c.name ? (sort.direction === 'desc' ? ' ▼' : ' ▲') : ''
+          return (
+            <HeaderCell
+              key={i}
+              style={onHeaderClick ? { cursor: 'pointer' } : undefined}
+              onClick={onHeaderClick ? () => onHeaderClick(c.name) : undefined}
+            >
+              {c.name}{dir}
+            </HeaderCell>
+          )
+        })}
       </HeaderRow>
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
         {items.map((item) => {
