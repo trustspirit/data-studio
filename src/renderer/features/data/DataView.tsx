@@ -117,6 +117,7 @@ export function DataView({ gateway, connectionId }: DataViewProps) {
             {canEdit ? (
               <Toolbar>
                 <span>{editor.changeCount} changes</span>
+                <ToolbarButton onClick={editor.addRow}>Add row</ToolbarButton>
                 <ToolbarButton disabled={!editor.dirty} onClick={editor.discard}>Discard</ToolbarButton>
                 <ToolbarButton disabled={!editor.dirty} onClick={handleSave}>Save</ToolbarButton>
               </Toolbar>

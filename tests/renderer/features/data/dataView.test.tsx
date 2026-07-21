@@ -106,6 +106,26 @@ describe('DataView', () => {
     })
   })
 
+  it('Add row → 새 행 입력 → Save가 insert를 apply에 담아 보낸다', async () => {
+    const g = gateway({ pk: true })
+    wrap(<DataView gateway={g} connectionId="c1" />)
+    await selectUsersTable()
+
+    fireEvent.click(screen.getByText('Add row'))
+    const input = screen.getByLabelText('새 행 0 id')
+    fireEvent.change(input, { target: { value: '9' } })
+
+    await waitFor(() => expect(screen.getByText(/1 changes/)).toBeTruthy())
+    fireEvent.click(screen.getByText('Save'))
+
+    await waitFor(() => {
+      const calls = (g.run as unknown as ReturnType<typeof vi.fn>).mock.calls as [{ operation: { op: string; changes?: unknown[] } }][]
+      const applyCall = calls.find((c) => c[0].operation.op === 'apply')
+      expect(applyCall).toBeDefined()
+      expect(applyCall?.[0].operation.changes).toContainEqual({ op: 'insert', values: { id: { t: 'str', v: '9' } } })
+    })
+  })
+
   it('PK가 없으면 편집이 비활성이다', async () => {
     wrap(<DataView gateway={gateway({ pk: false })} connectionId="c1" />)
     await selectUsersTable()
