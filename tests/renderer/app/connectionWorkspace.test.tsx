@@ -19,7 +19,21 @@ function gateway(): OperationGateway {
     run: vi.fn((req: { operation: { op?: string } }): Promise<OperationOutcome> => {
       if (req.operation.op === 'listSchemas')
         return Promise.resolve({ ok: true, payload: { kind: 'schemas', schemas: [{ name: 'public' }] } })
-      return Promise.resolve({ ok: true, payload: { kind: 'tables', tables: [] } })
+      if (req.operation.op === 'listTables')
+        return Promise.resolve({ ok: true, payload: { kind: 'tables', tables: [] } })
+      return Promise.resolve({
+        ok: true,
+        payload: {
+          kind: 'rows',
+          rows: {
+            requestId: 'r',
+            columns: [{ name: 'id', type: '23' }],
+            rows: [[{ t: 'int', v: 7 }]],
+            page: { cursor: null, hasMore: false, rowCount: 1, bytes: 10 },
+            meta: { durationMs: 1, truncatedRows: false, truncatedBytes: false, rowsAffected: null },
+          },
+        },
+      })
     }) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
@@ -53,5 +67,13 @@ describe('ConnectionWorkspace', () => {
     await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
     fireEvent.click(screen.getByTestId('subtab-query'))
     expect(screen.getByText(/Query — prod/)).toBeTruthy()
+  })
+
+  it('Data 서브탭으로 전환하면 데이터 뷰가 뜬다', async () => {
+    wrap()
+    fireEvent.click(screen.getByTestId('subtab-data'))
+    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+    // Query 헤더는 더 이상 없다.
+    expect(screen.queryByText(/Query — /)).toBeNull()
   })
 })
