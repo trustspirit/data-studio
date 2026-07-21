@@ -2,7 +2,9 @@ import Database from 'better-sqlite3'
 import type { ConnectionConfig } from '../../../shared/types/connection'
 import type { Driver } from '../../core/driver/Driver'
 import type { SqlCapability } from '../../core/driver/capabilities/SqlCapability'
+import type { SchemaCapability } from '../../core/driver/capabilities/SchemaCapability'
 import { SqliteSqlCapability } from './SqliteSqlCapability'
+import { SqliteSchemaCapability } from './SqliteSchemaCapability'
 
 /** better-sqlite3 인스턴스 타입. capability 구현이 공유한다. */
 export type DatabaseInstance = Database.Database
@@ -18,11 +20,13 @@ export class SqliteDriver implements Driver {
   readonly id: string
   readonly engine = 'sqlite' as const
   readonly sql: SqlCapability
+  readonly schema: SchemaCapability
   private db: DatabaseInstance | null = null
 
   constructor(config: ConnectionConfig) {
     this.id = config.id
     this.sql = new SqliteSqlCapability(() => this.requireDb())
+    this.schema = new SqliteSchemaCapability(() => this.requireDb())
   }
 
   async connect(config: ConnectionConfig): Promise<void> {
