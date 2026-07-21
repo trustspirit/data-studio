@@ -42,7 +42,15 @@ const schemaOperationSchema = z.discriminatedUnion('op', [
   }),
 ])
 
-const operationSchema = z.union([sqlOperationSchema, schemaOperationSchema])
+const dataOperationSchema = z.object({
+  kind: z.literal('data'),
+  op: z.literal('browse'),
+  schema: z.string(),
+  table: z.string(),
+  sort: z.object({ column: z.string(), direction: z.enum(['asc', 'desc']) }).optional(),
+})
+
+const operationSchema = z.union([sqlOperationSchema, schemaOperationSchema, dataOperationSchema])
 
 const pageRequestSchema = z.object({
   cursor: z.string().nullable(),

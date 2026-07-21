@@ -61,4 +61,29 @@ describe('DataGrid', () => {
     fireEvent.scroll(scroller)
     expect(onLoadMore).toHaveBeenCalled()
   })
+
+  it('onHeaderClick이 있으면 헤더 클릭 시 컬럼명을 준다', () => {
+    const onHeaderClick = vi.fn()
+    wrap(
+      <DataGrid
+        columns={[{ name: 'id', type: '23' }, { name: 'name', type: '25' }]}
+        rows={[]}
+        onHeaderClick={onHeaderClick}
+      />,
+    )
+    fireEvent.click(screen.getByText('id'))
+    expect(onHeaderClick).toHaveBeenCalledWith('id')
+  })
+
+  it('현재 sort 컬럼에 방향 표식을 보인다', () => {
+    wrap(
+      <DataGrid
+        columns={[{ name: 'id', type: '23' }]}
+        rows={[]}
+        sort={{ column: 'id', direction: 'desc' }}
+      />,
+    )
+    // 'id' 헤더 셀에 방향 표식(▼)이 포함된다.
+    expect(screen.getByText(/id/).textContent).toMatch(/▼/)
+  })
 })

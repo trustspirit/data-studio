@@ -2,10 +2,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
-import {
-  useTableStructure,
-  type TableSelection,
-} from '@renderer/features/structure/model/useTableStructure'
+import type { TableSelection } from '@renderer/entities/schema-tree'
+import { useTableStructure } from '@renderer/features/structure/model/useTableStructure'
 
 function payloadFor(op: string, table: string): OperationOutcome {
   if (op === 'describeTable')

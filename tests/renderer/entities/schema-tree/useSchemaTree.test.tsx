@@ -2,7 +2,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
-import { useSchemaTree } from '@renderer/features/structure/model/useSchemaTree'
+import { useSchemaTree } from '@renderer/entities/schema-tree'
 
 function gateway(handler: (op: { op: string; schema?: string }) => OperationOutcome): OperationGateway {
   return {

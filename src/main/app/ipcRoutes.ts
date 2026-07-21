@@ -117,6 +117,11 @@ function normalizeOperation(operation: ContractInput<'operation:run'>['operation
       ? { kind: 'sql', sql: operation.sql }
       : { kind: 'sql', sql: operation.sql, params: operation.params }
   }
+  if (operation.kind === 'data') {
+    return operation.sort === undefined
+      ? { kind: 'data', op: operation.op, schema: operation.schema, table: operation.table }
+      : { ...operation, sort: operation.sort }
+  }
   return operation
 }
 

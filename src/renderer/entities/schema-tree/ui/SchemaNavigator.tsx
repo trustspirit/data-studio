@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import type { SchemaInfo, TableInfo } from '../../../../shared/types/schema'
-import type { TableSelection } from '../model/useTableStructure'
+import type { TableSelection } from '../model/selection'
 
 const Tree = styled.div`
   width: 240px;

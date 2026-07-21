@@ -5,11 +5,8 @@ import type {
   IndexInfo,
 } from '../../../../shared/types/schema'
 import type { OperationGateway, OperationOutcome } from '../../../gateways/ports/OperationGateway'
+import type { TableSelection } from '../../../entities/schema-tree'
 
-export interface TableSelection {
-  readonly schema: string
-  readonly table: string
-}
 export interface TableStructureState {
   readonly columns: readonly ColumnInfo[]
   readonly indexes: readonly IndexInfo[]

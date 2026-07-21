@@ -150,4 +150,17 @@ describe('describeCapabilities', () => {
     expect(cloned).toEqual(capabilities)
     expect(capabilities.every((c) => typeof c === 'string')).toBe(true)
   })
+
+  it('data 능력이 있으면 목록에 data를 넣는다', () => {
+    const driver: Driver = {
+      ...baseDriver(),
+      data: { buildBrowse: () => ({ sql: '', params: [] }) },
+    }
+
+    expect(describeCapabilities(driver)).toContain('data')
+  })
+
+  it('data 능력이 없으면 넣지 않는다', () => {
+    expect(describeCapabilities(baseDriver())).not.toContain('data')
+  })
 })

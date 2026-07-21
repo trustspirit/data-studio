@@ -16,6 +16,7 @@ function input(actor: Actor, operation: Operation, over: Partial<Parameters<type
     operation,
     hasSql: true,
     hasSchema: true,
+    hasData: true,
     supportsReadOnlyScope: true,
     driverClassify: (): 'read' | 'write' | 'unknown' => 'read',
     requestedLimits: undefined,
@@ -156,6 +157,40 @@ describe('decide — 모르는 operation 종류', () => {
 
   it('AI 경로에서 던지지 않고 거부한다', () => {
     expect(decide(input(AI, FUTURE))).toEqual({
+      allow: false,
+      reason: 'capability_missing',
+    })
+  })
+})
+
+describe('decide — data:browse', () => {
+  const BROWSE: Operation = { kind: 'data', op: 'browse', schema: 'public', table: 'users' }
+
+  it('사용자 browse는 직접 허용(읽기 전용 스코프 없음)', () => {
+    const d = decide(input(USER, BROWSE))
+    expect(d).toMatchObject({ allow: true, readOnlyScope: false })
+  })
+
+  it('AI browse는 읽기 전용 스코프 안에서만 허용', () => {
+    const d = decide(input(AI, BROWSE))
+    expect(d).toMatchObject({ allow: true, readOnlyScope: true })
+  })
+
+  it('AI인데 RO 스코프 미지원이면 거부', () => {
+    const d = decide(input(AI, BROWSE, { supportsReadOnlyScope: false }))
+    expect(d).toEqual({ allow: false, reason: 'ai_read_only_unsupported' })
+  })
+
+  it('data 능력이 없으면 capability_missing', () => {
+    expect(decide(input(USER, BROWSE, { hasData: false }))).toEqual({
+      allow: false,
+      reason: 'capability_missing',
+    })
+  })
+
+  it('실행할 sql 능력이 없으면 capability_missing', () => {
+    // browse는 조립만 data가 하고 실행은 sql 경로를 쓴다.
+    expect(decide(input(USER, BROWSE, { hasSql: false }))).toEqual({
       allow: false,
       reason: 'capability_missing',
     })

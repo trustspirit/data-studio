@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import { QueryWorkspace } from '../features/query'
 import { StructureView } from '../features/structure'
+import { DataView } from '../features/data'
 
 const Layout = styled.div`
   display: flex;
@@ -32,7 +33,7 @@ const Body = styled.div`
   min-height: 0;
 `
 
-type View = 'query' | 'structure'
+type View = 'query' | 'structure' | 'data'
 
 interface ConnectionWorkspaceProps {
   gateway: OperationGateway
@@ -61,12 +62,17 @@ export function ConnectionWorkspace({ gateway, connectionId, connectionName }: C
         >
           Structure
         </SubTab>
+        <SubTab type="button" data-testid="subtab-data" $active={view === 'data'} onClick={() => setView('data')}>
+          Data
+        </SubTab>
       </SubTabs>
       <Body>
         {view === 'query' ? (
           <QueryWorkspace gateway={gateway} connectionId={connectionId} connectionName={connectionName} />
-        ) : (
+        ) : view === 'structure' ? (
           <StructureView gateway={gateway} connectionId={connectionId} />
+        ) : (
+          <DataView gateway={gateway} connectionId={connectionId} />
         )}
       </Body>
     </Layout>
