@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
-import { useSchemaTree } from './model/useSchemaTree'
-import { useTableStructure, type TableSelection } from './model/useTableStructure'
-import { SchemaNavigator } from './ui/SchemaNavigator'
+import { SchemaNavigator, useSchemaTree, type TableSelection } from '../../entities/schema-tree'
+import { useTableStructure } from './model/useTableStructure'
 import { StructurePanel } from './ui/StructurePanel'
 
 const Layout = styled.div`

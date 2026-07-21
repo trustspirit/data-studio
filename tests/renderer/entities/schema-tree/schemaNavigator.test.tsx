@@ -2,7 +2,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
-import { SchemaNavigator } from '@renderer/features/structure/ui/SchemaNavigator'
+import { SchemaNavigator } from '@renderer/entities/schema-tree'
 
 function table(schema: string, name: string) {
   return { schema, name, kind: 'table' as const, estimatedRows: null }
