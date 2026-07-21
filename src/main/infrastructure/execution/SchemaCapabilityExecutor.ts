@@ -36,6 +36,16 @@ export class SchemaCapabilityExecutor implements CapabilityExecutor {
           kind: 'tableDetail',
           detail: await schema.describeTable(ctx, operation.schema, operation.table),
         }
+      case 'listIndexes':
+        return {
+          kind: 'indexes',
+          indexes: await schema.listIndexes(ctx, operation.schema, operation.table),
+        }
+      case 'listForeignKeys':
+        return {
+          kind: 'foreignKeys',
+          foreignKeys: await schema.listForeignKeys(ctx, operation.schema, operation.table),
+        }
     }
   }
 }

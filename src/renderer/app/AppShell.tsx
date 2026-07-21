@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { useGateways } from './GatewayProvider'
 import { useConnections } from '../features/connections/model/useConnections'
 import { ConnectionsScreen } from '../features/connections'
-import { QueryWorkspace } from '../features/query'
+import { ConnectionWorkspace } from './ConnectionWorkspace'
 import { Button } from '../shared/ui'
 
 const Layout = styled.div`
@@ -85,7 +85,11 @@ function QueryTab() {
   const active = conns.connections.find((c) => c.id === openId) ?? null
   if (active !== null) {
     return (
-      <QueryWorkspace gateway={gateways.operation} connectionId={active.id} connectionName={active.name} />
+      <ConnectionWorkspace
+        gateway={gateways.operation}
+        connectionId={active.id}
+        connectionName={active.name}
+      />
     )
   }
   return (
@@ -106,15 +110,15 @@ function QueryTab() {
 }
 
 export function AppShell() {
-  const [tab, setTab] = useState<'connections' | 'query'>('connections')
+  const [tab, setTab] = useState<'connections' | 'workspace'>('connections')
   return (
     <Layout>
       <Rail>
         <RailButton type="button" $active={tab === 'connections'} onClick={() => setTab('connections')}>
           Connections
         </RailButton>
-        <RailButton type="button" $active={tab === 'query'} onClick={() => setTab('query')}>
-          Query
+        <RailButton type="button" $active={tab === 'workspace'} onClick={() => setTab('workspace')}>
+          Workspace
         </RailButton>
       </Rail>
       {tab === 'connections' ? <ConnectionsScreen /> : <QueryTab />}

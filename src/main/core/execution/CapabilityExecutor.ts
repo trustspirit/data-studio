@@ -4,7 +4,9 @@ import type {
   SchemaInfo,
   TableDetail,
   TableInfo,
-} from '../driver/capabilities/SchemaCapability'
+  IndexInfo,
+  ForeignKeyInfo,
+} from '../../../shared/types/schema'
 import type { Driver } from '../driver/Driver'
 import type { ExecutionContext } from '../driver/ExecutionContext'
 
@@ -21,6 +23,8 @@ export type OperationPayload =
   | { readonly kind: 'schemas'; readonly schemas: readonly SchemaInfo[] }
   | { readonly kind: 'tables'; readonly tables: readonly TableInfo[] }
   | { readonly kind: 'tableDetail'; readonly detail: TableDetail }
+  | { readonly kind: 'indexes'; readonly indexes: readonly IndexInfo[] }
+  | { readonly kind: 'foreignKeys'; readonly foreignKeys: readonly ForeignKeyInfo[] }
 
 export interface CapabilityExecuteInput {
   readonly ctx: ExecutionContext

@@ -12,6 +12,8 @@ export type SchemaOperationOp =
   | { readonly op: 'listSchemas' }
   | { readonly op: 'listTables'; readonly schema: string }
   | { readonly op: 'describeTable'; readonly schema: string; readonly table: string }
+  | { readonly op: 'listIndexes'; readonly schema: string; readonly table: string }
+  | { readonly op: 'listForeignKeys'; readonly schema: string; readonly table: string }
 
 export type SchemaOperation = { readonly kind: 'schema' } & SchemaOperationOp
 

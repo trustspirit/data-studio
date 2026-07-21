@@ -48,26 +48,27 @@ function wrap(bridge: DataconBridge) {
 }
 
 describe('AppShell', () => {
-  it('내비 레일에 Connections/Query 탭이 있고 기본은 Connections(관리 화면)', async () => {
+  it('내비 레일에 Connections/Workspace 탭이 있고 기본은 Connections(관리 화면)', async () => {
     wrap(bridgeWith([conn('a', 'prod')]))
     expect(screen.getByRole('button', { name: 'Connections' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Query' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Workspace' })).toBeTruthy()
     // Connections 탭 = 기존 관리 화면. 연결 관리(추가/편집)가 유지된다.
     await waitFor(() => expect(screen.getByText('prod')).toBeTruthy())
   })
 
-  it('Query 탭에서 연결을 열면 QueryWorkspace가 뜬다', async () => {
+  it('Workspace 탭에서 연결을 열면 뷰 서브탭이 있는 워크스페이스가 뜬다', async () => {
     const bridge = bridgeWith([conn('a', 'prod')])
     wrap(bridge)
-    fireEvent.click(screen.getByRole('button', { name: 'Query' }))
-    // Query 탭의 피커에서 연결을 연다.
-    await waitFor(() => expect(screen.getByText(/Open .*prod|prod/)).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByTestId('open-a')).toBeTruthy())
     fireEvent.click(screen.getByTestId('open-a'))
     await waitFor(() => {
       // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
       const calls = vi.mocked(bridge.invoke).mock.calls.map((c) => c[0])
       expect(calls).toContain('connection:open')
     })
-    await waitFor(() => expect(screen.getByText(/Query — prod/)).toBeTruthy())
+    // 서브탭(Query|Structure)이 나타난다.
+    await waitFor(() => expect(screen.getByTestId('subtab-structure')).toBeTruthy())
+    expect(screen.getByText(/Query — prod/)).toBeTruthy()
   })
 })
