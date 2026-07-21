@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { decide } from '@main/core/execution/ExecutionPolicy'
+import type { PolicyInput } from '@main/core/execution/ExecutionPolicy'
 import type { Actor } from '@main/core/execution/Actor'
 import type { Operation } from '@shared/types/operation'
 import { DEFAULT_AI_LIMITS, DEFAULT_USER_LIMITS } from '@shared/types/operation'
@@ -194,5 +195,29 @@ describe('decide — data:browse', () => {
       allow: false,
       reason: 'capability_missing',
     })
+  })
+})
+
+describe('decide — data:apply (write)', () => {
+  const applyOp = {
+    kind: 'data' as const, op: 'apply' as const, schema: 'public', table: 't',
+    changes: [{ op: 'delete' as const, pk: { id: { t: 'int' as const, v: 1 } } }],
+  }
+  function inp(over: Partial<PolicyInput>): PolicyInput {
+    return {
+      actor: { type: 'user', grant: null }, operation: applyOp,
+      hasSql: true, hasSchema: true, hasData: true,
+      supportsReadOnlyScope: true, driverClassify: () => 'read', requestedLimits: undefined,
+      ...over,
+    }
+  }
+  it('사용자 apply는 직접 허용(쓰기, readOnlyScope 없음)', () => {
+    expect(decide(inp({ actor: { type: 'user', grant: null } }))).toMatchObject({ allow: true, readOnlyScope: false })
+  })
+  it('AI apply는 제안서 없이는 거부한다', () => {
+    expect(decide(inp({ actor: { type: 'ai', sessionId: 's' } }))).toEqual({ allow: false, reason: 'ai_write_requires_proposal' })
+  })
+  it('data 능력이 없으면 capability_missing', () => {
+    expect(decide(inp({ hasData: false }))).toEqual({ allow: false, reason: 'capability_missing' })
   })
 })

@@ -33,12 +33,9 @@ export type SchemaOperationOp =
 
 export type SchemaOperation = { readonly kind: 'schema' } & SchemaOperationOp
 
-export type DataOperationOp = {
-  readonly op: 'browse'
-  readonly schema: string
-  readonly table: string
-  readonly sort?: BrowseSort
-}
+export type DataOperationOp =
+  | { readonly op: 'browse'; readonly schema: string; readonly table: string; readonly sort?: BrowseSort }
+  | { readonly op: 'apply'; readonly schema: string; readonly table: string; readonly changes: readonly RowChange[] }
 
 export type DataOperation = { readonly kind: 'data' } & DataOperationOp
 

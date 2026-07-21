@@ -364,7 +364,13 @@ function tighten(cap: number, requested: number | undefined): number {
 /** 감사 로그에 남길 문장. sql은 원문 그대로, 그 외는 무엇을 했는지 적는다. */
 function describeOperation(operation: Operation): string {
   if (operation.kind === 'sql') return operation.sql
-  if (operation.kind === 'data') return `data:${operation.op} ${operation.schema}.${operation.table}`
+  if (operation.kind === 'data') {
+    if (operation.op === 'apply') {
+      // 값·컬럼명은 남기지 않는다 — 감사 로그가 행 값을 유출하면 안 된다.
+      return `data:apply ${operation.schema}.${operation.table} (${operation.changes.length} changes)`
+    }
+    return `data:browse ${operation.schema}.${operation.table}`
+  }
 
   switch (operation.op) {
     case 'listSchemas':

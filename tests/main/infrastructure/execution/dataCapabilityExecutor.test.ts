@@ -74,4 +74,28 @@ describe('DataCapabilityExecutor', () => {
     )
     expect(calls.build[0]?.[2]).toEqual({ column: 'id', direction: 'desc' })
   })
+
+  it('apply 요청을 applyChanges로 보내고 applied payload를 준다', async () => {
+    const applied: unknown[][] = []
+    const driver = {
+      id: 'c', engine: 'postgres',
+      connect: () => Promise.resolve(), disconnect: () => Promise.resolve(), ping: () => Promise.resolve(1),
+      sql: { execute: () => Promise.resolve(), classify: () => 'read' as const },
+      data: {
+        buildBrowse: () => ({ sql: '', params: [] }),
+        applyChanges: (_ctx: unknown, schema: string, table: string, changes: unknown[]) => {
+          applied.push([schema, table, changes.length])
+          return Promise.resolve({ affected: changes.length })
+        },
+      },
+    } as unknown as import('@main/core/driver/Driver').Driver
+    const out = await new DataCapabilityExecutor().execute({
+      ctx: { requestId: 'r', signal: new AbortController().signal },
+      driver,
+      operation: { kind: 'data', op: 'apply', schema: 'public', table: 't', changes: [{ op: 'delete', pk: { id: { t: 'int', v: 1 } } }] },
+      page: { cursor: null, maxRows: 10, maxBytes: 10 }, limits: { timeoutMs: 1, maxRows: 1, maxBytes: 1 }, readOnlyScope: false,
+    })
+    expect(out).toEqual({ kind: 'applied', affected: 1 })
+    expect(applied).toEqual([['public', 't', 1]])
+  })
 })

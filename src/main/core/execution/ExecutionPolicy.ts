@@ -95,13 +95,15 @@ export function decide(input: PolicyInput): PolicyDecision {
   }
 
   if (operation.kind === 'data') {
-    // browse는 행 데이터를 돌려주므로 읽기 시맨틱이다. 조립은 data가, 실행은
-    // sql 읽기 경로가 한다 — 둘 다 필요하다.
-    if (!input.hasData || !input.hasSql) return deny('capability_missing')
-    if (actor.type === 'user') {
-      return { allow: true, limits: userLimits(input), readOnlyScope: false }
+    if (operation.op === 'apply') {
+      // apply는 쓰기다. 사용자는 직접 허용, AI는 제안서 흐름(Phase 6) 없이는 거부.
+      if (!input.hasData) return deny('capability_missing')
+      if (actor.type === 'user') return { allow: true, limits: userLimits(input), readOnlyScope: false }
+      return deny('ai_write_requires_proposal')
     }
-    // AI: 정적으로 읽기이므로 문장 분류 없이 읽기 전용 스코프를 요구한다.
+    // browse (read)
+    if (!input.hasData || !input.hasSql) return deny('capability_missing')
+    if (actor.type === 'user') return { allow: true, limits: userLimits(input), readOnlyScope: false }
     if (!input.supportsReadOnlyScope) return deny('ai_read_only_unsupported')
     return { allow: true, limits: aiLimits(input), readOnlyScope: true }
   }
