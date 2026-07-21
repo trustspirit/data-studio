@@ -64,6 +64,17 @@ describe('useTableEditor', () => {
     expect(changes).toEqual([{ op: 'update', pk: { id: { t: 'int', v: 1 } }, set: { name: { t: 'null' } } }])
   })
 
+  it('setNewCellNull은 새 행 셀을 NULL로 넣어 insert에 포함한다', async () => {
+    const run = vi.fn().mockResolvedValue({ ok: true, payload: { kind: 'applied', affected: 1 } }) as OperationGateway['run']
+    const { result } = editor(run)
+    act(() => result.current.addRow())
+    act(() => result.current.editNewCell(0, 'id', '9'))
+    act(() => result.current.setNewCellNull(0, 'name'))
+    await act(async () => { await result.current.save() })
+    const changes = ((run as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [AppliedRequest])[0].operation.changes
+    expect(changes).toContainEqual({ op: 'insert', values: { id: { t: 'str', v: '9' }, name: { t: 'null' } } })
+  })
+
   it('save 실패면 false·error·스테이징 유지', async () => {
     const run = vi.fn().mockResolvedValue({ ok: false, reason: 'constraint' }) as OperationGateway['run']
     const { result } = editor(run)
