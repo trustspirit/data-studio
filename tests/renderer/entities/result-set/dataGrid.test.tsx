@@ -86,4 +86,28 @@ describe('DataGrid', () => {
     // 'id' 헤더 셀에 방향 표식(▼)이 포함된다.
     expect(screen.getByText(/id/).textContent).toMatch(/▼/)
   })
+
+  it('editing이면 셀을 편집해 commit한다', () => {
+    const onCommitCell = vi.fn()
+    wrap(
+      <DataGrid
+        columns={[{ name: 'id', type: '23' }, { name: 'name', type: '25' }]}
+        rows={[[{ t: 'int', v: 1 }, { t: 'str', v: 'a' }]]}
+        editing={{ onCommitCell, deletedRows: new Set(), onToggleDelete: vi.fn() }}
+      />,
+    )
+    // 'a' 셀을 더블클릭 → 인풋 → 값 입력 → Enter로 commit.
+    fireEvent.doubleClick(screen.getByText('a'))
+    const input = screen.getByDisplayValue('a')
+    fireEvent.change(input, { target: { value: 'A' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onCommitCell).toHaveBeenCalledWith(0, 'name', 'A')
+  })
+
+  it('editing 미전달이면 셀 편집 불가(읽기 전용)', () => {
+    wrap(<DataGrid columns={[{ name: 'name', type: '25' }]} rows={[[{ t: 'str', v: 'a' }]]} />)
+    fireEvent.doubleClick(screen.getByText('a'))
+    // 인풋이 생기지 않는다.
+    expect(screen.queryByDisplayValue('a')).toBeNull()
+  })
 })

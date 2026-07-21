@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDescriptor } from '@shared/types/resultSet'
@@ -35,6 +35,26 @@ const Cell = styled.div`
   white-space: nowrap;
   text-overflow: ellipsis;
 `
+const CellInput = styled.input`
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  background: ${({ theme }) => theme.color.gridBg};
+  color: inherit;
+  border: 1px solid ${({ theme }) => theme.color.border};
+`
+const DeleteToggleCell = styled.div`
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
+
+export interface EditingProps {
+  onCommitCell: (rowIndex: number, column: string, text: string) => void
+  deletedRows: ReadonlySet<number>
+  onToggleDelete: (rowIndex: number) => void
+}
 
 interface Props {
   columns: readonly ColumnDescriptor[]
@@ -43,9 +63,28 @@ interface Props {
   onLoadMore?: () => void
   sort?: BrowseSort
   onHeaderClick?: (column: string) => void
+  editing?: EditingProps
 }
 
-export function DataGrid({ columns, rows, hasMore = false, onLoadMore, sort, onHeaderClick }: Props) {
+/**
+ * 편집 인풋의 초기값용 원시 문자열. renderCell(ReactNode, 스타일 포함)을 재사용하지
+ * 않고 값의 원문만 뽑는다 — v1이라 서식은 버리고 사용자가 새로 입력하게 한다.
+ */
+function rawCellText(value: WireValue): string {
+  if (value.t === 'null') return ''
+  return String(value.v)
+}
+
+export function DataGrid({
+  columns,
+  rows,
+  hasMore = false,
+  onLoadMore,
+  sort,
+  onHeaderClick,
+  editing,
+}: Props) {
+  const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -64,6 +103,7 @@ export function DataGrid({ columns, rows, hasMore = false, onLoadMore, sort, onH
   return (
     <Scroll ref={scrollRef} data-grid-scroll onScroll={onScroll}>
       <HeaderRow>
+        {editing !== undefined && <DeleteToggleCell aria-hidden />}
         {columns.map((c, i) => {
           const dir = sort?.column === c.name ? (sort.direction === 'desc' ? ' ▼' : ' ▲') : ''
           return (
@@ -81,6 +121,8 @@ export function DataGrid({ columns, rows, hasMore = false, onLoadMore, sort, onH
         {items.map((item) => {
           const row = rows[item.index]
           if (row === undefined) return null
+          const rowIndex = item.index
+          const deleted = editing?.deletedRows.has(rowIndex) ?? false
           return (
             <div
               key={item.key}
@@ -91,13 +133,57 @@ export function DataGrid({ columns, rows, hasMore = false, onLoadMore, sort, onH
                 right: 0,
                 transform: `translateY(${item.start}px)`,
                 display: 'flex',
+                opacity: deleted ? 0.4 : undefined,
+                textDecoration: deleted ? 'line-through' : undefined,
               }}
             >
-              {row.map((value, ci) => (
-                <Cell key={ci} data-cell>
-                  {renderCell(value)}
-                </Cell>
-              ))}
+              {editing !== undefined && (
+                <DeleteToggleCell>
+                  <input
+                    type="checkbox"
+                    checked={deleted}
+                    aria-label={`행 ${rowIndex} 삭제`}
+                    onChange={() => editing.onToggleDelete(rowIndex)}
+                  />
+                </DeleteToggleCell>
+              )}
+              {row.map((value, ci) => {
+                const isEditingThisCell =
+                  editingCell !== null && editingCell.row === rowIndex && editingCell.col === ci
+                if (editing !== undefined && isEditingThisCell) {
+                  return (
+                    <Cell key={ci} data-cell>
+                      <CellInput
+                        autoFocus
+                        defaultValue={rawCellText(value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const column = columns[ci]
+                            if (column !== undefined) {
+                              editing.onCommitCell(rowIndex, column.name, e.currentTarget.value)
+                            }
+                            setEditingCell(null)
+                          } else if (e.key === 'Escape') {
+                            setEditingCell(null)
+                          }
+                        }}
+                        onBlur={() => setEditingCell(null)}
+                      />
+                    </Cell>
+                  )
+                }
+                return (
+                  <Cell
+                    key={ci}
+                    data-cell
+                    onDoubleClick={
+                      editing !== undefined ? () => setEditingCell({ row: rowIndex, col: ci }) : undefined
+                    }
+                  >
+                    {renderCell(value)}
+                  </Cell>
+                )
+              })}
             </div>
           )
         })}
