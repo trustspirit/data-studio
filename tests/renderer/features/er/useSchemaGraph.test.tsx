@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
 import { useSchemaGraph } from '@renderer/features/er/model/useSchemaGraph'
@@ -106,5 +106,45 @@ describe('useSchemaGraph', () => {
     const { result } = renderHook(() => useSchemaGraph(gw, 'c1', 'public'))
     await waitFor(() => expect(result.current.error).toBe('no tables'))
     expect(result.current.nodes).toHaveLength(0)
+  })
+
+  it('스키마 변경 시 이전 스키마의 뒤늦은 응답이 새 결과를 덮어쓰지 않는다', async () => {
+    // 'slow' 스키마의 listTables를 보류시킨 채 'fast'로 전환한다. 보류됐던
+    // 'slow' 응답이 뒤늦게 resolve돼도 latest-token 가드가 그것을 버려야 한다.
+    let releaseSlow!: () => void
+    const slowGate = new Promise<void>((r) => {
+      releaseSlow = r
+    })
+    const single = (op: string, table: string): OperationOutcome => {
+      if (op === 'listTables') return tables([table])
+      if (op === 'describeTable') return detail(table, [{ name: 'id', pk: true }])
+      return fks([])
+    }
+    const gw: OperationGateway = {
+      run: vi.fn((req: { operation: { op: string; schema?: string; table?: string } }) => {
+        const schema = req.operation.schema
+        // 각 스키마는 자기 이름과 같은 이름의 테이블 하나를 돌려준다.
+        const t = schema === 'slow' ? 'slow_tbl' : 'fast_tbl'
+        const resolved = single(req.operation.op, req.operation.table ?? t)
+        if (schema === 'slow' && req.operation.op === 'listTables') {
+          return slowGate.then(() => resolved)
+        }
+        return Promise.resolve(resolved)
+      }) as OperationGateway['run'],
+      cancel: vi.fn().mockResolvedValue(undefined),
+      recentAudit: vi.fn().mockResolvedValue([]),
+    }
+    const { result, rerender } = renderHook(({ schema }: { schema: string }) => useSchemaGraph(gw, 'c1', schema), {
+      initialProps: { schema: 'slow' },
+    })
+    // slow의 listTables는 아직 보류 중 — fast로 전환.
+    rerender({ schema: 'fast' })
+    await waitFor(() => expect(result.current.nodes.map((n) => n.table)).toEqual(['fast_tbl']))
+    // 보류됐던 slow 응답이 이제 도착한다. 가드가 없으면 slow_tbl로 덮어써진다.
+    await act(async () => {
+      releaseSlow()
+      await slowGate
+    })
+    expect(result.current.nodes.map((n) => n.table)).toEqual(['fast_tbl'])
   })
 })
