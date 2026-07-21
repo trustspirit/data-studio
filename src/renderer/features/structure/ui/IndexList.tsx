@@ -24,7 +24,7 @@ export function IndexList({ indexes }: { indexes: readonly IndexInfo[] }) {
       <thead>
         <tr>
           <th>Name</th>
-          <th>Column(s)</th>
+          <th>Columns</th>
           <th>Unique</th>
           <th>Size</th>
         </tr>

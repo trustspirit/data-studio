@@ -74,9 +74,9 @@ describe('구조 표시 컴포넌트', () => {
         foreignKeys={[FK]}
       />,
     )
-    expect(screen.getByText('Columns')).toBeTruthy()
-    expect(screen.getByText('Indexes')).toBeTruthy()
-    expect(screen.getByText('Foreign Keys')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Columns' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Indexes' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Foreign Keys' })).toBeTruthy()
     expect(screen.getByText('users_pkey')).toBeTruthy()
     expect(screen.getByText('orders_user_fk')).toBeTruthy()
   })

@@ -29,7 +29,7 @@ export function ForeignKeyList({ foreignKeys }: { foreignKeys: readonly ForeignK
       <thead>
         <tr>
           <th>Name</th>
-          <th>Column(s)</th>
+          <th>Columns</th>
           <th>References</th>
         </tr>
       </thead>
