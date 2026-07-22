@@ -45,5 +45,6 @@ export function createIpcConnectionGateway(bridge: DataconBridge): ConnectionGat
       )
       return result.status
     },
+    openFileDialog: () => invokeUnwrapped<string | null>(bridge, 'dialog:openFile', undefined),
   }
 }

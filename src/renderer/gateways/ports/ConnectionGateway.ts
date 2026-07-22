@@ -30,6 +30,8 @@ export interface ConnectionGateway {
   close(connectionId: string): Promise<void>
   /** 커넥션의 현재 연결 상태를 조회한다. */
   status(connectionId: string): Promise<ConnectionStatus>
+  /** 파일 선택 다이얼로그를 열어 경로를 받는다(취소 시 null). SQLite 파일 선택용. */
+  openFileDialog(): Promise<string | null>
 }
 
 /** secret 저장소가 재시작 후에도 값을 유지하는지. */

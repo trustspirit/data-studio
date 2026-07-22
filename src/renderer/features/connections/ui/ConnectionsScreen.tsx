@@ -114,6 +114,11 @@ export function ConnectionsScreen() {
             onPasswordChange={setPassword}
             hasSavedSecret={hasSavedSecret}
             secretsPersistent={secretsPersistent}
+            onBrowseFile={() => {
+              void gateways.connection.openFileDialog().then((path) => {
+                if (path !== null) setDraft((d) => ({ ...d, database: path }))
+              })
+            }}
           />
         )}
       </Detail>

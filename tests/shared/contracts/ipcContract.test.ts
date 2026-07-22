@@ -30,6 +30,7 @@ describe('IPC_CONTRACT', () => {
         'connection:open',
         'connection:save',
         'connection:status',
+        'dialog:openFile',
         'operation:cancel',
         'operation:run',
         'secrets:has',

@@ -1,6 +1,7 @@
 import type { Logger } from '../core/ports/Logger'
 import type { SecretStore } from '../core/ports/SecretStore'
 import type { ConnectionRepository } from '../core/ports/ConnectionRepository'
+import type { FileDialog } from '../core/ports/FileDialog'
 import type { OperationLog } from '../core/execution/OperationLog'
 import type { ExecutorClock } from '../core/execution/OperationExecutor'
 import { DriverRegistry } from '../core/driver/DriverRegistry'
@@ -27,6 +28,7 @@ export interface AppServices {
   readonly proposals: WriteProposalStore
   /** 만료된 제안서를 버린다. index.ts가 이걸 주기적으로 부른다. */
   readonly sweepProposals: () => void
+  readonly fileDialog: FileDialog
 }
 
 export interface AppDeps {
@@ -34,6 +36,7 @@ export interface AppDeps {
   readonly repository: ConnectionRepository
   readonly secrets: SecretStore
   readonly log: OperationLog
+  readonly fileDialog: FileDialog
   readonly clock: ExecutorClock
   readonly randomId: () => string
   readonly hash: (text: string) => string
@@ -84,5 +87,6 @@ export function buildAppServices(deps: AppDeps): AppServices {
     proposals,
     // 순수 팩토리는 타이머를 걸지 않는다. 인터벌 설정은 index.ts의 몫이다.
     sweepProposals: () => proposals.sweep(),
+    fileDialog: deps.fileDialog,
   }
 }

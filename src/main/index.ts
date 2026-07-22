@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, safeStorage, session } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, session } from 'electron'
+import type { OpenDialogOptions } from 'electron'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { applyWindowPolicy } from './security/windowPolicy'
@@ -7,14 +8,12 @@ import { createSenderGuard } from './security/senderGuard'
 import { createContractRegistrar } from './ipc/registerHandler'
 import { buildAppServices } from './app/compositionRoot'
 import { registerIpcRoutes } from './app/ipcRoutes'
+import { registerDrivers } from './app/registerDrivers'
 import { consoleLogger } from './infrastructure/consoleLogger'
 import { FileConnectionRepository } from './infrastructure/FileConnectionRepository'
 import { FileOperationLog } from './infrastructure/execution/FileOperationLog'
 import { createSecretStore } from './infrastructure/createSecretStore'
 import { systemClock, systemTimers, randomId, sha256Hex } from './infrastructure/systemClock'
-import { createPostgresDriver } from './drivers/postgres'
-import { createSqliteDriver } from './drivers/sqlite'
-import { createMysqlDriver } from './drivers/mysql'
 
 /** 만료된 쓰기 제안서를 이 간격으로 버린다. 문장 원문을 오래 들고 있지 않기 위해서. */
 const PROPOSAL_SWEEP_MS = 60_000
@@ -126,23 +125,22 @@ async function wireServices(): Promise<void> {
     randomId,
     hash: sha256Hex,
     pool: { maxConcurrent: 4, queueTimeoutMs: 30_000 },
-    registerDrivers: (registry) => {
-      registry.register('postgres', (config) =>
-        createPostgresDriver(config, {
-          getPassword: () => secrets.get({ kind: 'db-password', ownerId: config.id }),
-        }),
-      )
-      registry.register('sqlite', (config) => createSqliteDriver(config))
-      registry.register('mysql', (config) =>
-        createMysqlDriver(config, {
-          getPassword: () => secrets.get({ kind: 'db-password', ownerId: config.id }),
-        }),
-      )
-      registry.register('mariadb', (config) =>
-        createMysqlDriver(config, {
-          getPassword: () => secrets.get({ kind: 'db-password', ownerId: config.id }),
-        }),
-      )
+    registerDrivers: (registry) => registerDrivers(registry, { secrets }),
+    fileDialog: {
+      openFile: async () => {
+        const win = BrowserWindow.getFocusedWindow()
+        const options: OpenDialogOptions = {
+          properties: ['openFile'],
+          filters: [
+            { name: 'SQLite', extensions: ['db', 'sqlite', 'sqlite3'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        }
+        const result = win
+          ? await dialog.showOpenDialog(win, options)
+          : await dialog.showOpenDialog(options)
+        return result.canceled || result.filePaths.length === 0 ? null : (result.filePaths[0] ?? null)
+      },
     },
   })
 
