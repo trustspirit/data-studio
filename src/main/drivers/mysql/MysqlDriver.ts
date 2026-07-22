@@ -3,6 +3,7 @@ import type { Driver } from '@main/core/driver/Driver'
 import type { ConnectionConfig } from '@shared/types/connection'
 import { cancelQuery } from './mysqlCancel'
 import { mysqlSslConfig } from './mysqlSsl'
+import { MysqlSchemaCapability } from './MysqlSchemaCapability'
 import { MysqlSqlCapability } from './MysqlSqlCapability'
 
 /** 사용하는 mysql2 커넥션 표면만 좁힌다 — 테스트 대체 가능. */
@@ -66,6 +67,7 @@ export class MysqlDriver implements Driver {
   readonly id: string
   readonly engine: 'mysql' | 'mariadb'
   readonly sql: MysqlSqlCapability
+  readonly schema: MysqlSchemaCapability
   private conn: MysqlClientLike | null = null
   private password = ''
   /** connect()에 실제로 넘어온 config. 취소 side 커넥션이 같은 접속 정보를 재사용하도록 기억해 둔다. */
@@ -95,6 +97,7 @@ export class MysqlDriver implements Driver {
       },
       this.engine,
     )
+    this.schema = new MysqlSchemaCapability(() => this.requireConn())
   }
 
   async connect(config: ConnectionConfig): Promise<void> {
