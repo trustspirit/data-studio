@@ -43,7 +43,7 @@ export class MysqlSchemaCapability implements SchemaCapability {
 
   async listTables(ctx: ExecutionContext, schema: string): Promise<readonly TableInfo[]> {
     checkAborted(ctx)
-    const r = await rows<{ TABLE_NAME: string; TABLE_TYPE: string; TABLE_ROWS: number | null }>(
+    const r = await rows<{ TABLE_NAME: string; TABLE_TYPE: string; TABLE_ROWS: number | string | null }>(
       this.getConn(),
       `SELECT TABLE_NAME, TABLE_TYPE, TABLE_ROWS FROM information_schema.TABLES
        WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME`,
@@ -53,7 +53,10 @@ export class MysqlSchemaCapability implements SchemaCapability {
       schema,
       name: x.TABLE_NAME,
       kind: x.TABLE_TYPE === 'VIEW' ? 'view' : 'table',
-      estimatedRows: x.TABLE_ROWS ?? null,
+      // 커넥션이 bigNumberStrings로 열려 있어 BIGINT 컬럼인 TABLE_ROWS가 문자열로
+      // 온다(MySQL 8 기준). 행 수 추정치는 정밀도 손실 걱정이 없는 작은 정수라
+      // Number로 되돌린다.
+      estimatedRows: x.TABLE_ROWS === null ? null : Number(x.TABLE_ROWS),
     }))
   }
 
@@ -77,14 +80,16 @@ export class MysqlSchemaCapability implements SchemaCapability {
     // 실제로 쓰는지 증명하는 계약 조항이 바로 이 경로를 짚는다.
     if (cols.length === 0) throw new Error(`table not found: ${schema}.${table}`)
     // PK ordinal: KEY_COLUMN_USAGE의 PRIMARY 제약(복합 PK는 ORDINAL_POSITION이 1-based 순서를 준다).
-    const pk = await rows<{ COLUMN_NAME: string; ORDINAL_POSITION: number }>(
+    // MariaDB는 이 컬럼을 BIGINT로 선언해(MySQL 8은 INT) bigNumberStrings 커넥션에서
+    // 문자열로 온다 — 정렬 순서일 뿐인 작은 정수라 Number로 되돌린다.
+    const pk = await rows<{ COLUMN_NAME: string; ORDINAL_POSITION: number | string }>(
       conn,
       `SELECT COLUMN_NAME, ORDINAL_POSITION FROM information_schema.KEY_COLUMN_USAGE
        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = 'PRIMARY'
        ORDER BY ORDINAL_POSITION`,
       [schema, table],
     )
-    const pkOrder = new Map(pk.map((p) => [p.COLUMN_NAME, p.ORDINAL_POSITION]))
+    const pkOrder = new Map(pk.map((p) => [p.COLUMN_NAME, Number(p.ORDINAL_POSITION)]))
     const columns: ColumnInfo[] = cols.map((c) => ({
       name: c.COLUMN_NAME,
       type: c.COLUMN_TYPE,
