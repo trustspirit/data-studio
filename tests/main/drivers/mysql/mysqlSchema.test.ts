@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import mysql from 'mysql2/promise'
 import { MysqlSchemaCapability } from '@main/drivers/mysql/MysqlSchemaCapability'
-import { MYSQL_AVAILABLE, MYSQL_URL, withDatabase } from '../../../contract/mysqlTestEnv'
+import {
+  MARIADB_AVAILABLE,
+  MARIADB_URL,
+  MYSQL_AVAILABLE,
+  MYSQL_URL,
+  withDatabase,
+} from '../../../contract/mysqlTestEnv'
 import type { MysqlClientLike } from '@main/drivers/mysql/MysqlDriver'
 
 const ctx = () => ({ requestId: 's', signal: new AbortController().signal })
@@ -53,6 +59,49 @@ describe.skipIf(!MYSQL_AVAILABLE)('MysqlSchemaCapability (실서버)', () => {
       expect(idx.some((i) => i.name === 'ux_parent_name' && i.unique)).toBe(true)
       const fks = await cap.listForeignKeys(ctx(), db, 'child')
       expect(fks.some((f) => f.referencedTable === 'parent' && f.name === 'fk_child_parent')).toBe(true)
+      await raw.end()
+    })
+  })
+
+  it('listTables: VIEW의 estimatedRows는 0이 아니라 null (TABLE_ROWS NULL 널 가드 검증)', async () => {
+    await withDatabase(MYSQL_URL, SEED, async (db) => {
+      const raw = await mysql.createConnection(MYSQL_URL)
+      const conn = raw as unknown as MysqlClientLike
+      const cap = new MysqlSchemaCapability(() => conn)
+      const tables = await cap.listTables(ctx(), db)
+      const view = tables.find((t) => t.name === 'v_parent')
+      expect(view?.kind).toBe('view')
+      expect(view?.estimatedRows).toBeNull()
+      await raw.end()
+    })
+  })
+})
+
+// MariaDB의 information_schema.KEY_COLUMN_USAGE.ORDINAL_POSITION은 BIGINT로 선언돼
+// bigNumberStrings 커넥션에서 문자열로 온다(MySQL 8은 INT라 문자열화되지 않는다) —
+// describeTable의 Number(...) 코어션이 실제로 동작하는지 이 경로에서만 제대로 확인된다.
+describe.skipIf(!MARIADB_AVAILABLE)('MysqlSchemaCapability primaryKeyOrdinal 타입 (MariaDB 실서버)', () => {
+  it('describeTable: PK 컬럼의 primaryKeyOrdinal은 문자열이 아니라 number', async () => {
+    await withDatabase(MARIADB_URL, SEED, async (db) => {
+      const u = new URL(MARIADB_URL)
+      const raw = await mysql.createConnection({
+        host: u.hostname,
+        port: Number(u.port),
+        user: u.username,
+        password: decodeURIComponent(u.password),
+        database: db,
+        dateStrings: true,
+        supportBigNumbers: true,
+        bigNumberStrings: true,
+      })
+      const conn = raw as unknown as MysqlClientLike
+      const cap = new MysqlSchemaCapability(() => conn)
+      const detail = await cap.describeTable(ctx(), db, 'child')
+      const pkCols = detail.columns.filter((c) => c.primaryKeyOrdinal !== null)
+      expect(pkCols.length).toBeGreaterThan(0)
+      for (const c of pkCols) {
+        expect(typeof c.primaryKeyOrdinal).toBe('number')
+      }
       await raw.end()
     })
   })

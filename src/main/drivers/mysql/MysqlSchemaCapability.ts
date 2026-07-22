@@ -136,7 +136,9 @@ export class MysqlSchemaCapability implements SchemaCapability {
     const r = await rows<{
       CONSTRAINT_NAME: string
       COLUMN_NAME: string
-      ORDINAL_POSITION: number
+      // SQL 쪽 ORDER BY에만 쓰이고 JS에서 읽거나 비교하지 않는다. MariaDB는
+      // bigNumberStrings 커넥션에서 이 컬럼을 문자열로 준다(MySQL 8은 INT).
+      ORDINAL_POSITION: string
       REFERENCED_TABLE_SCHEMA: string
       REFERENCED_TABLE_NAME: string
       REFERENCED_COLUMN_NAME: string
