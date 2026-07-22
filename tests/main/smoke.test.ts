@@ -27,4 +27,27 @@ describe('maybeRunSqliteSmoke', () => {
       log.mockRestore()
     }
   })
+
+  it('네이티브 로드가 실패하면 에러를 찍고 exit(1) 한다', () => {
+    const exit = vi.fn()
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      const ran = maybeRunSqliteSmoke(
+        ['node', 'app', SMOKE_FLAG],
+        exit as unknown as (code: number) => never,
+        () => {
+          throw new Error('NODE_MODULE_VERSION mismatch')
+        },
+      )
+      expect(ran).toBe(true)
+      expect(exit).toHaveBeenCalledWith(1)
+      expect(exit).not.toHaveBeenCalledWith(0)
+      expect(err).toHaveBeenCalledWith('DATACON_SMOKE_SQLITE_FAIL', 'NODE_MODULE_VERSION mismatch')
+      expect(log).not.toHaveBeenCalledWith(SMOKE_SENTINEL)
+    } finally {
+      err.mockRestore()
+      log.mockRestore()
+    }
+  })
 })

@@ -90,12 +90,17 @@ function hasUnpackedDarwinNode(appPath, arch) {
 run('npm', ['run', 'build'])
 rmSync(join(root, OUT), { recursive: true, force: true })
 
-// 1) arm64 + x64를 한 번의 호출로 빌드 → mac-arm64 / mac-x64가 결정적으로 생긴다.
-//    각 아키마다 @electron/rebuild가 better-sqlite3를 해당 Electron ABI로 리빌드한다.
+// 1) arm64 + x64를 한 번의 호출로 빌드.
+//    better-sqlite3 v13은 prebuildify+N-API라 Electron ABI 재컴파일이 필요 없다 —
+//    검증의 실제 관심사는 "각 아키의 올바른 prebuilds/darwin-<arch>.node가 번들·언팩
+//    되고, arm64 앱에서 실제로 로드되는가"이다.
 run('npx', ['electron-builder', '--dir', '--mac', '--arm64', '--x64', '--publish', 'never'])
 
 // 2) 산출된 .app을 lipo로 아키별 분류
 const apps = discoverAppsByArch()
+if (apps.arm64 && apps.x64 && apps.arm64 === apps.x64) {
+  fail('arm64/x64가 같은 .app으로 해석됨(universal 빌드?). 아키별 개별 슬라이스를 기대한다.')
+}
 
 // 3) arm64: 언팩 확인 + 패키지 앱을 실제로 띄워 스모크 실행(ABI·asar·포함 전부 실증)
 const armApp = apps.arm64
