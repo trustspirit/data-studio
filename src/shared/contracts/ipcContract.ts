@@ -27,6 +27,7 @@ export const IPC_CONTRACT = {
   'operation:run': { input: operationRequestSchema },
   'operation:cancel': { input: z.object({ requestId: z.string().min(1) }) },
   'audit:recent': { input: z.object({ limit: z.number().int() }) },
+  'dialog:openFile': { input: z.undefined() },
 } as const satisfies Record<string, { readonly input: ZodType }>
 
 export type ContractChannel = keyof typeof IPC_CONTRACT

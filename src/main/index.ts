@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, safeStorage, session } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, session } from 'electron'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { applyWindowPolicy } from './security/windowPolicy'
@@ -125,6 +125,18 @@ async function wireServices(): Promise<void> {
     hash: sha256Hex,
     pool: { maxConcurrent: 4, queueTimeoutMs: 30_000 },
     registerDrivers: (registry) => registerDrivers(registry, { secrets }),
+    fileDialog: {
+      openFile: async () => {
+        const result = await dialog.showOpenDialog({
+          properties: ['openFile'],
+          filters: [
+            { name: 'SQLite', extensions: ['db', 'sqlite', 'sqlite3'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        })
+        return result.canceled || result.filePaths.length === 0 ? null : (result.filePaths[0] ?? null)
+      },
+    },
   })
 
   const guard = createSenderGuard(allowedRendererUrls())

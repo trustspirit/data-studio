@@ -102,6 +102,8 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
   })
 
   register('audit:recent', ({ limit }) => Promise.resolve(services.log.recent(limit)))
+
+  register('dialog:openFile', () => services.fileDialog.openFile())
 }
 
 /**
