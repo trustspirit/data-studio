@@ -16,6 +16,9 @@ describe('cancelQuery', () => {
         return Promise.resolve()
       },
       threadId: 999,
+      beginTransaction: () => Promise.resolve(),
+      commit: () => Promise.resolve(),
+      rollback: () => Promise.resolve(),
     }
     await cancelQuery(() => Promise.resolve(fake), 42)
     expect(queries).toEqual(['KILL QUERY 42'])
@@ -27,6 +30,9 @@ describe('cancelQuery', () => {
       query: () => Promise.resolve([[], []]),
       end: () => Promise.resolve(),
       threadId: 1,
+      beginTransaction: () => Promise.resolve(),
+      commit: () => Promise.resolve(),
+      rollback: () => Promise.resolve(),
     }
     // @ts-expect-error 방어 테스트
     await expect(cancelQuery(() => Promise.resolve(fake), '1; DROP')).rejects.toThrow()

@@ -3,6 +3,7 @@ import type { Driver } from '@main/core/driver/Driver'
 import type { ConnectionConfig } from '@shared/types/connection'
 import { cancelQuery } from './mysqlCancel'
 import { mysqlSslConfig } from './mysqlSsl'
+import { MysqlDataCapability } from './MysqlDataCapability'
 import { MysqlSchemaCapability } from './MysqlSchemaCapability'
 import { MysqlSqlCapability } from './MysqlSqlCapability'
 
@@ -21,6 +22,14 @@ export interface MysqlClientLike {
   }): Promise<[unknown, unknown]>
   end(): Promise<void>
   readonly threadId: number | null
+  /**
+   * 트랜잭션 제어 3종. mysql2 promise 커넥션이 제공한다 — DataCapability의
+   * applyChanges가 편집을 하나의 트랜잭션으로 원자 실행하는 데 필요해서
+   * 넓혔다(Task 5가 필요로 해서 넓힘, Task 2 파일 수정).
+   */
+  beginTransaction(): Promise<void>
+  commit(): Promise<void>
+  rollback(): Promise<void>
 }
 
 export interface MysqlConnParams {
@@ -68,6 +77,7 @@ export class MysqlDriver implements Driver {
   readonly engine: 'mysql' | 'mariadb'
   readonly sql: MysqlSqlCapability
   readonly schema: MysqlSchemaCapability
+  readonly data: MysqlDataCapability
   private conn: MysqlClientLike | null = null
   private password = ''
   /** connect()에 실제로 넘어온 config. 취소 side 커넥션이 같은 접속 정보를 재사용하도록 기억해 둔다. */
@@ -98,6 +108,7 @@ export class MysqlDriver implements Driver {
       this.engine,
     )
     this.schema = new MysqlSchemaCapability(() => this.requireConn())
+    this.data = new MysqlDataCapability(() => this.requireConn())
   }
 
   async connect(config: ConnectionConfig): Promise<void> {
