@@ -33,28 +33,40 @@ export class SqliteDriver implements Driver {
     this.data = new SqliteDataCapability(() => this.requireDb())
   }
 
-  async connect(config: ConnectionConfig): Promise<void> {
-    if (config.id !== this.id) throw new SqliteConnectionIdentityError(this.id, config.id)
-    // 재연결(같은 config 재호출)에서 이전 핸들을 흘리지 않는다.
-    if (this.db !== null) {
-      this.db.close()
-      this.db = null
+  // better-sqlite3는 동기다 — MemoryDriver 관용구대로 비-async로 Promise를 돌려주고
+  // 동기 throw는 try/catch로 rejection으로 바꾼다.
+  connect(config: ConnectionConfig): Promise<void> {
+    try {
+      if (config.id !== this.id) throw new SqliteConnectionIdentityError(this.id, config.id)
+      // 재연결(같은 config 재호출)에서 이전 핸들을 흘리지 않는다.
+      if (this.db !== null) {
+        this.db.close()
+        this.db = null
+      }
+      // fileMustExist: 스튜디오는 기존 DB를 여는 도구다 — 없는 경로에 새 DB를 만들지 않는다.
+      this.db = new Database(config.database, { fileMustExist: true })
+      return Promise.resolve()
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)))
     }
-    // fileMustExist: 스튜디오는 기존 DB를 여는 도구다 — 없는 경로에 새 DB를 만들지 않는다.
-    this.db = new Database(config.database, { fileMustExist: true })
   }
 
-  async disconnect(): Promise<void> {
+  disconnect(): Promise<void> {
     const d = this.db
     this.db = null
     if (d !== null) d.close()
+    return Promise.resolve()
   }
 
-  async ping(): Promise<number> {
-    const d = this.requireDb()
-    const start = performance.now()
-    d.pragma('user_version')
-    return performance.now() - start
+  ping(): Promise<number> {
+    try {
+      const d = this.requireDb()
+      const start = performance.now()
+      d.pragma('user_version')
+      return Promise.resolve(performance.now() - start)
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)))
+    }
   }
 
   /** 능력 구현이 쓰는 접근자. 연결 안 됐으면 던진다. */

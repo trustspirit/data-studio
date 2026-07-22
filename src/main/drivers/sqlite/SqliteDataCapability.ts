@@ -73,24 +73,30 @@ export class SqliteDataCapability implements DataCapability {
     return { sql: `SELECT * FROM ${target}${order}`, params: [] }
   }
 
-  async applyChanges(
+  applyChanges(
     ctx: ExecutionContext,
     schema: string,
     table: string,
     changes: readonly RowChange[],
   ): Promise<ApplyResult> {
-    if (ctx.signal.aborted) throw new Error(`execution aborted: ${ctx.requestId}`)
-    const db = this.getDb()
-    let affected = 0
-    // better-sqlite3의 transaction()은 콜백이 throw하면 자동 롤백한다(동기).
-    const tx = db.transaction((list: readonly RowChange[]) => {
-      for (const change of list) {
-        const { sql, params } = buildStatement(schema, table, change)
-        const info = (db.prepare(sql) as unknown as RunStmt).run(...params)
-        affected += info.changes
-      }
-    })
-    tx(changes)
-    return { affected }
+    // better-sqlite3는 동기다 — MemoryDriver 관용구대로 try/catch로 감싸 동기 throw를
+    // rejection으로 바꾼다. 취소는 진입 시 abort 사전검사로 구현한다.
+    try {
+      if (ctx.signal.aborted) throw new Error(`execution aborted: ${ctx.requestId}`)
+      const db = this.getDb()
+      let affected = 0
+      // transaction()은 콜백이 throw하면 자동 롤백한다(동기).
+      const tx = db.transaction((list: readonly RowChange[]) => {
+        for (const change of list) {
+          const { sql, params } = buildStatement(schema, table, change)
+          const info = (db.prepare(sql) as unknown as RunStmt).run(...params)
+          affected += info.changes
+        }
+      })
+      tx(changes)
+      return Promise.resolve({ affected })
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)))
+    }
   }
 }

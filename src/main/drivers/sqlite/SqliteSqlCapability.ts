@@ -26,6 +26,10 @@ function decodeCursor(cursor: string, statement: string): number {
   return offset
 }
 
+function rejected(error: unknown): Promise<never> {
+  return Promise.reject(error instanceof Error ? error : new Error(String(error)))
+}
+
 /** better-sqlite3 Statement의 우리가 쓰는 최소 표면. */
 interface StmtLike {
   reader: boolean
@@ -35,74 +39,99 @@ interface StmtLike {
   run(...params: unknown[]): { changes: number }
 }
 
+/**
+ * SQLite sql 능력. better-sqlite3는 **동기**라 MemoryDriver와 같은 관용구를 쓴다 —
+ * 메서드는 async가 아니라 try/catch로 감싸 성공은 `Promise.resolve`, 예외는
+ * `Promise.reject`로 돌려준다(동기 throw를 rejection으로 바꾼다). 취소는 진입 시
+ * abort 사전검사로 구현하며, 실행 도중 interrupt는 v1에서 지원하지 않는다.
+ */
 export class SqliteSqlCapability implements SqlCapability {
   constructor(private readonly getDb: () => DatabaseInstance) {}
 
-  async execute(
+  execute(
     ctx: ExecutionContext,
     sql: string,
     page: PageRequest,
     params?: readonly unknown[],
   ): Promise<ResultSet> {
-    return this.executeOn(this.getDb(), ctx, sql, page, params)
+    // getDb()가 (미연결 시) 동기로 던지는 것도 rejection으로 바꾼다 — 계약의
+    // "disconnect 이후 execute 거부"가 sync throw가 아니라 reject를 기대한다.
+    try {
+      return this.executeOn(this.getDb(), ctx, sql, page, params)
+    } catch (error) {
+      return rejected(error)
+    }
   }
 
   /**
    * `execute`의 본문. db를 인자로 받아 beginReadOnly가 연 범위에서도 같은 실행
    * 배선을 재사용한다(Postgres 드라이버와 같은 구조).
    */
-  private async executeOn(
+  private executeOn(
     db: DatabaseInstance,
     ctx: ExecutionContext,
     sql: string,
     page: PageRequest,
     params?: readonly unknown[],
   ): Promise<ResultSet> {
-    if (ctx.signal.aborted) throw new Error(`execution aborted: ${ctx.requestId}`)
-    const start = performance.now()
-    const bind = params === undefined ? [] : [...params]
-    const stmt = db.prepare(sql) as unknown as StmtLike
+    try {
+      if (ctx.signal.aborted) throw new Error(`execution aborted: ${ctx.requestId}`)
+      const start = performance.now()
+      const bind = params === undefined ? [] : [...params]
+      const stmt = db.prepare(sql) as unknown as StmtLike
 
-    if (!stmt.reader) {
-      // INSERT/UPDATE/DELETE 등 — 행을 돌려주지 않는다. query_only가 켜져 있으면 여기서 던진다.
-      const info = stmt.run(...bind)
-      return buildResultSet({
-        requestId: ctx.requestId,
-        columns: [],
-        rows: [],
-        page,
-        durationMs: performance.now() - start,
-        cursorAt: () => null,
-        rowsAffected: info.changes,
-      })
+      if (!stmt.reader) {
+        // INSERT/UPDATE/DELETE 등 — 행을 돌려주지 않는다. query_only가 켜져 있으면 여기서 던진다.
+        const info = stmt.run(...bind)
+        return Promise.resolve(
+          buildResultSet({
+            requestId: ctx.requestId,
+            columns: [],
+            rows: [],
+            page,
+            durationMs: performance.now() - start,
+            cursorAt: () => null,
+            rowsAffected: info.changes,
+          }),
+        )
+      }
+
+      const columns = stmt.columns().map((c) => ({ name: c.name, type: c.type ?? '' }))
+      const offset = page.cursor === null ? 0 : decodeCursor(page.cursor, sql)
+      const allRows = stmt.raw(true).all(...bind) as unknown[][]
+      const total = allRows.length
+      const rows = allRows.slice(offset).map((row) => row.map(sqliteValueMap))
+
+      return Promise.resolve(
+        buildResultSet({
+          requestId: ctx.requestId,
+          columns,
+          rows,
+          page,
+          durationMs: performance.now() - start,
+          cursorAt: (kept) => (offset + kept < total ? encodeCursor(sql, offset + kept) : null),
+        }),
+      )
+    } catch (error) {
+      return rejected(error)
     }
-
-    const columns = stmt.columns().map((c) => ({ name: c.name, type: c.type ?? '' }))
-    const offset = page.cursor === null ? 0 : decodeCursor(page.cursor, sql)
-    const allRows = stmt.raw(true).all(...bind) as unknown[][]
-    const total = allRows.length
-    const rows = allRows.slice(offset).map((row) => row.map(sqliteValueMap))
-
-    return buildResultSet({
-      requestId: ctx.requestId,
-      columns,
-      rows,
-      page,
-      durationMs: performance.now() - start,
-      cursorAt: (kept) => (offset + kept < total ? encodeCursor(sql, offset + kept) : null),
-    })
   }
 
-  async beginReadOnly(ctx: ExecutionContext): Promise<ReadOnlyScope> {
-    if (ctx.signal.aborted) throw new Error(`execution aborted: ${ctx.requestId}`)
-    const db = this.getDb()
-    db.pragma('query_only = ON')
-    return {
-      execute: (scopeCtx: ExecutionContext, sql: string, page: PageRequest, params?: readonly unknown[]) =>
-        this.executeOn(db, scopeCtx, sql, page, params),
-      end: async () => {
-        db.pragma('query_only = OFF')
-      },
+  beginReadOnly(ctx: ExecutionContext): Promise<ReadOnlyScope> {
+    try {
+      if (ctx.signal.aborted) throw new Error(`execution aborted: ${ctx.requestId}`)
+      const db = this.getDb()
+      db.pragma('query_only = ON')
+      return Promise.resolve({
+        execute: (scopeCtx: ExecutionContext, sql: string, page: PageRequest, params?: readonly unknown[]) =>
+          this.executeOn(db, scopeCtx, sql, page, params),
+        end: () => {
+          db.pragma('query_only = OFF')
+          return Promise.resolve()
+        },
+      })
+    } catch (error) {
+      return rejected(error)
     }
   }
 

@@ -11,5 +11,11 @@ export function sqliteValueMap(value: unknown): WireValue {
   if (typeof value === 'bigint') return wire.bigint(value)
   if (typeof value === 'string') return wire.str(value)
   if (value instanceof Uint8Array) return wire.bytes(value)
-  return wire.unknown(String(value), 'unmapped sqlite value')
+  // 도달 불가 — better-sqlite3는 위 5종만 돌려준다. 방어적으로 JSON 직렬화(실패 시 노트만).
+  const note = 'unmapped sqlite value'
+  try {
+    return wire.unknown(JSON.stringify(value) ?? note, note)
+  } catch {
+    return wire.unknown(note, note)
+  }
 }
