@@ -20,6 +20,7 @@ const noop = {
   onSave: () => {},
   onDelete: () => {},
   onPasswordChange: () => {},
+  onBrowseFile: () => {},
   password: '',
   hasSavedSecret: false,
   secretsPersistent: true,
@@ -117,5 +118,48 @@ describe('ConnectionForm', () => {
       />,
     )
     expect(screen.getByText(/재시작 시/)).toBeTruthy()
+  })
+
+  it('엔진 드롭다운은 구현된 4개만 노출한다', () => {
+    wrap(<ConnectionForm draft={draft()} errors={{}} isNew={false} {...noop} />)
+    const options = [...screen.getByLabelText('Engine').querySelectorAll('option')].map(
+      (o) => o.value,
+    )
+    expect(options.sort()).toEqual(['mariadb', 'mysql', 'postgres', 'sqlite'])
+  })
+
+  it('sqlite면 네트워크 필드를 숨기고 Database file + Browse를 보인다', () => {
+    wrap(
+      <ConnectionForm draft={draft({ engine: 'sqlite', port: 0 })} errors={{}} isNew={false} {...noop} />,
+    )
+    expect(screen.queryByLabelText('Host')).toBeNull()
+    expect(screen.queryByLabelText('Port')).toBeNull()
+    expect(screen.queryByLabelText('User')).toBeNull()
+    expect(screen.queryByLabelText('Password')).toBeNull()
+    expect(screen.getByLabelText('Database file')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /browse/i })).toBeTruthy()
+  })
+
+  it('Browse 클릭이 onBrowseFile을 부른다', () => {
+    const onBrowseFile = vi.fn()
+    wrap(
+      <ConnectionForm
+        draft={draft({ engine: 'sqlite', port: 0 })}
+        errors={{}}
+        isNew={false}
+        {...noop}
+        onBrowseFile={onBrowseFile}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /browse/i }))
+    expect(onBrowseFile).toHaveBeenCalledOnce()
+  })
+
+  it('postgres면 네트워크 필드(Host/User)를 보인다', () => {
+    wrap(<ConnectionForm draft={draft({ engine: 'postgres' })} errors={{}} isNew={false} {...noop} />)
+    expect(screen.getByLabelText('Host')).toBeTruthy()
+    expect(screen.getByLabelText('User')).toBeTruthy()
+    expect(screen.queryByLabelText('Database file')).toBeNull()
+    expect(screen.getByLabelText('Database')).toBeTruthy()
   })
 })

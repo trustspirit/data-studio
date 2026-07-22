@@ -20,6 +20,7 @@ function bridgeWith(list: unknown[]): DataconBridge {
       if (channel === 'secrets:status') return Promise.resolve({ ok: true, value: { persistent: true } })
       if (channel === 'secrets:has') return Promise.resolve({ ok: true, value: { exists: false } })
       if (channel === 'secrets:set') return Promise.resolve({ ok: true, value: null })
+      if (channel === 'dialog:openFile') return Promise.resolve({ ok: true, value: '/tmp/test.db' })
       return Promise.resolve({ ok: false, code: 'internal_error' })
     }),
   }
@@ -125,5 +126,22 @@ describe('ConnectionsScreen', () => {
     const channels = vi.mocked(bridge.invoke).mock.calls.map((c) => c[0])
     // 빈 비밀번호로 setSecret을 부르면 빈 값을 저장해 기존 비밀을 덮는다.
     expect(channels).not.toContain('secrets:set')
+  })
+
+  it('sqlite로 전환 후 Browse를 누르면 dialog:openFile 결과로 Database file을 채운다', async () => {
+    const bridge = bridgeWith([])
+    renderScreen(bridge)
+    fireEvent.click(screen.getByText(/New/i))
+    fireEvent.change(screen.getByLabelText('Engine'), { target: { value: 'sqlite' } })
+    await waitFor(() => expect(screen.getByLabelText('Database file')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: /browse/i }))
+
+    await waitFor(() =>
+      expect(screen.getByLabelText<HTMLInputElement>('Database file').value).toBe('/tmp/test.db'),
+    )
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
+    const channels = vi.mocked(bridge.invoke).mock.calls.map((c) => c[0])
+    expect(channels).toContain('dialog:openFile')
   })
 })

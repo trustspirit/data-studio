@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import {
-  ENGINE_IDS,
+  IMPLEMENTED_ENGINE_IDS,
   TLS_MODES,
   type ConnectionConfig,
   type EngineId,
 } from '@shared/types/connection'
-import { defaultPort } from '../model/enginePorts'
 import { Button, Panel, Select, TextField } from '../../../shared/ui'
 
 const Body = styled(Panel)`
@@ -51,10 +50,21 @@ interface Props {
   onPasswordChange: (value: string) => void
   hasSavedSecret: boolean
   secretsPersistent: boolean
+  onBrowseFile: () => void
 }
 
-const engineOptions = ENGINE_IDS.map((id) => ({ value: id, label: id }))
+const engineOptions = IMPLEMENTED_ENGINE_IDS.map((id) => ({ value: id, label: id }))
 const tlsOptions = TLS_MODES.map((m) => ({ value: m, label: m }))
+
+/**
+ * 파일 경로 기반 엔진인가 (Host/Port/User/Password 대신 파일 선택 UI를 쓴다).
+ * `defaultPort(engine) === null`을 재사용하지 않는다 — dynamodb도 포트가
+ * 없지만 파일 엔진은 아니라서, 그 조건을 쓰면 나중에 dynamodb를 구현할 때
+ * 함정에 빠진다.
+ */
+function isFilePathEngine(engine: EngineId): boolean {
+  return engine === 'sqlite'
+}
 
 /**
  * `errors[key]`는 (noUncheckedIndexedAccess로) `string | undefined`다.
@@ -79,9 +89,10 @@ export function ConnectionForm({
   onPasswordChange,
   hasSavedSecret,
   secretsPersistent,
+  onBrowseFile,
 }: Props) {
   const [confirming, setConfirming] = useState(false)
-  const showPort = defaultPort(draft.engine) !== null
+  const fileEngine = isFilePathEngine(draft.engine)
 
   return (
     <Body>
@@ -98,21 +109,23 @@ export function ConnectionForm({
           onValueChange={(v) => onEngineChange(v as EngineId)}
           options={engineOptions}
         />
-        <Select
-          label="TLS"
-          value={draft.tlsMode}
-          onValueChange={(v) => onChange({ tlsMode: v as ConnectionConfig['tlsMode'] })}
-          options={tlsOptions}
-        />
+        {!fileEngine && (
+          <Select
+            label="TLS"
+            value={draft.tlsMode}
+            onValueChange={(v) => onChange({ tlsMode: v as ConnectionConfig['tlsMode'] })}
+            options={tlsOptions}
+          />
+        )}
       </Row>
-      <Row>
-        <TextField
-          label="Host"
-          value={draft.host}
-          onValueChange={(host) => onChange({ host })}
-          {...errorProp(errors, 'host')}
-        />
-        {showPort && (
+      {!fileEngine && (
+        <Row>
+          <TextField
+            label="Host"
+            value={draft.host}
+            onValueChange={(host) => onChange({ host })}
+            {...errorProp(errors, 'host')}
+          />
           <TextField
             label="Port"
             type="number"
@@ -120,23 +133,37 @@ export function ConnectionForm({
             onValueChange={(v) => onChange({ port: Number(v) })}
             {...errorProp(errors, 'port')}
           />
-        )}
-      </Row>
-      <Row>
-        <TextField
-          label="Database"
-          value={draft.database}
-          onValueChange={(database) => onChange({ database })}
-          {...errorProp(errors, 'database')}
-        />
-        <TextField
-          label="User"
-          value={draft.username}
-          onValueChange={(username) => onChange({ username })}
-          {...errorProp(errors, 'username')}
-        />
-      </Row>
-      {showPort && (
+        </Row>
+      )}
+      {fileEngine ? (
+        <Row>
+          <TextField
+            label="Database file"
+            value={draft.database}
+            onValueChange={(database) => onChange({ database })}
+            {...errorProp(errors, 'database')}
+          />
+          <Button variant="secondary" onClick={onBrowseFile}>
+            Browse…
+          </Button>
+        </Row>
+      ) : (
+        <Row>
+          <TextField
+            label="Database"
+            value={draft.database}
+            onValueChange={(database) => onChange({ database })}
+            {...errorProp(errors, 'database')}
+          />
+          <TextField
+            label="User"
+            value={draft.username}
+            onValueChange={(username) => onChange({ username })}
+            {...errorProp(errors, 'username')}
+          />
+        </Row>
+      )}
+      {!fileEngine && (
         <>
           <TextField
             label="Password"
