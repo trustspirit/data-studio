@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, session } from 'electron'
+import type { OpenDialogOptions } from 'electron'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { applyWindowPolicy } from './security/windowPolicy'
@@ -127,13 +128,17 @@ async function wireServices(): Promise<void> {
     registerDrivers: (registry) => registerDrivers(registry, { secrets }),
     fileDialog: {
       openFile: async () => {
-        const result = await dialog.showOpenDialog({
+        const win = BrowserWindow.getFocusedWindow()
+        const options: OpenDialogOptions = {
           properties: ['openFile'],
           filters: [
             { name: 'SQLite', extensions: ['db', 'sqlite', 'sqlite3'] },
             { name: 'All Files', extensions: ['*'] },
           ],
-        })
+        }
+        const result = win
+          ? await dialog.showOpenDialog(win, options)
+          : await dialog.showOpenDialog(options)
         return result.canceled || result.filePaths.length === 0 ? null : (result.filePaths[0] ?? null)
       },
     },

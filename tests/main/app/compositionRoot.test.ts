@@ -3,7 +3,7 @@ import { buildAppServices, type AppDeps } from '@main/app/compositionRoot'
 import type { OperationLog, OperationLogEntry } from '@main/core/execution/OperationLog'
 import type { ConnectionRepository } from '@main/core/ports/ConnectionRepository'
 import type { SecretStore } from '@main/core/ports/SecretStore'
-import type { FileDialogPort } from '@main/core/ports/FileDialog'
+import type { FileDialog } from '@main/core/ports/FileDialog'
 
 function recordingLog() {
   const entries: OperationLogEntry[] = []
@@ -29,7 +29,7 @@ const secrets: SecretStore = {
   delete: () => Promise.resolve(),
 }
 
-const fileDialog: FileDialogPort = {
+const fileDialog: FileDialog = {
   openFile: () => Promise.resolve(null),
 }
 
