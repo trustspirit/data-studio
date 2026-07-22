@@ -42,6 +42,7 @@ function fakeGateway(initial: ConnectionConfig[]): ConnectionGateway & { store: 
     open: vi.fn(() => Promise.resolve({ opened: true }) as ReturnType<ConnectionGateway['open']>),
     close: vi.fn(() => Promise.resolve()),
     status: vi.fn(() => Promise.resolve('ready') as ReturnType<ConnectionGateway['status']>),
+    openFileDialog: vi.fn(() => Promise.resolve(null)),
   }
 }
 
