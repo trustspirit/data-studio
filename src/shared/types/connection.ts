@@ -50,6 +50,30 @@ export const SQL_ENGINE_IDS: readonly SqlEngineId[] = ENGINE_IDS.filter(
   (id): id is SqlEngineId => ENGINE_IS_SQL[id],
 )
 
+/**
+ * 각 엔진이 **드라이버가 구현되어 있는가**. `satisfies Record<EngineId, boolean>`가
+ * 완전성을 강제한다 — `ENGINE_IDS`에 엔진을 추가하면 이 표를 채우기 전까지 컴파일이
+ * 깨진다. UI(엔진 드롭다운)와 드리프트 가드 테스트가 여기서 파생한다.
+ * 실제 드라이버 배선은 `src/main/app/registerDrivers.ts`이며, 그 등록 집합이 이 표와
+ * 일치하는지 테스트로 강제한다.
+ */
+export const ENGINE_IMPLEMENTED = {
+  postgres: true,
+  mysql: true,
+  mariadb: true,
+  sqlite: true,
+  mongodb: false,
+  redis: false,
+  dynamodb: false,
+  kafka: false,
+  rabbitmq: false,
+} as const satisfies Record<EngineId, boolean>
+
+/** `ENGINE_IMPLEMENTED`에서 파생 — 손으로 두 번 적지 않는다. */
+export const IMPLEMENTED_ENGINE_IDS: readonly EngineId[] = ENGINE_IDS.filter(
+  (id) => ENGINE_IMPLEMENTED[id],
+)
+
 export const TLS_MODES = ['disable', 'require', 'verify-ca', 'verify-full'] as const
 
 export type TlsMode = (typeof TLS_MODES)[number]
@@ -65,7 +89,7 @@ export const connectionConfigSchema = z.strictObject({
   engine: z.enum(ENGINE_IDS),
   host: z.string().max(255),
   port: z.number().int().min(0).max(65535),
-  database: z.string().max(255),
+  database: z.string().max(1024), // SQLite 파일 경로가 255를 넘을 수 있다(macOS 경로 최대 1024B)
   username: z.string().max(255),
   tlsMode: z.enum(TLS_MODES),
   /** AI 전용 읽기 계정. null이면 사용자 계정을 공유하며 UI가 경고를 표시한다. */
