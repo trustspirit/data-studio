@@ -104,7 +104,10 @@ export class MysqlSchemaCapability implements SchemaCapability {
     checkAborted(ctx)
     const r = await rows<{
       INDEX_NAME: string
-      NON_UNIQUE: number
+      // NOT NULL 컬럼이라 null 가드는 필요 없다. MariaDB는 BIGINT로 선언해(MySQL 8은
+      // INT/TINYINT라 보통 숫자로 온다) bigNumberStrings 커넥션에서 문자열 "0"/"1"로
+      // 온다 — `=== 0` 비교가 항상 false가 돼 모든 인덱스가 non-unique로 보였다.
+      NON_UNIQUE: number | string
       COLUMN_NAME: string
       SEQ_IN_INDEX: number
     }>(
@@ -115,7 +118,7 @@ export class MysqlSchemaCapability implements SchemaCapability {
     )
     const byName = new Map<string, { columns: string[]; unique: boolean }>()
     for (const x of r) {
-      const e = byName.get(x.INDEX_NAME) ?? { columns: [], unique: x.NON_UNIQUE === 0 }
+      const e = byName.get(x.INDEX_NAME) ?? { columns: [], unique: Number(x.NON_UNIQUE) === 0 }
       e.columns.push(x.COLUMN_NAME)
       byName.set(x.INDEX_NAME, e)
     }
@@ -137,8 +140,8 @@ export class MysqlSchemaCapability implements SchemaCapability {
       CONSTRAINT_NAME: string
       COLUMN_NAME: string
       // SQL 쪽 ORDER BY에만 쓰이고 JS에서 읽거나 비교하지 않는다. MariaDB는
-      // bigNumberStrings 커넥션에서 이 컬럼을 문자열로 준다(MySQL 8은 INT).
-      ORDINAL_POSITION: string
+      // bigNumberStrings 커넥션에서 이 컬럼을 문자열로 준다(MySQL 8은 숫자로 온다).
+      ORDINAL_POSITION: number | string
       REFERENCED_TABLE_SCHEMA: string
       REFERENCED_TABLE_NAME: string
       REFERENCED_COLUMN_NAME: string

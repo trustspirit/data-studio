@@ -76,7 +76,6 @@ export function mapMysqlValue(typeCode: number, value: unknown): WireValue {
   }
   if (STRING_TYPES.has(typeCode) || typeCode === MYSQL_TYPE.BLOB) {
     if (typeof value === 'string') return wire.str(value)
-    if (value instanceof Uint8Array) return wire.bytes(value)
   }
   if (typeof value === 'string') return wire.str(value)
   return wire.unknown(stringify(value), `mysqlType:${typeCode}`)

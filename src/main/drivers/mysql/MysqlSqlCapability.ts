@@ -167,6 +167,10 @@ export class MysqlSqlCapability implements SqlCapability {
       // 이 드라이버는 커넥션을 풀링하지 않는다 — START TRANSACTION 이후 실패를
       // 그냥 던지면 이 커넥션은 열린 트랜잭션에 갇혀 이후 모든 실행이 막힌다.
       // 설정 실패 시 트랜잭션을 되돌려 커넥션을 다시 쓸 수 있게 한다.
+      // SET이 실패한 경우 timeout 자체가 걸리지 않았을 가능성이 높지만(트랜잭션
+      // 내 SESSION 변수라 원자성이 없다), 혹시 부분 적용됐더라도 세션에 남지
+      // 않도록 ROLLBACK 전에 리셋을 시도한다 — best-effort라 실패는 삼킨다.
+      await this.resetReadOnlyTimeout(conn).catch(() => {})
       await conn.query('ROLLBACK').catch(() => {})
       throw e
     }
@@ -175,8 +179,25 @@ export class MysqlSqlCapability implements SqlCapability {
       execute: (scopeCtx: ExecutionContext, sql: string, page: PageRequest, params?: readonly unknown[]) =>
         this.executeOn(conn, scopeCtx, sql, page, params),
       end: async () => {
+        // 이 드라이버는 커넥션 하나를 계속 붙들고 쓴다(풀링 없음) — SESSION 변수는
+        // COMMIT을 넘어 계속 살아 있으므로, RO 스코프가 끝난 뒤에도 이후의 평범한
+        // 쿼리가 30초 timeout을 그대로 물려받는다(Postgres의 SET LOCAL과 달리
+        // 트랜잭션 스코프가 아니다). 리셋을 COMMIT보다 먼저 시도해 "리셋 시도됨"을
+        // COMMIT 성패와 무관하게 보장하되, 리셋 자체는 best-effort로 삼켜(다음
+        // SET SESSION이 항상 이길 수 있으니 실패해도 치명적이지 않다) COMMIT의
+        // 성공/실패 신호를 절대 가리지 않는다 — COMMIT 에러는 그대로 전파된다.
+        await this.resetReadOnlyTimeout(conn).catch(() => {})
         await conn.query('COMMIT')
       },
+    }
+  }
+
+  /** RO 스코프에서 건 statement timeout을 무제한(0)으로 되돌린다. 엔진별 변수명은 설정 때와 동일. */
+  private async resetReadOnlyTimeout(conn: MysqlClientLike): Promise<void> {
+    if (this.engine === 'mariadb') {
+      await conn.query('SET SESSION max_statement_time = 0')
+    } else {
+      await conn.query('SET SESSION max_execution_time = 0')
     }
   }
 

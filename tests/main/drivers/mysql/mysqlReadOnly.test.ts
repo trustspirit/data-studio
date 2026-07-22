@@ -46,6 +46,20 @@ function readOnlySuite(name: string, available: boolean, url: string, engine: En
       const after = await cap.execute(ctx(), 'SELECT id FROM ro_t ORDER BY id', PAGE)
       expect(after.rows.length).toBe(2)
     })
+
+    // 커넥션이 풀링 없이 하나 계속 쓰이므로, RO 스코프가 건 statement timeout이
+    // end()/COMMIT 이후에도 세션에 남아 있으면 그 뒤 모든 평범한 쿼리가 30초
+    // 캡을 물려받는다(Postgres SET LOCAL과 달리 트랜잭션 스코프가 아니다).
+    it('end() 후 session statement timeout이 무제한(0)으로 리셋된다', async () => {
+      const scope = await cap.beginReadOnly(ctx())
+      await scope.execute(ctx(), 'SELECT id FROM ro_t', PAGE)
+      await scope.end()
+      const varName = engine === 'mariadb' ? '@@max_statement_time' : '@@max_execution_time'
+      const [rows] = (await conn.query(`SELECT ${varName} AS v`)) as unknown as [{ v: number | string }[]]
+      const row = rows[0]
+      expect(row).toBeDefined()
+      expect(Number(row?.v)).toBe(0)
+    })
   })
 }
 

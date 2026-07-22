@@ -106,3 +106,32 @@ describe.skipIf(!MARIADB_AVAILABLE)('MysqlSchemaCapability primaryKeyOrdinal 타
     })
   })
 })
+
+// MariaDB의 information_schema.STATISTICS.NON_UNIQUE는 BIGINT로 선언돼
+// bigNumberStrings 커넥션에서 문자열 "0"/"1"로 온다(MySQL 8은 숫자로 온다) —
+// listIndexes의 Number(...) 코어션이 실제로 동작하는지 이 경로에서만 제대로 확인된다.
+describe.skipIf(!MARIADB_AVAILABLE)('MysqlSchemaCapability listIndexes unique 타입 (MariaDB 실서버)', () => {
+  it('listIndexes: UNIQUE 인덱스의 unique는 true (NON_UNIQUE 문자열 "0" 코어션 검증)', async () => {
+    await withDatabase(MARIADB_URL, SEED, async (db) => {
+      const u = new URL(MARIADB_URL)
+      const raw = await mysql.createConnection({
+        host: u.hostname,
+        port: Number(u.port),
+        user: u.username,
+        password: decodeURIComponent(u.password),
+        database: db,
+        dateStrings: true,
+        supportBigNumbers: true,
+        bigNumberStrings: true,
+      })
+      const conn = raw as unknown as MysqlClientLike
+      const cap = new MysqlSchemaCapability(() => conn)
+      const idx = await cap.listIndexes(ctx(), db, 'parent')
+      const ux = idx.find((i) => i.name === 'ux_parent_name')
+      expect(ux?.unique).toBe(true)
+      const pk = idx.find((i) => i.name === 'PRIMARY')
+      expect(pk?.unique).toBe(true)
+      await raw.end()
+    })
+  })
+})
