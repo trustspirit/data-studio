@@ -1,11 +1,23 @@
 import mysql from 'mysql2/promise'
 import type { Driver } from '@main/core/driver/Driver'
 import type { ConnectionConfig } from '@shared/types/connection'
+import { cancelQuery } from './mysqlCancel'
 import { mysqlSslConfig } from './mysqlSsl'
+import { MysqlSqlCapability } from './MysqlSqlCapability'
 
 /** 사용하는 mysql2 커넥션 표면만 좁힌다 — 테스트 대체 가능. */
 export interface MysqlClientLike {
   query(sql: string, values?: readonly unknown[]): Promise<[unknown, unknown]>
+  /**
+   * 옵션 객체 형태(mysql2 `QueryOptions`의 부분집합). `rowsAsArray: true`로
+   * SELECT 결과를 배열-of-배열로 받아야 컬럼 순서를 유지한 채 `mapMysqlValue`에
+   * 넘길 수 있다 — Task 3(SqlCapability)이 필요로 해서 넓혔다(Task 2 파일 수정).
+   */
+  query(options: {
+    sql: string
+    values?: readonly unknown[]
+    rowsAsArray?: boolean
+  }): Promise<[unknown, unknown]>
   end(): Promise<void>
   readonly threadId: number | null
 }
@@ -53,7 +65,11 @@ async function defaultCreateClient(params: MysqlConnParams): Promise<MysqlClient
 export class MysqlDriver implements Driver {
   readonly id: string
   readonly engine: 'mysql' | 'mariadb'
+  readonly sql: MysqlSqlCapability
   private conn: MysqlClientLike | null = null
+  private password = ''
+  /** connect()에 실제로 넘어온 config. 취소 side 커넥션이 같은 접속 정보를 재사용하도록 기억해 둔다. */
+  private connectedConfig: ConnectionConfig | null = null
   private readonly createClient: (params: MysqlConnParams) => Promise<MysqlClientLike>
 
   constructor(
@@ -66,20 +82,27 @@ export class MysqlDriver implements Driver {
     }
     this.engine = config.engine
     this.createClient = deps.createClient ?? defaultCreateClient
+    this.sql = new MysqlSqlCapability(
+      () => this.requireConn(),
+      async () => {
+        const tid = this.threadId
+        if (tid === null) return
+        // 취소는 best-effort다 — side 커넥션 실패(권한 부족, 연결 거부 등)가
+        // 나도 메인 쿼리의 결과/거부는 그대로 유효하다. 여기서 삼키지 않으면
+        // unhandled rejection이 프로세스로 새어나간다. 이 계층엔 아직 Logger가
+        // 배선돼 있지 않다.
+        await cancelQuery(() => this.createClient(this.connParams()), tid).catch(() => {})
+      },
+      this.engine,
+    )
   }
 
   async connect(config: ConnectionConfig): Promise<void> {
     if (config.id !== this.id) throw new MysqlConnectionIdentityError(this.id, config.id)
     if (this.conn) return
-    const password = (await this.deps.getPassword()) ?? ''
-    this.conn = await this.createClient({
-      host: config.host,
-      port: config.port,
-      user: config.username,
-      password,
-      database: config.database,
-      ssl: mysqlSslConfig(config.tlsMode, config.host),
-    })
+    this.password = (await this.deps.getPassword()) ?? ''
+    this.connectedConfig = config
+    this.conn = await this.createClient(this.connParams())
   }
 
   async disconnect(): Promise<void> {
@@ -102,5 +125,18 @@ export class MysqlDriver implements Driver {
   private requireConn(): MysqlClientLike {
     if (!this.conn) throw new Error(`mysql driver ${this.id} is not connected`)
     return this.conn
+  }
+
+  /** 취소 side 커넥션이 접속 파라미터를 재사용하도록 노출. connect() 이후에만 의미가 있다. */
+  private connParams(): MysqlConnParams {
+    const c = this.connectedConfig ?? this.config
+    return {
+      host: c.host,
+      port: c.port,
+      user: c.username,
+      password: this.password,
+      database: c.database,
+      ssl: mysqlSslConfig(c.tlsMode, c.host),
+    }
   }
 }
