@@ -6,11 +6,16 @@ import {
 } from '@shared/types/connection'
 
 describe('ENGINE_IMPLEMENTED', () => {
-  it('구현된 드라이버 4개만 true', () => {
-    expect([...IMPLEMENTED_ENGINE_IDS].sort()).toEqual(['mariadb', 'mysql', 'postgres', 'sqlite'])
+  it('구현된 드라이버 5개만 true', () => {
+    expect([...IMPLEMENTED_ENGINE_IDS].sort()).toEqual([
+      'mariadb',
+      'mongodb',
+      'mysql',
+      'postgres',
+      'sqlite',
+    ])
   })
   it('미구현 엔진은 false', () => {
-    expect(ENGINE_IMPLEMENTED.mongodb).toBe(false)
     expect(ENGINE_IMPLEMENTED.redis).toBe(false)
     expect(ENGINE_IMPLEMENTED.dynamodb).toBe(false)
   })
