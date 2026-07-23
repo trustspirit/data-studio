@@ -4,6 +4,7 @@ import { createPostgresDriver } from '../drivers/postgres'
 import { createSqliteDriver } from '../drivers/sqlite'
 import { createMysqlDriver } from '../drivers/mysql'
 import { createMongoDriver } from '../drivers/mongo'
+import { createRedisDriver } from '../drivers/redis'
 
 export interface RegisterDriversDeps {
   readonly secrets: Pick<SecretStore, 'get'>
@@ -24,4 +25,5 @@ export function registerDrivers(registry: DriverRegistry, deps: RegisterDriversD
   registry.register('mysql', (config) => createMysqlDriver(config, { getPassword: passwordFor(config.id) }))
   registry.register('mariadb', (config) => createMysqlDriver(config, { getPassword: passwordFor(config.id) }))
   registry.register('mongodb', (config) => createMongoDriver(config, { getPassword: passwordFor(config.id) }))
+  registry.register('redis', (config) => createRedisDriver(config, { getPassword: passwordFor(config.id) }))
 }
