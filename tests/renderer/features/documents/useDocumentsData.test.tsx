@@ -76,6 +76,6 @@ describe('useDocumentsData', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock
       expect(vi.mocked(gw.run)).toHaveBeenCalledTimes(2)
     })
-    expect(result.current.rows).toHaveLength(1)
+    await waitFor(() => { expect(result.current.rows).toHaveLength(1) })
   })
 })
