@@ -156,4 +156,27 @@ describe('ConnectionWorkspace', () => {
     expect(screen.queryByTestId('subtab-data')).toBeNull()
     expect(screen.queryByTestId('subtab-er')).toBeNull()
   })
+
+  it('capability가 줄어드는 리렌더에서 사라진 뷰가 남아있지 않고 즉시 대체된다', async () => {
+    const { rerender } = wrap(['sql', 'schema', 'data'])
+    fireEvent.click(screen.getByTestId('subtab-data'))
+    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+
+    // 같은 인스턴스를 data capability가 빠진 capabilities로 리렌더한다(마운트가 아니라 리렌더).
+    rerender(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace
+          gateway={gateway()}
+          connectionId="c1"
+          connectionName="prod"
+          capabilities={['sql']}
+        />
+      </ThemeProvider>,
+    )
+
+    // Data 서브탭은 사라져야 하고, view state가 useEffect로 나중에 보정되기 전에도
+    // stale한 Data 뷰 본문이 한 커밋이라도 뜨면 안 된다 — query가 즉시 보여야 한다.
+    expect(screen.queryByTestId('subtab-data')).toBeNull()
+    expect(screen.getByText(/Query — prod/)).toBeTruthy()
+  })
 })

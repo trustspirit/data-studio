@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import type { TableSelection } from '../entities/schema-tree'
@@ -77,12 +77,7 @@ export function ConnectionWorkspace({
   const [view, setView] = useState<View>(() => availableViews[0] ?? 'query')
   const [erJump, setErJump] = useState<TableSelection | null>(null)
 
-  useEffect(() => {
-    if (availableViews.length > 0 && !availableViews.includes(view)) {
-      const fallback = availableViews[0]
-      if (fallback !== undefined) setView(fallback)
-    }
-  }, [capabilities, view])
+  const activeView = availableViews.includes(view) ? view : (availableViews[0] ?? null)
 
   return (
     <Layout>
@@ -92,7 +87,7 @@ export function ConnectionWorkspace({
             key={v}
             type="button"
             data-testid={`subtab-${v}`}
-            $active={view === v}
+            $active={activeView === v}
             onClick={() => setView(v)}
           >
             {VIEW_LABEL[v]}
@@ -100,13 +95,13 @@ export function ConnectionWorkspace({
         ))}
       </SubTabs>
       <Body>
-        {availableViews.length === 0 ? (
+        {activeView === null ? (
           <EmptyState>이 엔진에 표시할 뷰가 없습니다.</EmptyState>
-        ) : view === 'query' ? (
+        ) : activeView === 'query' ? (
           <QueryWorkspace gateway={gateway} connectionId={connectionId} connectionName={connectionName} />
-        ) : view === 'structure' ? (
+        ) : activeView === 'structure' ? (
           <StructureView gateway={gateway} connectionId={connectionId} externalSelection={erJump} />
-        ) : view === 'data' ? (
+        ) : activeView === 'data' ? (
           <DataView gateway={gateway} connectionId={connectionId} />
         ) : (
           <ErView
