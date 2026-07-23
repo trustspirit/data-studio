@@ -7,6 +7,7 @@ import type {
   Operation,
   OperationRequest,
 } from '../../shared/types/operation'
+import { describeCapabilities } from '../core/driver/describeCapabilities'
 
 /**
  * 계약 채널을 핸들러에 연결하는 register. `createContractRegistrar`의 반환형이다.
@@ -47,7 +48,12 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
     if (config === null) return { opened: false as const, reason: `unknown connection: ${connectionId}` }
     try {
       await services.connections.open(config)
-      return { opened: true as const }
+      const lease = await services.connections.acquire(config.id)
+      try {
+        return { opened: true as const, capabilities: describeCapabilities(lease.driver) }
+      } finally {
+        lease.release()
+      }
     } catch (error) {
       return { opened: false as const, reason: error instanceof Error ? error.message : String(error) }
     }
