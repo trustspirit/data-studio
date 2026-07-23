@@ -192,4 +192,24 @@ describe('describeCapabilities', () => {
   it('document 능력이 없으면 넣지 않는다', () => {
     expect(describeCapabilities(baseDriver())).not.toContain('document')
   })
+
+  it('keyValue 능력이 있으면 목록에 keyvalue를 넣는다', () => {
+    const driver: Driver = {
+      ...baseDriver(),
+      keyValue: {
+        scan: () => {
+          throw new Error('not used in this test')
+        },
+        get: () => {
+          throw new Error('not used in this test')
+        },
+      },
+    }
+
+    expect(describeCapabilities(driver)).toContain('keyvalue')
+  })
+
+  it('keyValue 능력이 없으면 넣지 않는다', () => {
+    expect(describeCapabilities(baseDriver())).not.toContain('keyvalue')
+  })
 })

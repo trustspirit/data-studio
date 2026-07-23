@@ -63,7 +63,7 @@ export const ENGINE_IMPLEMENTED = {
   mariadb: true,
   sqlite: true,
   mongodb: true,
-  redis: false,
+  redis: true,
   dynamodb: false,
   kafka: false,
   rabbitmq: false,

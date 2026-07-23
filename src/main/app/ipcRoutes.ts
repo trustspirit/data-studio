@@ -143,6 +143,14 @@ function normalizeOperation(operation: ContractInput<'operation:run'>['operation
     }
     return { kind: 'document', op: 'listCollections' }
   }
+  if (operation.kind === 'keyvalue') {
+    if (operation.op === 'scan') {
+      return operation.match === undefined
+        ? { kind: 'keyvalue', op: 'scan' }
+        : { kind: 'keyvalue', op: 'scan', match: operation.match }
+    }
+    return { kind: 'keyvalue', op: 'get', key: operation.key }
+  }
   return operation
 }
 

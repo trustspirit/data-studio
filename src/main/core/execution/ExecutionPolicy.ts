@@ -26,6 +26,7 @@ export interface PolicyInput {
   readonly hasSchema: boolean
   readonly hasData: boolean
   readonly hasDocument: boolean
+  readonly hasKeyValue: boolean
   /** 드라이버가 `beginReadOnly`를 구현하는가 */
   readonly supportsReadOnlyScope: boolean
   /** 드라이버의 엔진 고유 분류 */
@@ -38,7 +39,7 @@ function deny(reason: DenialReason): PolicyDecision {
 }
 
 /** `decide`가 실제로 판정 로직을 갖고 있는 operation 종류. */
-const HANDLED_KINDS = ['sql', 'schema', 'data', 'document'] as const
+const HANDLED_KINDS = ['sql', 'schema', 'data', 'document', 'keyvalue'] as const
 
 type HandledKind = (typeof HANDLED_KINDS)[number]
 
@@ -99,6 +100,17 @@ export function decide(input: PolicyInput): PolicyDecision {
     if (!input.hasDocument) return deny('capability_missing')
     // find/aggregate/listCollections는 모두 읽기(v1). 쓰기 파이프라인($out/$merge)은
     // 드라이버 isReadOnlyPipeline이 던져서 막는다 — 정책 계층은 read로 둔다.
+    return {
+      allow: true,
+      limits: actor.type === 'ai' ? aiLimits(input) : userLimits(input),
+      readOnlyScope: false,
+    }
+  }
+
+  if (operation.kind === 'keyvalue') {
+    if (!input.hasKeyValue) return deny('capability_missing')
+    // scan/get은 모두 읽기(v1). 쓰기 연산이 없어 방어 게이트가 필요없다 —
+    // schema 메타데이터 조회와 같은 형태의 순수 read 분기다.
     return {
       allow: true,
       limits: actor.type === 'ai' ? aiLimits(input) : userLimits(input),

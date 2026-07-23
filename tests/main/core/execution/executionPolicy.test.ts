@@ -19,6 +19,7 @@ function input(actor: Actor, operation: Operation, over: Partial<Parameters<type
     hasSchema: true,
     hasData: true,
     hasDocument: true,
+    hasKeyValue: true,
     supportsReadOnlyScope: true,
     driverClassify: (): 'read' | 'write' | 'unknown' => 'read',
     requestedLimits: undefined,
@@ -170,10 +171,10 @@ describe('decide — document (v1 read)', () => {
 })
 
 describe('decide — 모르는 operation 종류', () => {
-  // `Operation`은 keyvalue/stream이 붙을 예정인 판별 유니온이다.
+  // `Operation`은 stream이 붙을 예정인 판별 유니온이다.
   // 이 검사가 없으면 새 변형이 sql 경로로 흘러들어가, 어떤 capability 검사도
   // 그 변형을 보지 않은 채 사용자 경로에서 허용되어 버린다.
-  const FUTURE = { kind: 'keyvalue', collection: 'users' } as unknown as Operation
+  const FUTURE = { kind: 'stream', collection: 'users' } as unknown as Operation
 
   it('사용자 경로에서도 거부한다 (fail-open 금지)', () => {
     expect(decide(input(USER, FUTURE))).toEqual({
@@ -232,7 +233,7 @@ describe('decide — data:apply (write)', () => {
   function inp(over: Partial<PolicyInput>): PolicyInput {
     return {
       actor: { type: 'user', grant: null }, operation: applyOp,
-      hasSql: true, hasSchema: true, hasData: true, hasDocument: true,
+      hasSql: true, hasSchema: true, hasData: true, hasDocument: true, hasKeyValue: true,
       supportsReadOnlyScope: true, driverClassify: () => 'read', requestedLimits: undefined,
       ...over,
     }

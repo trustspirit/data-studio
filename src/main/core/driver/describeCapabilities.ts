@@ -14,6 +14,7 @@ export function describeCapabilities(driver: Driver): Capability[] {
   if (driver.schema !== undefined) capabilities.push('schema')
   if (driver.data !== undefined) capabilities.push('data')
   if (driver.document !== undefined) capabilities.push('document')
+  if (driver.keyValue !== undefined) capabilities.push('keyvalue')
 
   return capabilities
 }

@@ -15,6 +15,7 @@ import { SqlCapabilityExecutor } from '../infrastructure/execution/SqlCapability
 import { SchemaCapabilityExecutor } from '../infrastructure/execution/SchemaCapabilityExecutor'
 import { DataCapabilityExecutor } from '../infrastructure/execution/DataCapabilityExecutor'
 import { DocumentCapabilityExecutor } from '../infrastructure/execution/DocumentCapabilityExecutor'
+import { KeyValueCapabilityExecutor } from '../infrastructure/execution/KeyValueCapabilityExecutor'
 
 /**
  * IPC 라우트가 쓰는 조립된 서비스들.
@@ -78,6 +79,7 @@ export function buildAppServices(deps: AppDeps): AppServices {
       new SchemaCapabilityExecutor(),
       new DataCapabilityExecutor(),
       new DocumentCapabilityExecutor(),
+      new KeyValueCapabilityExecutor(),
     ],
     deps.clock,
     proposals,
