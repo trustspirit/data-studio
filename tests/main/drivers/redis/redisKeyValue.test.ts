@@ -129,4 +129,93 @@ describe.skipIf(!REDIS_AVAILABLE)('RedisKeyValueCapability (실서버)', () => {
       },
     )
   })
+
+  it('scan은 커서를 따라가며 시드된 키 전체를 순회한다(다중 페이지)', async () => {
+    const seeded = Array.from({ length: 50 }, (_, i) => `k:${i}`)
+    await withDatabase(
+      async (c) => {
+        for (const key of seeded) await c.set(key, 'v')
+      },
+      async (db) => {
+        const d = new RedisDriver(cfgFor(db), { getPassword: () => Promise.resolve(null) })
+        await d.connect(cfgFor(db))
+        try {
+          const seen = new Set<string>()
+          let cursor: string | null = null
+          let batchCount = 0
+          // SCAN의 COUNT는 힌트일 뿐이라 배치 수를 미리 알 수 없다 — 버그가 있어도
+          // 테스트가 무한 루프에 빠지지 않도록 상한을 둔다.
+          const MAX_ITER = 500
+          for (let i = 0; i < MAX_ITER; i++) {
+            const rs = await d.keyValue.scan(ctx(), {}, { cursor, maxRows: 5, maxBytes: 8 * 1024 * 1024 })
+            batchCount++
+            for (const row of rs.rows) {
+              const key = row[0]
+              if (key?.t === 'str') seen.add(key.v)
+            }
+            cursor = rs.page.cursor
+            if (cursor === null) break
+          }
+          expect(cursor).toBeNull() // 루프가 상한 전에 종료됐다(정상 완주)
+          expect(batchCount).toBeGreaterThan(1) // 실제로 여러 배치로 나뉘어 커서 이어읽기가 일어났다
+          for (const key of seeded) expect(seen.has(key)).toBe(true)
+          expect(seen.size).toBe(seeded.length) // 시드하지 않은 키는 없다
+        } finally { await d.disconnect() }
+      },
+    )
+  })
+
+  it('다른 match로 발급된 커서로 이어읽으면 거부한다', async () => {
+    await withDatabase(
+      async (c) => {
+        for (let i = 0; i < 50; i++) await c.set(`a:${i}`, 'v')
+      },
+      async (db) => {
+        const d = new RedisDriver(cfgFor(db), { getPassword: () => Promise.resolve(null) })
+        await d.connect(cfgFor(db))
+        try {
+          // 'a:*' 스캔에서 비-null 커서를 확보할 때까지(또는 이터레이션이 끝날
+          // 때까지) 진행한다. COUNT는 힌트일 뿐이라 첫 호출이 곧장 완주할 수도
+          // 있으므로, 그런 경우엔 foreign-cursor 단언을 건너뛴다(문서화된 예외).
+          let cursor: string | null = null
+          let foreignCursor: string | null = null
+          for (let i = 0; i < 50 && foreignCursor === null; i++) {
+            const rs = await d.keyValue.scan(ctx(), { match: 'a:*' }, { cursor, maxRows: 5, maxBytes: 8 * 1024 * 1024 })
+            cursor = rs.page.cursor
+            if (cursor !== null) foreignCursor = cursor
+            if (cursor === null) break
+          }
+
+          if (foreignCursor === null) {
+            return // 데이터셋이 작아 한 배치로 완주됨 — 비-null 커서를 얻지 못해 검증 불가
+          }
+
+          await expect(
+            d.keyValue.scan(
+              ctx(),
+              { match: 'b:*' },
+              { cursor: foreignCursor, maxRows: 5, maxBytes: 8 * 1024 * 1024 },
+            ),
+          ).rejects.toThrow()
+        } finally { await d.disconnect() }
+      },
+    )
+  })
+
+  it('scan은 byte 상한 절단 시 조용히 자르지 않고 에러를 던진다', async () => {
+    await withDatabase(
+      async (c) => {
+        await c.set('t:1', 'v'); await c.set('t:2', 'v'); await c.set('t:3', 'v'); await c.set('t:4', 'v')
+      },
+      async (db) => {
+        const d = new RedisDriver(cfgFor(db), { getPassword: () => Promise.resolve(null) })
+        await d.connect(cfgFor(db))
+        try {
+          await expect(
+            d.keyValue.scan(ctx(), {}, { cursor: null, maxRows: 1000, maxBytes: 1 }),
+          ).rejects.toThrow(/byte limit/)
+        } finally { await d.disconnect() }
+      },
+    )
+  })
 })

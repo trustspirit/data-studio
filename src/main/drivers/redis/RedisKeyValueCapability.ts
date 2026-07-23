@@ -66,8 +66,9 @@ async function readRaw(client: RedisClientLike, key: string, type: string): Prom
  * scan은 Redis 네이티브 SCAN 커서로 페이지네이션한다 — mongo의 "전체 읽고 오프셋
  * 슬라이스"와 달리 SCAN 한 번이 곧 한 페이지다. SCAN 커서는 오프셋이 아니라
  * 불투명 값이라 행을 부분 절단하면 이어읽기가 불가능하므로, 배치를 통째로 담고
- * 다음 커서로 SCAN이 준 커서를 그대로 쓴다(키 메타데이터 행은 작아 byte 상한에
- * 걸릴 일이 없다).
+ * 다음 커서로 SCAN이 준 커서를 그대로 쓴다. maxBytes 상한에 걸려 buildResultSet이
+ * 배치 뒷부분을 잘라내면(키 메타데이터 행이 작아 실무상 드물지만 발생할 수 있다)
+ * 잘려나간 키를 조용히 잃는 대신 명시적으로 에러를 던진다.
  */
 export class RedisKeyValueCapability implements KeyValueCapability {
   constructor(private readonly getClient: () => RedisClientLike) {}
@@ -94,10 +95,22 @@ export class RedisKeyValueCapability implements KeyValueCapability {
       rows,
       // SCAN 배치는 통째로 한 페이지다 — 행 절단으로 커서를 전진시킬 수 없으므로
       // maxRows로 자르지 않는다(SCAN 커서는 오프셋이 아니다). 다음 커서는 SCAN이
-      // 준 nextCursor. maxBytes 보호는 유지된다(작은 행이라 실무상 미발동).
+      // 준 nextCursor. maxBytes 상한은 여전히 buildResultSet이 검사하며, 걸리면
+      // (아래 cursorAt에서) 조용히 자르는 대신 명시적으로 에러를 던진다.
       page: { ...page, maxRows: Math.max(page.maxRows, rows.length) },
       durationMs: performance.now() - start,
-      cursorAt: () => (nextCursor === '0' ? null : encodeCursor(nextCursor, match)),
+      cursorAt: (index) => {
+        // SCAN 커서는 배치 단위(오프셋 아님)라 배치를 부분 절단하면 이어읽기가
+        // 불가능하다. buildResultSet가 byte 상한으로 배치를 잘랐다면
+        // (index < 전체 행 수) 다음 커서를 내주는 순간 잘려나간 키가 영영
+        // 사라진다 — 조용히 잃는 대신 명시적으로 실패한다.
+        if (index < rows.length) {
+          throw new Error(
+            'scan batch exceeded byte limit; SCAN cursor cannot resume mid-batch — narrow the match pattern or raise maxBytes',
+          )
+        }
+        return nextCursor === '0' ? null : encodeCursor(nextCursor, match)
+      },
     })
   }
 
