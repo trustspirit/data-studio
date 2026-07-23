@@ -270,3 +270,14 @@ describe.skipIf(!MONGO_AVAILABLE)('MongoDocumentCapability (실서버)', () => {
     )
   })
 })
+
+// isReadOnlyPipeline은 문자열을 파싱해 배열을 스캔하는 순수 함수라 서버가
+// 필요 없다 — mongo 미가용 환경에서도 이 fail-closed 방어를 검증해야 한다.
+describe('MongoDocumentCapability.isReadOnlyPipeline (순수 함수)', () => {
+  it('EJSON이 배열이 아니면(예: bare $out 객체) fail-closed로 false를 반환한다', () => {
+    const cap = new MongoDocumentCapability(() => {
+      throw new Error('getDb should not be called by isReadOnlyPipeline')
+    })
+    expect(cap.isReadOnlyPipeline(JSON.stringify({ $out: 'copy' }))).toBe(false)
+  })
+})

@@ -144,6 +144,10 @@ export class MongoDocumentCapability implements DocumentCapability {
 
   isReadOnlyPipeline(pipeline: string): boolean {
     const parsed = parseEjson(pipeline)
+    // fail closed: 파이프라인이 배열이 아니면 분석할 수 없으니 읽기 전용으로
+    // 간주하지 않는다(서버는 배열 아닌 pipeline을 거부하지만, 방어적 관문은
+    // 판단 불가 입력을 안전한 쪽으로 처리해야 한다).
+    if (!Array.isArray(parsed)) return false
     return !findWriteStage(parsed)
   }
 }
