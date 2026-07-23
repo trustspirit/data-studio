@@ -14,6 +14,12 @@ import { FileConnectionRepository } from './infrastructure/FileConnectionReposit
 import { FileOperationLog } from './infrastructure/execution/FileOperationLog'
 import { createSecretStore } from './infrastructure/createSecretStore'
 import { systemClock, systemTimers, randomId, sha256Hex } from './infrastructure/systemClock'
+import { maybeRunSqliteSmoke } from './smoke'
+
+// 게이트된 SQLite 네이티브 스모크. `--datacon-smoke-sqlite`가 있으면 GUI/서비스
+// 초기화 전에 :memory: DB를 열어 검증하고 프로세스를 종료한다(동기). 플래그가
+// 없으면 no-op이라 프로덕션 실행 경로에 영향이 없다.
+maybeRunSqliteSmoke()
 
 /** 만료된 쓰기 제안서를 이 간격으로 버린다. 문장 원문을 오래 들고 있지 않기 위해서. */
 const PROPOSAL_SWEEP_MS = 60_000

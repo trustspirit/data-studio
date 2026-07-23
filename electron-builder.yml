@@ -10,6 +10,11 @@ afterPack: scripts/afterPack.cjs
 
 asar: true
 
+# 네이티브 애드온(.node)은 asar 내부에서 dlopen 불가 — better-sqlite3를 언팩한다.
+# electron-builder가 .node를 자동 언팩하지만, 의도를 명시해 고정한다.
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**"
+
 files:
   - dist/**/*
   - package.json
@@ -23,9 +28,9 @@ mac:
   darkModeSupport: true
   target:
     - target: dmg
-      arch: [arm64]
+      arch: [arm64, x64]
     - target: zip
-      arch: [arm64]
+      arch: [arm64, x64]
 
 linux:
   category: Development
