@@ -127,6 +127,7 @@ export class OperationExecutor {
       hasSql: driver.sql !== undefined,
       hasSchema: driver.schema !== undefined,
       hasData: driver.data !== undefined,
+      hasDocument: driver.document !== undefined,
       supportsReadOnlyScope: driver.sql?.beginReadOnly !== undefined,
       driverClassify: (sql) => driver.sql?.classify(sql) ?? 'unknown',
       requestedLimits: req.limits,
@@ -255,6 +256,8 @@ export class OperationExecutor {
         return driver.schema !== undefined
       case 'data':
         return driver.data !== undefined
+      case 'document':
+        return driver.document !== undefined
     }
   }
 
@@ -370,6 +373,17 @@ function describeOperation(operation: Operation): string {
       return `data:apply ${operation.schema}.${operation.table} (${operation.changes.length} changes)`
     }
     return `data:browse ${operation.schema}.${operation.table}`
+  }
+
+  if (operation.kind === 'document') {
+    switch (operation.op) {
+      case 'find':
+        return `document:find ${operation.collection}`
+      case 'aggregate':
+        return `document:aggregate ${operation.collection}`
+      case 'listCollections':
+        return 'document:listCollections'
+    }
   }
 
   switch (operation.op) {
