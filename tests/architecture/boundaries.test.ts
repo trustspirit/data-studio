@@ -176,15 +176,9 @@ describe('의존성 경계', () => {
     // acquire는 raw 드라이버를 담은 lease를 돌려준다. 정책 관문(OperationExecutor)을
     // 통하지 않고 이걸 쓰면 AI가 승인 없이 sql을 돌리는 우회가 생긴다. 관문이
     // 하나여야 한다는 설계는 이 호출을 한 곳에 가두는 것으로만 성립한다.
-    //
-    // ipcRoutes.ts(connection:open)는 예외로 허용한다 — lease를 얻은 즉시
-    // describeCapabilities(lease.driver)로 어떤 capability 객체가 존재하는지만
-    // (동기적으로) 읽고 finally에서 release한다. sql/schema/data의 어떤 메서드도
-    // 호출하지 않으므로 actor 판정을 우회하는 데이터 접근 경로가 아니다.
     const allowed = new Set([
       path.resolve('src/main/core/execution/OperationExecutor.ts'),
       path.resolve('src/main/infrastructure/connection/PooledConnectionManager.ts'),
-      path.resolve('src/main/app/ipcRoutes.ts'),
     ])
     const violations: string[] = []
 

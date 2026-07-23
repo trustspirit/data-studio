@@ -29,12 +29,11 @@ function createHarness() {
     open: [] as unknown[],
     closeConn: [] as string[],
     statusOf: [] as string[],
-    acquireOf: [] as string[],
-    releaseCalled: 0,
+    capabilitiesOf: [] as string[],
     openThrows: false,
     getReturns: { id: 'c1' } as unknown,
     statusReturns: 'ready' as string,
-    fakeDriver: { sql: {}, schema: {}, data: {} } as unknown,
+    capabilitiesReturns: ['sql', 'schema', 'data'] as string[],
   }
 
   const register = ((channel, handler) => {
@@ -63,15 +62,9 @@ function createHarness() {
         calls.open.push(config)
         return calls.openThrows ? Promise.reject(new Error('connect refused')) : Promise.resolve()
       },
-      acquire: (id: string) => {
-        calls.acquireOf.push(id)
-        return Promise.resolve({
-          driver: calls.fakeDriver,
-          signal: new AbortController().signal,
-          release: () => {
-            calls.releaseCalled += 1
-          },
-        })
+      capabilities: (id: string) => {
+        calls.capabilitiesOf.push(id)
+        return calls.capabilitiesReturns
       },
       close: (id: string) => {
         calls.closeConn.push(id)
@@ -253,8 +246,7 @@ describe('registerIpcRoutes', () => {
     const h = createHarness()
     const r = await h.invoke('connection:open', { connectionId: 'c1' })
     expect(h.calls.open).toHaveLength(1)
-    expect(h.calls.acquireOf).toEqual(['c1'])
-    expect(h.calls.releaseCalled).toBe(1)
+    expect(h.calls.capabilitiesOf).toEqual(['c1'])
     expect(r).toEqual({ opened: true, capabilities: ['sql', 'schema', 'data'] })
   })
 

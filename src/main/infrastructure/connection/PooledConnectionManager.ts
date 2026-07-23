@@ -7,6 +7,8 @@ import type {
 import type { Driver } from '../../core/driver/Driver'
 import type { DriverRegistry } from '../../core/driver/DriverRegistry'
 import type { Logger } from '../../core/ports/Logger'
+import type { Capability } from '@shared/types/capability'
+import { describeCapabilities } from '../../core/driver/describeCapabilities'
 
 export class ConnectionNotOpenError extends Error {
   constructor(readonly connectionId: string) {
@@ -246,6 +248,15 @@ export class PooledConnectionManager implements ConnectionManager {
 
       entry.waiters.push(waiter)
     })
+  }
+
+  capabilities(connectionId: string): Capability[] {
+    const entry = this.entries.get(connectionId)
+    if (entry === undefined || entry.status !== 'ready') {
+      throw new ConnectionNotOpenError(connectionId)
+    }
+
+    return describeCapabilities(entry.driver)
   }
 
   async close(connectionId: string): Promise<void> {

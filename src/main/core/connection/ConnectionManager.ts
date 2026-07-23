@@ -1,5 +1,6 @@
 import type { ConnectionConfig } from '../../../shared/types/connection'
 import type { Driver } from '../driver/Driver'
+import type { Capability } from '@shared/types/capability'
 
 export type ConnectionStatus = 'closed' | 'connecting' | 'ready' | 'error'
 
@@ -58,6 +59,11 @@ export interface ConnectionManager {
    * 질의에 지연이 붙는다. 생존 확인은 `checkHealth`로 명시적으로 한다.
    */
   acquire(connectionId: string): Promise<LeasedConnection>
+  /**
+   * 열린 커넥션 드라이버의 capability 목록. 실행용 lease를 내주지 않고 능력 존재
+   * 여부만 파생한다(정책 관문 우회 없음). 커넥션이 열려 있지 않으면 던진다.
+   */
+  capabilities(connectionId: string): Capability[]
   /**
    * 커넥션을 닫고 드라이버를 폐기한다.
    *

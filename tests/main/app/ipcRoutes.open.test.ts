@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { registerIpcRoutes, type ContractRegister } from '@main/app/ipcRoutes'
 import type { AppServices } from '@main/app/compositionRoot'
 import type { CallerContext } from '@main/ipc/CallerContext'
@@ -11,14 +11,11 @@ describe('connection:open capabilities', () => {
     const register = ((channel, handler) => {
       handlers.set(channel, handler as (input: unknown, ctx: CallerContext) => Promise<unknown>)
     }) as ContractRegister
-    const release = vi.fn()
-    const fakeDriver = { id: 'c1', engine: 'postgres', sql: {}, schema: {}, data: {} }
     const services = {
       repository: { get: () => Promise.resolve({ id: 'c1', engine: 'postgres' }) },
       connections: {
         open: () => Promise.resolve(),
-        acquire: () =>
-          Promise.resolve({ driver: fakeDriver, signal: new AbortController().signal, release }),
+        capabilities: () => ['sql', 'schema', 'data'],
       },
     } as unknown as AppServices
 
@@ -26,7 +23,6 @@ describe('connection:open capabilities', () => {
     const result = await handlers.get('connection:open')!({ connectionId: 'c1' }, CONTEXT)
 
     expect(result).toMatchObject({ opened: true, capabilities: ['sql', 'schema', 'data'] })
-    expect(release).toHaveBeenCalled()
   })
 
   it('없는 커넥션은 opened:false를 반환한다', async () => {
