@@ -7,6 +7,7 @@ import { QueryWorkspace } from '../features/query'
 import { StructureView } from '../features/structure'
 import { DataView } from '../features/data'
 import { ErView } from '../features/er'
+import { DocumentsView } from '../features/documents'
 
 const Layout = styled.div`
   display: flex;
@@ -44,20 +45,22 @@ const EmptyState = styled.div`
   font: ${({ theme }) => theme.font.ui};
 `
 
-type View = 'query' | 'structure' | 'data' | 'er'
+type View = 'query' | 'structure' | 'data' | 'er' | 'documents'
 
-const VIEW_ORDER: readonly View[] = ['query', 'structure', 'data', 'er']
+const VIEW_ORDER: readonly View[] = ['query', 'structure', 'data', 'er', 'documents']
 const VIEW_CAPABILITY: Record<View, Capability> = {
   query: 'sql',
   structure: 'schema',
   data: 'data',
   er: 'schema',
+  documents: 'document',
 }
 const VIEW_LABEL: Record<View, string> = {
   query: 'Query',
   structure: 'Structure',
   data: 'Data',
   er: 'ER',
+  documents: 'Documents',
 }
 
 interface ConnectionWorkspaceProps {
@@ -103,6 +106,8 @@ export function ConnectionWorkspace({
           <StructureView gateway={gateway} connectionId={connectionId} externalSelection={erJump} />
         ) : activeView === 'data' ? (
           <DataView gateway={gateway} connectionId={connectionId} />
+        ) : activeView === 'documents' ? (
+          <DocumentsView gateway={gateway} connectionId={connectionId} />
         ) : (
           <ErView
             gateway={gateway}
