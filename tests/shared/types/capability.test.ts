@@ -3,8 +3,8 @@ import type { Capability } from '@shared/types/capability'
 import { CAPABILITIES } from '@shared/types/capability'
 
 describe('Capability', () => {
-  it('현재 capability 4종을 노출한다', () => {
+  it('현재 capability 5종을 노출한다', () => {
     const all: Capability[] = [...CAPABILITIES]
-    expect([...all].sort()).toEqual(['data', 'document', 'schema', 'sql'])
+    expect([...all].sort()).toEqual(['data', 'document', 'keyvalue', 'schema', 'sql'])
   })
 })
