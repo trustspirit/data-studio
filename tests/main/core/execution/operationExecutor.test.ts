@@ -182,6 +182,7 @@ function createHarness(options: FakeOptions = {}) {
         ? Promise.reject(new Error('not open'))
         : Promise.resolve(lease),
     open: () => Promise.resolve(),
+    capabilities: () => [],
     close: () => Promise.resolve(),
     closeAll: () => Promise.resolve(),
     status: () => 'ready' as const,

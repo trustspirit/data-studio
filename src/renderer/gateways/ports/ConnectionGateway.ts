@@ -1,11 +1,12 @@
 import type { ConnectionConfig } from '../../../shared/types/connection'
+import type { Capability } from '../../../shared/types/capability'
 
 /** 커넥션의 실시간 연결 상태. */
 export type ConnectionStatus = 'closed' | 'connecting' | 'ready' | 'error'
 
 /** `open` 호출 결과. 실패해도 예외가 아니라 이 값으로 사유를 준다. */
 export type OpenResult =
-  | { readonly opened: true }
+  | { readonly opened: true; readonly capabilities: readonly Capability[] }
   | { readonly opened: false; readonly reason: string }
 
 /**

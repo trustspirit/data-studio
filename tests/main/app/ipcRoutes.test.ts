@@ -29,9 +29,11 @@ function createHarness() {
     open: [] as unknown[],
     closeConn: [] as string[],
     statusOf: [] as string[],
+    capabilitiesOf: [] as string[],
     openThrows: false,
     getReturns: { id: 'c1' } as unknown,
     statusReturns: 'ready' as string,
+    capabilitiesReturns: ['sql', 'schema', 'data'] as string[],
   }
 
   const register = ((channel, handler) => {
@@ -59,6 +61,10 @@ function createHarness() {
       open: (config: unknown) => {
         calls.open.push(config)
         return calls.openThrows ? Promise.reject(new Error('connect refused')) : Promise.resolve()
+      },
+      capabilities: (id: string) => {
+        calls.capabilitiesOf.push(id)
+        return calls.capabilitiesReturns
       },
       close: (id: string) => {
         calls.closeConn.push(id)
@@ -236,11 +242,12 @@ describe('registerIpcRoutes', () => {
     expect(h.calls.secretDelete).toEqual([{ kind: 'db-password', ownerId: 'c1' }])
   })
 
-  it('connection:open은 repository config로 매니저를 열고 opened:true', async () => {
+  it('connection:open은 repository config로 매니저를 열고 opened:true + capabilities', async () => {
     const h = createHarness()
     const r = await h.invoke('connection:open', { connectionId: 'c1' })
     expect(h.calls.open).toHaveLength(1)
-    expect(r).toEqual({ opened: true })
+    expect(h.calls.capabilitiesOf).toEqual(['c1'])
+    expect(r).toEqual({ opened: true, capabilities: ['sql', 'schema', 'data'] })
   })
 
   it('connection:open은 없는 연결이면 opened:false', async () => {

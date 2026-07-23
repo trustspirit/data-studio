@@ -163,6 +163,35 @@ describe('PooledConnectionManager', () => {
     lease.release()
   })
 
+  describe('capabilities', () => {
+    it('열려 있지 않으면 ConnectionNotOpenError를 던진다', () => {
+      const manager = createManager(2)
+
+      expect(() => manager.capabilities('conn-1')).toThrow(ConnectionNotOpenError)
+    })
+
+    it('열려 있으면 드라이버의 capability 목록을 파생한다(acquire 없이)', async () => {
+      const registry = new DriverRegistry()
+      registry.register('postgres', (config) => ({
+        id: config.id,
+        engine: config.engine,
+        connect: () => Promise.resolve(),
+        disconnect: () => Promise.resolve(),
+        ping: () => Promise.resolve(1),
+        sql: {} as unknown as NonNullable<Driver['sql']>,
+        schema: {} as unknown as NonNullable<Driver['schema']>,
+        data: {} as unknown as NonNullable<Driver['data']>,
+      }))
+      const manager = new PooledConnectionManager(registry, logger, {
+        maxConcurrent: 2,
+        queueTimeoutMs: 1000,
+      })
+      await manager.open(FAKE_CONFIG)
+
+      expect(manager.capabilities('fake-1')).toEqual(['sql', 'schema', 'data'])
+    })
+  })
+
   it('같은 커넥션을 두 번 열어도 드라이버를 새로 만들지 않는다', async () => {
     const { manager, created } = createHarness(2)
     await manager.open(CONFIG)

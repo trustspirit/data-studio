@@ -47,7 +47,7 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
     if (config === null) return { opened: false as const, reason: `unknown connection: ${connectionId}` }
     try {
       await services.connections.open(config)
-      return { opened: true as const }
+      return { opened: true as const, capabilities: services.connections.capabilities(config.id) }
     } catch (error) {
       return { opened: false as const, reason: error instanceof Error ? error.message : String(error) }
     }
