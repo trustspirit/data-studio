@@ -158,6 +158,16 @@ describe('ConnectionWorkspace', () => {
     expect(screen.queryByTestId('subtab-er')).toBeNull()
   })
 
+  it('keyvalue capability만 있으면 Key Browser만 뜨고 나머지는 없다', () => {
+    wrap(['keyvalue'])
+    expect(screen.getByTestId('subtab-keys')).toBeTruthy()
+    expect(screen.queryByTestId('subtab-query')).toBeNull()
+    expect(screen.queryByTestId('subtab-structure')).toBeNull()
+    expect(screen.queryByTestId('subtab-data')).toBeNull()
+    expect(screen.queryByTestId('subtab-er')).toBeNull()
+    expect(screen.queryByTestId('subtab-documents')).toBeNull()
+  })
+
   it('capability가 없으면 서브탭이 하나도 없다(빈 상태)', () => {
     wrap([])
     expect(screen.queryByTestId('subtab-query')).toBeNull()
