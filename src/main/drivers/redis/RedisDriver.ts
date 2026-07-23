@@ -63,9 +63,8 @@ function defaultCreateClient(params: RedisConnParams): RedisClientLike {
     ...(params.password !== undefined ? { password: params.password } : {}),
     ...(params.tls ? { tls: {} } : {}),
   }
-  // ioredis Redis는 우리 좁은 표면을 구조적으로 만족하지만, scan 오버로드가 많아
-  // 컴파일러가 곧장 좁히지 못한다 — 좁은 계약으로 단언한다.
-  return new Redis(options) as unknown as RedisClientLike
+  // ioredis Redis는 우리 좁은 RedisClientLike 표면을 구조적으로 만족한다.
+  return new Redis(options)
 }
 
 export class RedisDriver implements Driver {
