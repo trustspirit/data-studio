@@ -168,4 +168,28 @@ describe('describeCapabilities', () => {
   it('data 능력이 없으면 넣지 않는다', () => {
     expect(describeCapabilities(baseDriver())).not.toContain('data')
   })
+
+  it('document 능력이 있으면 목록에 document를 넣는다', () => {
+    const driver: Driver = {
+      ...baseDriver(),
+      document: {
+        listCollections: () => {
+          throw new Error('not used in this test')
+        },
+        find: () => {
+          throw new Error('not used in this test')
+        },
+        aggregate: () => {
+          throw new Error('not used in this test')
+        },
+        isReadOnlyPipeline: () => true,
+      },
+    }
+
+    expect(describeCapabilities(driver)).toContain('document')
+  })
+
+  it('document 능력이 없으면 넣지 않는다', () => {
+    expect(describeCapabilities(baseDriver())).not.toContain('document')
+  })
 })

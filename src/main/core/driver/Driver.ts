@@ -2,6 +2,7 @@ import type { ConnectionConfig, EngineId } from '../../../shared/types/connectio
 import type { SqlCapability } from './capabilities/SqlCapability'
 import type { SchemaCapability } from './capabilities/SchemaCapability'
 import type { DataCapability } from './capabilities/DataCapability'
+import type { DocumentCapability } from './capabilities/DocumentCapability'
 
 export type { Capability } from '@shared/types/capability'
 
@@ -38,4 +39,5 @@ export interface Driver {
   readonly sql?: SqlCapability
   readonly schema?: SchemaCapability
   readonly data?: DataCapability
+  readonly document?: DocumentCapability
 }

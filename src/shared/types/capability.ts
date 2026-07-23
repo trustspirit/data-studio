@@ -4,5 +4,5 @@
  * 게이팅하는 파생 목록이다. renderer가 main을 import할 수 없어 여기(@shared)에 둔다.
  * 새 capability(document/keyvalue/stream)가 생기면 여기에 문자열을 추가한다.
  */
-export const CAPABILITIES = ['sql', 'schema', 'data'] as const
+export const CAPABILITIES = ['sql', 'schema', 'data', 'document'] as const
 export type Capability = (typeof CAPABILITIES)[number]
