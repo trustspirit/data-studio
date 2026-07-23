@@ -28,7 +28,8 @@ function bridgeWith(conns: unknown[]): DataconBridge {
       if (channel === 'connection:list') return Promise.resolve({ ok: true, value: conns })
       if (channel === 'secrets:status') return Promise.resolve({ ok: true, value: { persistent: true } })
       if (channel === 'secrets:has') return Promise.resolve({ ok: true, value: { exists: false } })
-      if (channel === 'connection:open') return Promise.resolve({ ok: true, value: { opened: true } })
+      if (channel === 'connection:open')
+        return Promise.resolve({ ok: true, value: { opened: true, capabilities: ['sql', 'schema', 'data'] } })
       if (channel === 'connection:status') return Promise.resolve({ ok: true, value: { status: 'ready' } })
       return Promise.resolve({ ok: true, value: null })
     }),

@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
 import { ConnectionWorkspace } from '@renderer/app/ConnectionWorkspace'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
+import type { Capability } from '@shared/types/capability'
 
 beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 800 })
@@ -64,10 +65,15 @@ function gateway(): OperationGateway {
     recentAudit: vi.fn().mockResolvedValue([]),
   }
 }
-function wrap() {
+function wrap(capabilities: readonly Capability[] = ['sql', 'schema', 'data']) {
   return render(
     <ThemeProvider theme={darkTheme}>
-      <ConnectionWorkspace gateway={gateway()} connectionId="c1" connectionName="prod" />
+      <ConnectionWorkspace
+        gateway={gateway()}
+        connectionId="c1"
+        connectionName="prod"
+        capabilities={capabilities}
+      />
     </ThemeProvider>,
   )
 }
@@ -117,5 +123,37 @@ describe('ConnectionWorkspace', () => {
     fireEvent.click(screen.getByText('orders'))
     // Structure 뷰로 전환되고 orders의 컬럼이 패널에 뜬다.
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Columns' })).toBeTruthy())
+  })
+
+  it('sql/schema/data 모두 있으면 4개 서브탭이 다 뜬다', () => {
+    wrap(['sql', 'schema', 'data'])
+    expect(screen.getByTestId('subtab-query')).toBeTruthy()
+    expect(screen.getByTestId('subtab-structure')).toBeTruthy()
+    expect(screen.getByTestId('subtab-data')).toBeTruthy()
+    expect(screen.getByTestId('subtab-er')).toBeTruthy()
+  })
+
+  it('schema만 있으면 Structure/ER만 뜨고 Query/Data는 없다', () => {
+    wrap(['schema'])
+    expect(screen.queryByTestId('subtab-query')).toBeNull()
+    expect(screen.queryByTestId('subtab-data')).toBeNull()
+    expect(screen.getByTestId('subtab-structure')).toBeTruthy()
+    expect(screen.getByTestId('subtab-er')).toBeTruthy()
+  })
+
+  it('sql만 있으면 Query만 뜬다', () => {
+    wrap(['sql'])
+    expect(screen.getByTestId('subtab-query')).toBeTruthy()
+    expect(screen.queryByTestId('subtab-structure')).toBeNull()
+    expect(screen.queryByTestId('subtab-data')).toBeNull()
+    expect(screen.queryByTestId('subtab-er')).toBeNull()
+  })
+
+  it('capability가 없으면 서브탭이 하나도 없다(빈 상태)', () => {
+    wrap([])
+    expect(screen.queryByTestId('subtab-query')).toBeNull()
+    expect(screen.queryByTestId('subtab-structure')).toBeNull()
+    expect(screen.queryByTestId('subtab-data')).toBeNull()
+    expect(screen.queryByTestId('subtab-er')).toBeNull()
   })
 })
