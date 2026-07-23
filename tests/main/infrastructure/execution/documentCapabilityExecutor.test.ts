@@ -119,6 +119,59 @@ describe('DocumentCapabilityExecutor', () => {
     expect(calls.aggregate[0]?.[0]).toEqual({ collection: 'orders', pipeline: '[{"$match":{}}]' })
   })
 
+  it('isReadOnlyPipeline이 false면 aggregate를 드라이버로 위임하지 않고 던진다($out)', async () => {
+    const calls = { find: [], aggregate: [], listCollections: [] } as {
+      find: unknown[][]
+      aggregate: unknown[][]
+      listCollections: unknown[][]
+    }
+    const input = makeInput(
+      { kind: 'document', op: 'aggregate', collection: 'orders', pipeline: '[{"$out":"copy"}]' },
+      calls,
+    )
+    // isReadOnlyPipeline을 false로 덮어써 $out 파이프라인을 흉내낸다.
+    ;(input.driver.document as { isReadOnlyPipeline: (pipeline: string) => boolean }).isReadOnlyPipeline = () => false
+
+    await expect(new DocumentCapabilityExecutor().execute(input)).rejects.toThrow(
+      /read-only/,
+    )
+    expect(calls.aggregate).toEqual([])
+  })
+
+  it('isReadOnlyPipeline이 false면 aggregate를 드라이버로 위임하지 않고 던진다($merge)', async () => {
+    const calls = { find: [], aggregate: [], listCollections: [] } as {
+      find: unknown[][]
+      aggregate: unknown[][]
+      listCollections: unknown[][]
+    }
+    const input = makeInput(
+      { kind: 'document', op: 'aggregate', collection: 'orders', pipeline: '[{"$merge":{"into":"copy"}}]' },
+      calls,
+    )
+    ;(input.driver.document as { isReadOnlyPipeline: (pipeline: string) => boolean }).isReadOnlyPipeline = () => false
+
+    await expect(new DocumentCapabilityExecutor().execute(input)).rejects.toThrow(
+      /read-only/,
+    )
+    expect(calls.aggregate).toEqual([])
+  })
+
+  it('isReadOnlyPipeline이 true인 정상 파이프라인은 그대로 통과한다', async () => {
+    const calls = { find: [], aggregate: [], listCollections: [] } as {
+      find: unknown[][]
+      aggregate: unknown[][]
+      listCollections: unknown[][]
+    }
+    const out = await new DocumentCapabilityExecutor().execute(
+      makeInput(
+        { kind: 'document', op: 'aggregate', collection: 'orders', pipeline: '[{"$match":{}}]' },
+        calls,
+      ),
+    )
+    expect(out.kind).toBe('rows')
+    expect(calls.aggregate).toHaveLength(1)
+  })
+
   it('document capability가 없으면 던진다', async () => {
     const driver = {
       id: 'c', engine: 'mongodb',

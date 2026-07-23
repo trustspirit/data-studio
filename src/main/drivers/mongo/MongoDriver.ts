@@ -1,10 +1,42 @@
 import { MongoClient, type MongoClientOptions } from 'mongodb'
 import type { Driver } from '@main/core/driver/Driver'
 import type { ConnectionConfig } from '@shared/types/connection'
+import { MongoDocumentCapability } from './MongoDocumentCapability'
+
+/** mongodb 드라이버의 cursor(FindCursor/AggregationCursor/ListCollectionsCursor)에서 우리가 쓰는 최소 표면. */
+export interface MongoCursorLike<T> {
+  toArray(): Promise<T[]>
+}
+
+/** `find`에 넘기는 옵션 중 우리가 쓰는 최소 표면. */
+export interface MongoFindOptionsLike {
+  sort?: Record<string, unknown>
+  limit?: number
+  signal?: AbortSignal
+}
+
+/** `aggregate`/`listCollections`에 넘기는 옵션 중 우리가 쓰는 최소 표면(취소만 필요). */
+export interface MongoAbortableOptionsLike {
+  signal?: AbortSignal
+}
+
+/** mongodb 드라이버의 `Collection`에서 우리가 쓰는 최소 표면. */
+export interface MongoCollectionLike {
+  find(filter: Record<string, unknown>, options?: MongoFindOptionsLike): MongoCursorLike<Record<string, unknown>>
+  aggregate(
+    pipeline: Record<string, unknown>[],
+    options?: MongoAbortableOptionsLike,
+  ): MongoCursorLike<Record<string, unknown>>
+}
 
 /** mongodb 드라이버의 `Db`에서 우리가 쓰는 최소 표면. 테스트 대체를 위해 좁힌다. */
 export interface MongoDbLike {
   command(command: Record<string, unknown>): Promise<Record<string, unknown>>
+  collection(name: string): MongoCollectionLike
+  listCollections(
+    filter?: Record<string, unknown>,
+    options?: MongoAbortableOptionsLike,
+  ): MongoCursorLike<{ name: string }>
 }
 
 /** mongodb 드라이버의 `MongoClient`에서 우리가 쓰는 최소 표면. 테스트 대체를 위해 좁힌다. */
@@ -62,12 +94,14 @@ export class MongoDriver implements Driver {
   readonly engine = 'mongodb' as const
   private client: MongoClientLike | null = null
   private db: MongoDbLike | null = null
+  readonly document: MongoDocumentCapability
 
   constructor(
     config: ConnectionConfig,
     private readonly deps: MongoDriverDeps,
   ) {
     this.id = config.id
+    this.document = new MongoDocumentCapability(() => this.requireDb())
   }
 
   private makeClient(): (params: MongoConnParams) => MongoClientLike {

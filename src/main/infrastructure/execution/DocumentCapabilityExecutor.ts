@@ -37,11 +37,21 @@ export class DocumentCapabilityExecutor implements CapabilityExecutor {
         }
         return { kind: 'rows', rows: await doc.find(ctx, req, page) }
       }
-      case 'aggregate':
+      case 'aggregate': {
+        // 관문(engine-agnostic): document 연산은 정책상 항상 read로 분류되므로
+        // ($out/$merge 같은 쓰기 스테이지를 걸러내는 유일한 방어가 이것이다),
+        // 드라이버로 넘기기 전에 여기서 반드시 거부해야 한다. 드라이버의
+        // aggregate도 방어적으로 같은 검사를 하지만(defense in depth), 이
+        // 관문이 없으면 어떤 document 드라이버든 $out/$merge로 v1의 읽기
+        // 전용 정책을 우회할 수 있다.
+        if (!doc.isReadOnlyPipeline(operation.pipeline)) {
+          throw new Error('aggregate pipeline is not read-only ($out/$merge not allowed in v1)')
+        }
         return {
           kind: 'rows',
           rows: await doc.aggregate(ctx, { collection: operation.collection, pipeline: operation.pipeline }, page),
         }
+      }
     }
   }
 }
