@@ -13,6 +13,7 @@ export function describeCapabilities(driver: Driver): Capability[] {
   if (driver.sql !== undefined) capabilities.push('sql')
   if (driver.schema !== undefined) capabilities.push('schema')
   if (driver.data !== undefined) capabilities.push('data')
+  if (driver.document !== undefined) capabilities.push('document')
 
   return capabilities
 }

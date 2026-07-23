@@ -14,6 +14,7 @@ import { WriteProposalStore } from '../core/execution/WriteProposalStore'
 import { SqlCapabilityExecutor } from '../infrastructure/execution/SqlCapabilityExecutor'
 import { SchemaCapabilityExecutor } from '../infrastructure/execution/SchemaCapabilityExecutor'
 import { DataCapabilityExecutor } from '../infrastructure/execution/DataCapabilityExecutor'
+import { DocumentCapabilityExecutor } from '../infrastructure/execution/DocumentCapabilityExecutor'
 
 /**
  * IPC 라우트가 쓰는 조립된 서비스들.
@@ -72,7 +73,12 @@ export function buildAppServices(deps: AppDeps): AppServices {
   const executor = new OperationExecutor(
     connections,
     deps.log,
-    [new SqlCapabilityExecutor(), new SchemaCapabilityExecutor(), new DataCapabilityExecutor()],
+    [
+      new SqlCapabilityExecutor(),
+      new SchemaCapabilityExecutor(),
+      new DataCapabilityExecutor(),
+      new DocumentCapabilityExecutor(),
+    ],
     deps.clock,
     proposals,
   )

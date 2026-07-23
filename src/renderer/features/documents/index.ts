@@ -1,0 +1,1 @@
+export { DocumentsView } from './DocumentsView'

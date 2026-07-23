@@ -127,6 +127,22 @@ function normalizeOperation(operation: ContractInput<'operation:run'>['operation
       ? { kind: 'data', op: 'browse', schema: operation.schema, table: operation.table }
       : { kind: 'data', op: 'browse', schema: operation.schema, table: operation.table, sort: operation.sort }
   }
+  if (operation.kind === 'document') {
+    if (operation.op === 'find') {
+      return {
+        kind: 'document',
+        op: 'find',
+        collection: operation.collection,
+        ...(operation.filter === undefined ? {} : { filter: operation.filter }),
+        ...(operation.sort === undefined ? {} : { sort: operation.sort }),
+        ...(operation.limit === undefined ? {} : { limit: operation.limit }),
+      }
+    }
+    if (operation.op === 'aggregate') {
+      return { kind: 'document', op: 'aggregate', collection: operation.collection, pipeline: operation.pipeline }
+    }
+    return { kind: 'document', op: 'listCollections' }
+  }
   return operation
 }
 

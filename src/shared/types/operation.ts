@@ -40,10 +40,27 @@ export type DataOperationOp =
 export type DataOperation = { readonly kind: 'data' } & DataOperationOp
 
 /**
- * 실행 요청. 판별 유니온이므로 document/keyvalue/stream은 해당 드라이버가
+ * 문서 저장소(MongoDB) 조회. v1은 읽기 전용이다 — 쓰기 파이프라인($out/$merge)
+ * 거부는 드라이버의 `isReadOnlyPipeline`이 담당한다.
+ */
+export type DocumentOp =
+  | {
+      readonly op: 'find'
+      readonly collection: string
+      readonly filter?: string
+      readonly sort?: string
+      readonly limit?: number
+    }
+  | { readonly op: 'aggregate'; readonly collection: string; readonly pipeline: string }
+  | { readonly op: 'listCollections' }
+
+export type DocumentOperation = { readonly kind: 'document' } & DocumentOp
+
+/**
+ * 실행 요청. 판별 유니온이므로 keyvalue/stream은 해당 드라이버가
  * 생길 때 순수 확장으로 추가한다 — 소비자 없이 지금 설계하지 않는다.
  */
-export type Operation = SqlOperation | SchemaOperation | DataOperation
+export type Operation = SqlOperation | SchemaOperation | DataOperation | DocumentOperation
 
 export interface ExecutionLimits {
   /** 엔진 네이티브 statement timeout */

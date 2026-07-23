@@ -18,6 +18,7 @@ function input(actor: Actor, operation: Operation, over: Partial<Parameters<type
     hasSql: true,
     hasSchema: true,
     hasData: true,
+    hasDocument: true,
     supportsReadOnlyScope: true,
     driverClassify: (): 'read' | 'write' | 'unknown' => 'read',
     requestedLimits: undefined,
@@ -143,11 +144,36 @@ describe('decide — capability', () => {
   })
 })
 
+describe('decide — document (v1 read)', () => {
+  const FIND: Operation = { kind: 'document', op: 'find', collection: 'users' }
+
+  it('document 능력이 있으면 사용자 read를 허용한다(읽기 전용 스코프 없음)', () => {
+    const decision = decide(input(USER, FIND))
+
+    expect(decision).toMatchObject({ allow: true, readOnlyScope: false, limits: DEFAULT_USER_LIMITS })
+  })
+
+  it('document 능력이 있으면 AI read도 허용한다(읽기 전용 스코프 없음)', () => {
+    // 메타데이터 조회와 같은 이유로 읽기 전용 스코프를 요구하지 않는다 —
+    // 쓰기 파이프라인($out/$merge) 거부는 드라이버 isReadOnlyPipeline이 담당한다.
+    const decision = decide(input(AI, FIND))
+
+    expect(decision).toMatchObject({ allow: true, readOnlyScope: false, limits: DEFAULT_AI_LIMITS })
+  })
+
+  it('document 능력이 없으면 capability_missing', () => {
+    expect(decide(input(USER, FIND, { hasDocument: false }))).toEqual({
+      allow: false,
+      reason: 'capability_missing',
+    })
+  })
+})
+
 describe('decide — 모르는 operation 종류', () => {
-  // `Operation`은 document/keyvalue/stream이 붙을 예정인 판별 유니온이다.
+  // `Operation`은 keyvalue/stream이 붙을 예정인 판별 유니온이다.
   // 이 검사가 없으면 새 변형이 sql 경로로 흘러들어가, 어떤 capability 검사도
   // 그 변형을 보지 않은 채 사용자 경로에서 허용되어 버린다.
-  const FUTURE = { kind: 'document', collection: 'users' } as unknown as Operation
+  const FUTURE = { kind: 'keyvalue', collection: 'users' } as unknown as Operation
 
   it('사용자 경로에서도 거부한다 (fail-open 금지)', () => {
     expect(decide(input(USER, FUTURE))).toEqual({
@@ -206,7 +232,7 @@ describe('decide — data:apply (write)', () => {
   function inp(over: Partial<PolicyInput>): PolicyInput {
     return {
       actor: { type: 'user', grant: null }, operation: applyOp,
-      hasSql: true, hasSchema: true, hasData: true,
+      hasSql: true, hasSchema: true, hasData: true, hasDocument: true,
       supportsReadOnlyScope: true, driverClassify: () => 'read', requestedLimits: undefined,
       ...over,
     }

@@ -85,6 +85,36 @@ describe('operationRequestSchema — schema ops', () => {
     ).toThrow()
   })
 
+  it('document:find을 collection만으로 받아들인다', () => {
+    const parsed = operationRequestSchema.parse(req({ kind: 'document', op: 'find', collection: 'users' }))
+    expect(parsed.operation).toEqual({ kind: 'document', op: 'find', collection: 'users' })
+  })
+
+  it('document:find의 filter/sort/limit을 받아들인다', () => {
+    const parsed = operationRequestSchema.parse(
+      req({ kind: 'document', op: 'find', collection: 'users', filter: '{"a":1}', sort: '{"a":-1}', limit: 10 }),
+    )
+    expect(parsed.operation).toMatchObject({ filter: '{"a":1}', sort: '{"a":-1}', limit: 10 })
+  })
+
+  it('document:aggregate를 collection/pipeline과 함께 받아들인다', () => {
+    const parsed = operationRequestSchema.parse(
+      req({ kind: 'document', op: 'aggregate', collection: 'orders', pipeline: '[{"$match":{}}]' }),
+    )
+    expect(parsed.operation).toEqual({
+      kind: 'document', op: 'aggregate', collection: 'orders', pipeline: '[{"$match":{}}]',
+    })
+  })
+
+  it('document:listCollections를 받아들인다', () => {
+    const parsed = operationRequestSchema.parse(req({ kind: 'document', op: 'listCollections' }))
+    expect(parsed.operation).toEqual({ kind: 'document', op: 'listCollections' })
+  })
+
+  it('document:find에서 collection이 빠지면 거부한다', () => {
+    expect(() => operationRequestSchema.parse(req({ kind: 'document', op: 'find' }))).toThrow()
+  })
+
   it('wireValueSchema는 WireValue와 구조가 같다(타입 수준)', () => {
     // z.infer<typeof wireValueSchema>가 WireValue에 대입 가능해야 한다.
     // operationDto가 wireValueSchema를 export하지 않으면, apply DTO를 통해

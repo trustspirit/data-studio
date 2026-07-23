@@ -149,6 +149,15 @@ describe('ConnectionWorkspace', () => {
     expect(screen.queryByTestId('subtab-er')).toBeNull()
   })
 
+  it('document capability만 있으면 Documents만 뜨고 나머지는 없다', () => {
+    wrap(['document'])
+    expect(screen.getByTestId('subtab-documents')).toBeTruthy()
+    expect(screen.queryByTestId('subtab-query')).toBeNull()
+    expect(screen.queryByTestId('subtab-structure')).toBeNull()
+    expect(screen.queryByTestId('subtab-data')).toBeNull()
+    expect(screen.queryByTestId('subtab-er')).toBeNull()
+  })
+
   it('capability가 없으면 서브탭이 하나도 없다(빈 상태)', () => {
     wrap([])
     expect(screen.queryByTestId('subtab-query')).toBeNull()

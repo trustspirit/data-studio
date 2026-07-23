@@ -1,4 +1,4 @@
-# 계약/통합 테스트용 MySQL·MariaDB. `docker compose -f docker-compose.test.yml up -d`.
+# 계약/통합 테스트용 MySQL·MariaDB·MongoDB. `docker compose -f docker-compose.test.yml up -d`.
 services:
   mysql:
     image: mysql:8
@@ -16,3 +16,7 @@ services:
       MARIADB_DATABASE: datacon_test
     ports:
       - '3307:3306'
+  mongo:
+    image: mongo:7
+    ports:
+      - '27017:27017'

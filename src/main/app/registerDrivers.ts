@@ -3,6 +3,7 @@ import type { SecretRef, SecretStore } from '../core/ports/SecretStore'
 import { createPostgresDriver } from '../drivers/postgres'
 import { createSqliteDriver } from '../drivers/sqlite'
 import { createMysqlDriver } from '../drivers/mysql'
+import { createMongoDriver } from '../drivers/mongo'
 
 export interface RegisterDriversDeps {
   readonly secrets: Pick<SecretStore, 'get'>
@@ -22,4 +23,5 @@ export function registerDrivers(registry: DriverRegistry, deps: RegisterDriversD
   registry.register('sqlite', (config) => createSqliteDriver(config))
   registry.register('mysql', (config) => createMysqlDriver(config, { getPassword: passwordFor(config.id) }))
   registry.register('mariadb', (config) => createMysqlDriver(config, { getPassword: passwordFor(config.id) }))
+  registry.register('mongodb', (config) => createMongoDriver(config, { getPassword: passwordFor(config.id) }))
 }
