@@ -92,11 +92,23 @@ const documentOperationSchema = z.discriminatedUnion('op', [
   z.object({ kind: z.literal('document'), op: z.literal('listCollections') }),
 ])
 
+const keyValueOperationSchema = z.discriminatedUnion('op', [
+  z.object({
+    kind: z.literal('keyvalue'), op: z.literal('scan'),
+    match: z.string().optional(),
+  }),
+  z.object({
+    kind: z.literal('keyvalue'), op: z.literal('get'),
+    key: z.string().min(1),
+  }),
+])
+
 const operationSchema = z.union([
   sqlOperationSchema,
   schemaOperationSchema,
   dataOperationSchema,
   documentOperationSchema,
+  keyValueOperationSchema,
 ])
 
 const pageRequestSchema = z.object({

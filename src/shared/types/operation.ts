@@ -57,10 +57,21 @@ export type DocumentOp =
 export type DocumentOperation = { readonly kind: 'document' } & DocumentOp
 
 /**
- * 실행 요청. 판별 유니온이므로 keyvalue/stream은 해당 드라이버가
- * 생길 때 순수 확장으로 추가한다 — 소비자 없이 지금 설계하지 않는다.
+ * 키-값 저장소(Redis) 조회. v1은 읽기 전용이다 — scan/get 모두 read이며,
+ * mongo aggregate의 $out/$merge 같은 숨은 쓰기 벡터가 없어 방어 게이트가 없다.
  */
-export type Operation = SqlOperation | SchemaOperation | DataOperation | DocumentOperation
+export type KeyValueOp =
+  | { readonly op: 'scan'; readonly match?: string }
+  | { readonly op: 'get'; readonly key: string }
+
+export type KeyValueOperation = { readonly kind: 'keyvalue' } & KeyValueOp
+
+export type Operation =
+  | SqlOperation
+  | SchemaOperation
+  | DataOperation
+  | DocumentOperation
+  | KeyValueOperation
 
 export interface ExecutionLimits {
   /** 엔진 네이티브 statement timeout */

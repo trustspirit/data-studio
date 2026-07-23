@@ -128,6 +128,7 @@ export class OperationExecutor {
       hasSchema: driver.schema !== undefined,
       hasData: driver.data !== undefined,
       hasDocument: driver.document !== undefined,
+      hasKeyValue: driver.keyValue !== undefined,
       supportsReadOnlyScope: driver.sql?.beginReadOnly !== undefined,
       driverClassify: (sql) => driver.sql?.classify(sql) ?? 'unknown',
       requestedLimits: req.limits,
@@ -258,6 +259,8 @@ export class OperationExecutor {
         return driver.data !== undefined
       case 'document':
         return driver.document !== undefined
+      case 'keyvalue':
+        return driver.keyValue !== undefined
     }
   }
 
@@ -383,6 +386,15 @@ function describeOperation(operation: Operation): string {
         return `document:aggregate ${operation.collection}`
       case 'listCollections':
         return 'document:listCollections'
+    }
+  }
+
+  if (operation.kind === 'keyvalue') {
+    switch (operation.op) {
+      case 'scan':
+        return `keyvalue:scan ${operation.match ?? '*'}`
+      case 'get':
+        return `keyvalue:get ${operation.key}`
     }
   }
 
