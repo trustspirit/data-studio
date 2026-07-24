@@ -16,6 +16,7 @@ import { SchemaCapabilityExecutor } from '../infrastructure/execution/SchemaCapa
 import { DataCapabilityExecutor } from '../infrastructure/execution/DataCapabilityExecutor'
 import { DocumentCapabilityExecutor } from '../infrastructure/execution/DocumentCapabilityExecutor'
 import { KeyValueCapabilityExecutor } from '../infrastructure/execution/KeyValueCapabilityExecutor'
+import { StreamCapabilityExecutor } from '../infrastructure/execution/StreamCapabilityExecutor'
 import { StreamHub, type StreamPushPort } from '../core/stream/StreamHub'
 
 /**
@@ -90,6 +91,7 @@ export function buildAppServices(deps: AppDeps): AppServices {
       new DataCapabilityExecutor(),
       new DocumentCapabilityExecutor(),
       new KeyValueCapabilityExecutor(),
+      new StreamCapabilityExecutor(streamHub),
     ],
     deps.clock,
     proposals,
