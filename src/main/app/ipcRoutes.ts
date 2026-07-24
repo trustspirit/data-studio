@@ -54,6 +54,8 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
   })
 
   register('connection:close', async ({ connectionId }) => {
+    // 커넥션을 닫기 전에 그 커넥션의 라이브 구독을 정리한다(브로커 연결 해제).
+    await services.streamHub.closeConnection(connectionId)
     await services.connections.close(connectionId)
     return null
   })

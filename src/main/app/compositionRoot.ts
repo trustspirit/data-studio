@@ -16,6 +16,7 @@ import { SchemaCapabilityExecutor } from '../infrastructure/execution/SchemaCapa
 import { DataCapabilityExecutor } from '../infrastructure/execution/DataCapabilityExecutor'
 import { DocumentCapabilityExecutor } from '../infrastructure/execution/DocumentCapabilityExecutor'
 import { KeyValueCapabilityExecutor } from '../infrastructure/execution/KeyValueCapabilityExecutor'
+import { StreamHub, type StreamPushPort } from '../core/stream/StreamHub'
 
 /**
  * IPC 라우트가 쓰는 조립된 서비스들.
@@ -28,6 +29,7 @@ export interface AppServices {
   readonly secrets: SecretStore
   readonly log: OperationLog
   readonly proposals: WriteProposalStore
+  readonly streamHub: StreamHub
   /** 만료된 제안서를 버린다. index.ts가 이걸 주기적으로 부른다. */
   readonly sweepProposals: () => void
   readonly fileDialog: FileDialog
@@ -42,6 +44,8 @@ export interface AppDeps {
   readonly clock: ExecutorClock
   readonly randomId: () => string
   readonly hash: (text: string) => string
+  /** main→renderer로 스트림 배치를 미는 포트. index.ts가 webContents.send로 배선한다. */
+  readonly streamPush: StreamPushPort
   readonly pool: PoolOptions
   /** 개발용 인메모리 드라이버 등을 등록하는 훅. 실드라이버는 Phase 1+에서. */
   readonly registerDrivers?: (registry: DriverRegistry) => void
@@ -71,6 +75,12 @@ export function buildAppServices(deps: AppDeps): AppServices {
     hash: deps.hash,
   })
 
+  const streamHub = new StreamHub({
+    randomId: deps.randomId,
+    clock: deps.clock,
+    push: deps.streamPush,
+  })
+
   const executor = new OperationExecutor(
     connections,
     deps.log,
@@ -93,6 +103,7 @@ export function buildAppServices(deps: AppDeps): AppServices {
     secrets: deps.secrets,
     log: deps.log,
     proposals,
+    streamHub,
     // 순수 팩토리는 타이머를 걸지 않는다. 인터벌 설정은 index.ts의 몫이다.
     sweepProposals: () => proposals.sweep(),
     fileDialog: deps.fileDialog,

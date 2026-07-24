@@ -48,6 +48,7 @@ function deps(over: Partial<AppDeps> = {}): AppDeps {
     },
     randomId: () => 'prop-1',
     hash: (text) => `hash(${text})`,
+    streamPush: () => {},
     pool: { maxConcurrent: 4, queueTimeoutMs: 30_000 },
     ...over,
   }
