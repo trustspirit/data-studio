@@ -23,6 +23,7 @@ export type OperationPayload =
   | { readonly kind: 'indexes'; readonly indexes: readonly IndexInfo[] }
   | { readonly kind: 'foreignKeys'; readonly foreignKeys: readonly ForeignKeyInfo[] }
   | { readonly kind: 'applied'; readonly affected: number }
+  | { readonly kind: 'streamAck'; readonly subscriptionId: string | null }
 
 export type OperationOutcome =
   | { readonly ok: true; readonly payload: OperationPayload }

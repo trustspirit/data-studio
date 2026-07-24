@@ -26,6 +26,7 @@ export type OperationPayload =
   | { readonly kind: 'indexes'; readonly indexes: readonly IndexInfo[] }
   | { readonly kind: 'foreignKeys'; readonly foreignKeys: readonly ForeignKeyInfo[] }
   | { readonly kind: 'applied'; readonly affected: number }
+  | { readonly kind: 'streamAck'; readonly subscriptionId: string | null }
 
 export interface CapabilityExecuteInput {
   readonly ctx: ExecutionContext
@@ -35,6 +36,8 @@ export interface CapabilityExecuteInput {
   readonly limits: ExecutionLimits
   /** true면 AI 경로다. 드라이버의 읽기 전용 스코프 안에서 실행해야 한다. */
   readonly readOnlyScope: boolean
+  /** 실행 중인 커넥션 id. stream subscribe가 구독을 커넥션에 묶는 데 쓴다. */
+  readonly connectionId: string
 }
 
 /**

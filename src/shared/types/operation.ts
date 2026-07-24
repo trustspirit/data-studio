@@ -66,12 +66,24 @@ export type KeyValueOp =
 
 export type KeyValueOperation = { readonly kind: 'keyvalue' } & KeyValueOp
 
+/**
+ * 스트리밍(Kafka/RabbitMQ) 조회. v1은 읽기 전용 — listTopics + subscribe tail.
+ * subscribe는 장수명 라이브 구독이라 결과가 표가 아니라 subscriptionId(streamAck)다.
+ */
+export type StreamOp =
+  | { readonly op: 'listTopics' }
+  | { readonly op: 'subscribe'; readonly topic: string; readonly from: 'latest' | 'earliest' }
+  | { readonly op: 'unsubscribe'; readonly subscriptionId: string }
+
+export type StreamOperation = { readonly kind: 'stream' } & StreamOp
+
 export type Operation =
   | SqlOperation
   | SchemaOperation
   | DataOperation
   | DocumentOperation
   | KeyValueOperation
+  | StreamOperation
 
 export interface ExecutionLimits {
   /** 엔진 네이티브 statement timeout */

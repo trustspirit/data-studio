@@ -10,6 +10,7 @@ function input(over: Partial<PolicyInput> & { operation: Operation }): PolicyInp
     hasData: false,
     hasDocument: false,
     hasKeyValue: false,
+    hasStream: false,
     supportsReadOnlyScope: false,
     driverClassify: () => 'unknown',
     requestedLimits: undefined,

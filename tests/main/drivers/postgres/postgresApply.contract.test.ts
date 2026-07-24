@@ -27,6 +27,7 @@ async function browseAll(
     page: { cursor: null, maxRows: 100, maxBytes: 1_000_000 },
     limits: { timeoutMs: 5000, maxRows: 100, maxBytes: 1_000_000 },
     readOnlyScope: false,
+    connectionId: config().id,
   })
   expect(out.kind).toBe('rows')
   if (out.kind !== 'rows') throw new Error('expected rows')

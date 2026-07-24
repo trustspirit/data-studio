@@ -151,6 +151,15 @@ function normalizeOperation(operation: ContractInput<'operation:run'>['operation
     }
     return { kind: 'keyvalue', op: 'get', key: operation.key }
   }
+  if (operation.kind === 'stream') {
+    if (operation.op === 'subscribe') {
+      return { kind: 'stream', op: 'subscribe', topic: operation.topic, from: operation.from }
+    }
+    if (operation.op === 'unsubscribe') {
+      return { kind: 'stream', op: 'unsubscribe', subscriptionId: operation.subscriptionId }
+    }
+    return { kind: 'stream', op: 'listTopics' }
+  }
   return operation
 }
 

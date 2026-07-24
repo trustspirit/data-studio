@@ -46,7 +46,7 @@ function makeInput(over: Partial<CapabilityExecuteInput>, calls: { execute: unkn
   return {
     ctx: { requestId: 'r', signal: new AbortController().signal },
     driver, operation: { kind: 'data', op: 'browse', schema: 'public', table: 'users' },
-    page, limits, readOnlyScope: false,
+    page, limits, readOnlyScope: false, connectionId: 'c',
     ...over,
   }
 }
@@ -94,6 +94,7 @@ describe('DataCapabilityExecutor', () => {
       driver,
       operation: { kind: 'data', op: 'apply', schema: 'public', table: 't', changes: [{ op: 'delete', pk: { id: { t: 'int', v: 1 } } }] },
       page: { cursor: null, maxRows: 10, maxBytes: 10 }, limits: { timeoutMs: 1, maxRows: 1, maxBytes: 1 }, readOnlyScope: false,
+      connectionId: 'c',
     })
     expect(out).toEqual({ kind: 'applied', affected: 1 })
     expect(applied).toEqual([['public', 't', 1]])

@@ -20,7 +20,7 @@ const ctx = { requestId: 'r1', signal: new AbortController().signal }
 const page = { cursor: null, maxRows: 100, maxBytes: 1000 }
 
 function inputFor(driver: Driver, operation: Operation): CapabilityExecuteInput {
-  return { ctx, driver, operation, page, limits: { timeoutMs: 1000, maxRows: 100, maxBytes: 1000 }, readOnlyScope: false }
+  return { ctx, driver, operation, page, limits: { timeoutMs: 1000, maxRows: 100, maxBytes: 1000 }, readOnlyScope: false, connectionId: 'c' }
 }
 
 describe('KeyValueCapabilityExecutor', () => {
