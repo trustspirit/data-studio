@@ -10,6 +10,7 @@ function bridge(result: unknown) {
       calls.push({ channel, input })
       return Promise.resolve(result)
     },
+    on: () => () => {},
   }
   return { bridge: b, calls }
 }

@@ -129,6 +129,7 @@ export class OperationExecutor {
       hasData: driver.data !== undefined,
       hasDocument: driver.document !== undefined,
       hasKeyValue: driver.keyValue !== undefined,
+      hasStream: driver.stream !== undefined,
       supportsReadOnlyScope: driver.sql?.beginReadOnly !== undefined,
       driverClassify: (sql) => driver.sql?.classify(sql) ?? 'unknown',
       requestedLimits: req.limits,
@@ -181,6 +182,7 @@ export class OperationExecutor {
         page: this.pageFor(req, decision.limits),
         limits: decision.limits,
         readOnlyScope: decision.readOnlyScope,
+        connectionId: req.connectionId,
       })
 
       this.record(req, actor, operation, 'allowed', {
@@ -261,6 +263,8 @@ export class OperationExecutor {
         return driver.document !== undefined
       case 'keyvalue':
         return driver.keyValue !== undefined
+      case 'stream':
+        return driver.stream !== undefined
     }
   }
 
@@ -395,6 +399,17 @@ function describeOperation(operation: Operation): string {
         return `keyvalue:scan ${operation.match ?? '*'}`
       case 'get':
         return `keyvalue:get ${operation.key}`
+    }
+  }
+
+  if (operation.kind === 'stream') {
+    switch (operation.op) {
+      case 'listTopics':
+        return 'stream:listTopics'
+      case 'subscribe':
+        return `stream:subscribe ${operation.topic}`
+      case 'unsubscribe':
+        return `stream:unsubscribe ${operation.subscriptionId}`
     }
   }
 

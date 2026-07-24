@@ -28,6 +28,7 @@ function createHarness() {
     secretHasReturns: null as string | null,
     open: [] as unknown[],
     closeConn: [] as string[],
+    streamHubClosed: [] as string[],
     statusOf: [] as string[],
     capabilitiesOf: [] as string[],
     openThrows: false,
@@ -73,6 +74,12 @@ function createHarness() {
       status: (id: string) => {
         calls.statusOf.push(id)
         return calls.statusReturns
+      },
+    },
+    streamHub: {
+      closeConnection: (id: string) => {
+        calls.streamHubClosed.push(id)
+        return Promise.resolve()
       },
     },
     secrets: {
@@ -272,6 +279,12 @@ describe('registerIpcRoutes', () => {
     const h = createHarness()
     await h.invoke('connection:close', { connectionId: 'c1' })
     expect(h.calls.closeConn).toEqual(['c1'])
+  })
+
+  it('connection:close는 커넥션을 닫기 전에 streamHub의 구독을 정리한다', async () => {
+    const h = createHarness()
+    await h.invoke('connection:close', { connectionId: 'c1' })
+    expect(h.calls.streamHubClosed).toEqual(['c1'])
   })
 
   it('connection:status는 상태를 돌려준다', async () => {

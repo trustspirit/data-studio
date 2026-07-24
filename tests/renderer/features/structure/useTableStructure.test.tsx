@@ -52,6 +52,7 @@ function gateway(): OperationGateway {
     ) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 
@@ -98,6 +99,7 @@ describe('useTableStructure', () => {
       ) as OperationGateway['run'],
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
     }
     const { result } = renderHook(() => useTableStructure(gw, 'c1', SEL))
     await waitFor(() => expect(result.current.error).toBe('index read failed'))
@@ -118,6 +120,7 @@ describe('useTableStructure', () => {
       run,
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
     }
     const { result, rerender } = renderHook(
       ({ sel }: { sel: TableSelection }) => useTableStructure(gw, 'c1', sel),

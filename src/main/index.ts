@@ -132,6 +132,12 @@ async function wireServices(): Promise<void> {
     hash: sha256Hex,
     pool: { maxConcurrent: 4, queueTimeoutMs: 30_000 },
     registerDrivers: (registry) => registerDrivers(registry, { secrets }),
+    streamPush: (subscriptionId, batch) => {
+      // push 시점에 현재 윈도우를 조회한다 — wireServices가 창 생성보다 먼저여도 되고,
+      // 창이 닫히는 중이면 조용히 버린다(단일 윈도우 가정).
+      const win = BrowserWindow.getAllWindows()[0]
+      win?.webContents.send('stream:message', { subscriptionId, batch })
+    },
     fileDialog: {
       openFile: async () => {
         const win = BrowserWindow.getFocusedWindow()
@@ -172,10 +178,12 @@ async function wireServices(): Promise<void> {
   app.on('before-quit', (event) => {
     if (auditFlushed) return
     event.preventDefault()
-    void log.flush().finally(() => {
-      auditFlushed = true
-      app.quit()
-    })
+    void services.streamHub.closeAll().catch(() => {}).finally(() =>
+      log.flush().finally(() => {
+        auditFlushed = true
+        app.quit()
+      }),
+    )
   })
 }
 

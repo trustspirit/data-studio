@@ -1,4 +1,5 @@
 import type { OperationRequestDto } from '../../../shared/contracts/operationDto'
+import type { StreamPushMessage } from '../../../shared/types/stream'
 import type {
   AuditEntry,
   OperationGateway,
@@ -23,5 +24,10 @@ export function createIpcOperationGateway(bridge: DataconBridge): OperationGatew
     },
     recentAudit: (limit) =>
       invokeUnwrapped<readonly AuditEntry[]>(bridge, 'audit:recent', { limit }),
+    onStreamMessage: (subscriptionId, listener) =>
+      bridge.on('stream:message', (payload) => {
+        const msg = payload as StreamPushMessage
+        if (msg.subscriptionId === subscriptionId) listener(msg.batch)
+      }),
   }
 }

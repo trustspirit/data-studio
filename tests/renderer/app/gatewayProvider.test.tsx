@@ -5,7 +5,7 @@ import { buildGateways } from '@renderer/app/container'
 import { GatewayProvider, useGateways } from '@renderer/app/GatewayProvider'
 import type { DataconBridge } from '@renderer/gateways/ipc/ipcInvoke'
 
-const fakeBridge: DataconBridge = { invoke: vi.fn().mockResolvedValue({ ok: true, value: [] }) }
+const fakeBridge: DataconBridge = { invoke: vi.fn().mockResolvedValue({ ok: true, value: [] }), on: () => () => {} }
 
 describe('buildGateways', () => {
   it('bridge로 connection 게이트웨이를 만든다', () => {

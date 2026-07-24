@@ -62,6 +62,7 @@ function makeGateway(over?: (op: string, table?: string) => OperationOutcome | n
     }) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 
@@ -133,6 +134,7 @@ describe('useSchemaGraph', () => {
       }) as OperationGateway['run'],
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
     }
     const { result, rerender } = renderHook(({ schema }: { schema: string }) => useSchemaGraph(gw, 'c1', schema), {
       initialProps: { schema: 'slow' },

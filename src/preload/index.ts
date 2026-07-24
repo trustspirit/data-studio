@@ -1,5 +1,6 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { ALL_CHANNELS, type ChannelName } from '../shared/contracts/channels'
+import { isPushChannel, type PushChannelName } from '../shared/contracts/pushChannels'
 
 const allowed = new Set<string>(ALL_CHANNELS)
 
@@ -14,4 +15,17 @@ function invoke(channel: ChannelName, input: unknown): Promise<unknown> {
   return ipcRenderer.invoke(channel, input)
 }
 
-contextBridge.exposeInMainWorld('datacon', { invoke })
+/**
+ * main→renderer push 구독. `PUSH_CHANNELS`에 있는 채널만 허용한다 — invoke
+ * 화이트리스트와 분리된 목록이다. 반환값은 리스너 해제 함수다.
+ */
+function on(channel: PushChannelName, listener: (payload: unknown) => void): () => void {
+  if (!isPushChannel(channel)) {
+    throw new Error(`push channel not allowed: ${channel}`)
+  }
+  const handler = (_event: IpcRendererEvent, payload: unknown): void => listener(payload)
+  ipcRenderer.on(channel, handler)
+  return () => ipcRenderer.removeListener(channel, handler)
+}
+
+contextBridge.exposeInMainWorld('datacon', { invoke, on })

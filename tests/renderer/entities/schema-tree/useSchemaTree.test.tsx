@@ -11,6 +11,7 @@ function gateway(handler: (op: { op: string; schema?: string }) => OperationOutc
     ) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 

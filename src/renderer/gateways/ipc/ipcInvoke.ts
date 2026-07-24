@@ -1,9 +1,11 @@
 import type { IpcResult, IpcFailureCode } from '../../../shared/contracts/ipcResult'
 import type { ChannelName } from '../../../shared/contracts/channels'
+import type { PushChannelName } from '../../../shared/contracts/pushChannels'
 
 /** preload가 노출하는 다리. */
 export interface DataconBridge {
   invoke(channel: ChannelName, input: unknown): Promise<unknown>
+  on(channel: PushChannelName, listener: (payload: unknown) => void): () => void
 }
 
 /**

@@ -52,6 +52,7 @@ function makeInput(
     page,
     limits,
     readOnlyScope: false,
+    connectionId: 'c',
   }
 }
 
@@ -186,6 +187,7 @@ describe('DocumentCapabilityExecutor', () => {
         page,
         limits,
         readOnlyScope: false,
+        connectionId: 'c',
       }),
     ).rejects.toThrow()
   })

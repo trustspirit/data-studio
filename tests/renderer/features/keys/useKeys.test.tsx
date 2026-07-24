@@ -25,6 +25,7 @@ function gateway(handler: () => Awaited<ReturnType<OperationGateway['run']>>): O
     run: vi.fn(() => Promise.resolve(handler())),
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 
@@ -50,7 +51,7 @@ describe('useKeys', () => {
 
   it('match를 지정하면 scan 요청에 match를 싣는다', async () => {
     const run = vi.fn().mockResolvedValue({ ok: true, payload: { kind: 'rows', rows: scanResult([]) } })
-    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
+    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]), onStreamMessage: vi.fn(() => () => {}) }
     const { result } = renderHook(() => useKeys(gw, 'c1'))
     act(() => { result.current.run('u:*') })
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
@@ -65,7 +66,7 @@ describe('useKeys', () => {
     const run = vi.fn()
       .mockResolvedValueOnce({ ok: true, payload: { kind: 'rows', rows: page1 } })
       .mockResolvedValueOnce({ ok: true, payload: { kind: 'rows', rows: page2 } })
-    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
+    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]), onStreamMessage: vi.fn(() => () => {}) }
     const { result } = renderHook(() => useKeys(gw, 'c1'))
     act(() => { result.current.run('*') })
     await waitFor(() => expect(result.current.hasMore).toBe(true))

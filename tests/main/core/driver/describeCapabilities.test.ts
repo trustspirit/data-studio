@@ -212,4 +212,24 @@ describe('describeCapabilities', () => {
   it('keyValue 능력이 없으면 넣지 않는다', () => {
     expect(describeCapabilities(baseDriver())).not.toContain('keyvalue')
   })
+
+  it('stream을 구현하면 stream을 포함한다', () => {
+    const driver: Driver = {
+      ...baseDriver(),
+      stream: {
+        listTopics: () => {
+          throw new Error('not used in this test')
+        },
+        subscribe: () => {
+          throw new Error('not used in this test')
+        },
+      },
+    }
+
+    expect(describeCapabilities(driver)).toContain('stream')
+  })
+
+  it('stream 능력이 없으면 넣지 않는다', () => {
+    expect(describeCapabilities(baseDriver())).not.toContain('stream')
+  })
 })

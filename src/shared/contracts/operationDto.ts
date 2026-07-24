@@ -103,12 +103,26 @@ const keyValueOperationSchema = z.discriminatedUnion('op', [
   }),
 ])
 
+const streamOperationSchema = z.discriminatedUnion('op', [
+  z.object({ kind: z.literal('stream'), op: z.literal('listTopics') }),
+  z.object({
+    kind: z.literal('stream'), op: z.literal('subscribe'),
+    topic: z.string().min(1),
+    from: z.enum(['latest', 'earliest']),
+  }),
+  z.object({
+    kind: z.literal('stream'), op: z.literal('unsubscribe'),
+    subscriptionId: z.string().min(1),
+  }),
+])
+
 const operationSchema = z.union([
   sqlOperationSchema,
   schemaOperationSchema,
   dataOperationSchema,
   documentOperationSchema,
   keyValueOperationSchema,
+  streamOperationSchema,
 ])
 
 const pageRequestSchema = z.object({

@@ -63,6 +63,7 @@ function gateway(): OperationGateway {
     }) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 function wrap(capabilities: readonly Capability[] = ['sql', 'schema', 'data']) {
@@ -166,6 +167,13 @@ describe('ConnectionWorkspace', () => {
     expect(screen.queryByTestId('subtab-data')).toBeNull()
     expect(screen.queryByTestId('subtab-er')).toBeNull()
     expect(screen.queryByTestId('subtab-documents')).toBeNull()
+  })
+
+  it('stream capability만 있으면 Streams만 뜨고 나머지는 없다', () => {
+    wrap(['stream'])
+    expect(screen.getByTestId('subtab-streams')).toBeTruthy()
+    expect(screen.queryByTestId('subtab-query')).toBeNull()
+    expect(screen.queryByTestId('subtab-keys')).toBeNull()
   })
 
   it('capability가 없으면 서브탭이 하나도 없다(빈 상태)', () => {

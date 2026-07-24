@@ -54,6 +54,8 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
   })
 
   register('connection:close', async ({ connectionId }) => {
+    // 커넥션을 닫기 전에 그 커넥션의 라이브 구독을 정리한다(브로커 연결 해제).
+    await services.streamHub.closeConnection(connectionId)
     await services.connections.close(connectionId)
     return null
   })
@@ -150,6 +152,15 @@ function normalizeOperation(operation: ContractInput<'operation:run'>['operation
         : { kind: 'keyvalue', op: 'scan', match: operation.match }
     }
     return { kind: 'keyvalue', op: 'get', key: operation.key }
+  }
+  if (operation.kind === 'stream') {
+    if (operation.op === 'subscribe') {
+      return { kind: 'stream', op: 'subscribe', topic: operation.topic, from: operation.from }
+    }
+    if (operation.op === 'unsubscribe') {
+      return { kind: 'stream', op: 'unsubscribe', subscriptionId: operation.subscriptionId }
+    }
+    return { kind: 'stream', op: 'listTopics' }
   }
   return operation
 }
