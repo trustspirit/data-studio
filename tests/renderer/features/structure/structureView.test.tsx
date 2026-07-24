@@ -45,6 +45,7 @@ function gateway(): OperationGateway {
     ) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 function wrap(ui: React.ReactElement) {

@@ -23,6 +23,7 @@ function bridgeWith(list: unknown[]): DataconBridge {
       if (channel === 'dialog:openFile') return Promise.resolve({ ok: true, value: '/tmp/test.db' })
       return Promise.resolve({ ok: false, code: 'internal_error' })
     }),
+    on: () => () => {},
   }
 }
 

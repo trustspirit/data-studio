@@ -33,6 +33,7 @@ function bridgeWith(conns: unknown[]): DataconBridge {
       if (channel === 'connection:status') return Promise.resolve({ ok: true, value: { status: 'ready' } })
       return Promise.resolve({ ok: true, value: null })
     }),
+    on: () => () => {},
   }
 }
 function conn(id: string, name: string) {

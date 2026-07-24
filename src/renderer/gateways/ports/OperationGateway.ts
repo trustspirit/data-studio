@@ -7,6 +7,7 @@ import type {
   IndexInfo,
   ForeignKeyInfo,
 } from '../../../shared/types/schema'
+import type { StreamBatch } from '../../../shared/types/stream'
 
 /**
  * 실행 결과의 renderer 표현. main의 `OperationResult`를 그대로 받는다.
@@ -53,4 +54,9 @@ export interface OperationGateway {
   run(request: OperationRequestDto): Promise<OperationOutcome>
   cancel(requestId: string): Promise<void>
   recentAudit(limit: number): Promise<readonly AuditEntry[]>
+  /**
+   * 라이브 스트림 배치 구독. main이 push 채널로 미는 배치 중 이 subscriptionId의
+   * 것만 listener로 전달한다. 반환값은 해제 함수다.
+   */
+  onStreamMessage(subscriptionId: string, listener: (batch: StreamBatch) => void): () => void
 }

@@ -20,6 +20,7 @@ function gateway(handler: (op: { collection?: string; filter?: string }) => Awai
     run: vi.fn((req: { operation: { collection?: string; filter?: string } }) => Promise.resolve(handler(req.operation))) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 
@@ -51,7 +52,7 @@ describe('useDocumentsData', () => {
     const run = vi.fn()
       .mockResolvedValueOnce({ ok: true, payload: { kind: 'rows', rows: page1 } })
       .mockResolvedValueOnce({ ok: true, payload: { kind: 'rows', rows: page2 } })
-    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
+    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]), onStreamMessage: vi.fn(() => () => {}) }
     const { result } = renderHook(() => useDocumentsData(gw, 'c1'))
     act(() => { result.current.run('users', '{}') })
     await waitFor(() => expect(result.current.hasMore).toBe(true))

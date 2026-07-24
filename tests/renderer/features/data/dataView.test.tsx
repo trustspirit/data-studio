@@ -36,6 +36,7 @@ function gateway(opts: GatewayOpts = { pk: true }): OperationGateway {
   return {
     run: vi.fn((req: { operation: { op: string } }) => Promise.resolve(outcomeFor(req.operation.op, opts))) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 function wrap(ui: React.ReactElement) { return render(<ThemeProvider theme={darkTheme}>{ui}</ThemeProvider>) }

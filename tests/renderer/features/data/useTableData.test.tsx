@@ -20,6 +20,7 @@ function gateway(handler: (op: { op: string; sort?: unknown }) => OperationOutco
     run: vi.fn((req: { operation: { op: string; sort?: unknown } }) => Promise.resolve(handler(req.operation))) as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 const SEL: TableSelection = { schema: 'public', table: 'users' }
@@ -46,7 +47,7 @@ describe('useTableData', () => {
     const run = vi.fn()
       .mockResolvedValueOnce({ ok: true, payload: { kind: 'rows', rows: page1 } })
       .mockResolvedValueOnce({ ok: true, payload: { kind: 'rows', rows: page2 } })
-    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
+    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]), onStreamMessage: vi.fn(() => () => {}) }
     const { result } = renderHook(() => useTableData(gw, 'c1', SEL, undefined))
     await waitFor(() => expect(result.current.hasMore).toBe(true))
     await act(async () => { await result.current.loadMore() })
@@ -55,7 +56,7 @@ describe('useTableData', () => {
 
   it('정렬이 바뀌면 첫 페이지부터 재조회한다', async () => {
     const run = vi.fn().mockResolvedValue({ ok: true, payload: { kind: 'rows', rows: rowsResult() } })
-    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
+    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]), onStreamMessage: vi.fn(() => () => {}) }
     type Sort = { column: string; direction: 'asc' | 'desc' } | undefined
     const { rerender } = renderHook(({ s }: { s: Sort }) => useTableData(gw, 'c1', SEL, s), { initialProps: { s: undefined as Sort } })
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
@@ -73,7 +74,7 @@ describe('useTableData', () => {
 
   it('reload()가 현재 선택으로 다시 조회한다', async () => {
     const run = vi.fn().mockResolvedValue({ ok: true, payload: { kind: 'rows', rows: rowsResult() } })
-    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
+    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]), onStreamMessage: vi.fn(() => () => {}) }
     const { result } = renderHook(() => useTableData(gw, 'c1', SEL, undefined))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
     act(() => { result.current.reload() })

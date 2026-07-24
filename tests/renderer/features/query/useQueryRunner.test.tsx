@@ -19,6 +19,7 @@ function gatewayReturning(outcome: OperationOutcome): OperationGateway & { run: 
     run: vi.fn().mockResolvedValue(outcome),
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 
@@ -69,6 +70,7 @@ describe('useQueryRunner', () => {
         .mockResolvedValueOnce({ ok: true, payload: { kind: 'rows', rows: page2 } }),
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
     }
     const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
     await act(async () => { await result.current.run() })
@@ -86,6 +88,7 @@ describe('useQueryRunner', () => {
         .mockResolvedValueOnce({ ok: false, reason: 'syntax error' }),
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
     }
     const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
     await act(async () => { await result.current.run() })
@@ -113,6 +116,7 @@ describe('useQueryRunner', () => {
       run,
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
     }
     const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
     await act(async () => { await result.current.run() })
@@ -142,6 +146,7 @@ describe('useQueryRunner', () => {
       run,
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
     }
     const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
 

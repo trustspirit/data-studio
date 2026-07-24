@@ -13,7 +13,7 @@ const ROWS: readonly (readonly WireValue[])[] = [
 ]
 type AppliedRequest = { operation: { op: string; changes: unknown } }
 function gw(run: OperationGateway['run']): OperationGateway {
-  return { run, cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
+  return { run, cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]), onStreamMessage: vi.fn(() => () => {}) }
 }
 function editor(run: OperationGateway['run']) {
   return renderHook(() => useTableEditor(gw(run), 'c1', 'public', 't', COLS, PK, ROWS))

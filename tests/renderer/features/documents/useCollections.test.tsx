@@ -19,6 +19,7 @@ function gateway(handler: () => Awaited<ReturnType<OperationGateway['run']>>): O
     run: vi.fn(() => Promise.resolve(handler())),
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 
@@ -42,7 +43,7 @@ describe('useCollections', () => {
 
   it('reload()가 다시 조회한다', async () => {
     const run = vi.fn().mockResolvedValue({ ok: true, payload: { kind: 'rows', rows: collectionsResult(['a']) } })
-    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
+    const gw: OperationGateway = { run: run as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]), onStreamMessage: vi.fn(() => () => {}) }
     const { result } = renderHook(() => useCollections(gw, 'c1'))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
     act(() => { result.current.reload() })

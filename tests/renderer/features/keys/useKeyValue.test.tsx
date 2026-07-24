@@ -21,6 +21,7 @@ function gateway(handler: () => Awaited<ReturnType<OperationGateway['run']>>): O
     run: vi.fn(() => Promise.resolve(handler())),
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
+    onStreamMessage: vi.fn(() => () => {}),
   }
 }
 

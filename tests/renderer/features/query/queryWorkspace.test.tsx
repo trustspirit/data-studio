@@ -37,6 +37,7 @@ describe('QueryWorkspace', () => {
       run: vi.fn().mockResolvedValue({ ok: true as const, payload: { kind: 'rows' as const, rows: rs() } }),
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
     }
     wrap(<QueryWorkspace gateway={gateway} connectionId="c1" connectionName="prod" />)
     fireEvent.click(screen.getByText('Run'))
@@ -50,6 +51,7 @@ describe('QueryWorkspace', () => {
       run: vi.fn().mockResolvedValue({ ok: false as const, reason: 'syntax error' }),
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
     }
     wrap(<QueryWorkspace gateway={gateway} connectionId="c1" connectionName="prod" />)
     fireEvent.click(screen.getByText('Run'))
@@ -63,6 +65,7 @@ describe('QueryWorkspace', () => {
         .mockResolvedValueOnce({ ok: false as const, reason: 'syntax error' }),
       cancel: vi.fn().mockResolvedValue(undefined),
       recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
     }
     wrap(<QueryWorkspace gateway={gateway} connectionId="c1" connectionName="prod" />)
     fireEvent.click(screen.getByText('Run'))

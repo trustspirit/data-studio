@@ -10,6 +10,7 @@ describe('ipcConnectionGateway openFileDialog', () => {
         calls.push({ channel, payload })
         return Promise.resolve({ ok: true, value: '/tmp/x.db' })
       },
+      on: () => () => {},
     }
     const gw = createIpcConnectionGateway(bridge)
     expect(await gw.openFileDialog()).toBe('/tmp/x.db')
@@ -19,6 +20,7 @@ describe('ipcConnectionGateway openFileDialog', () => {
   it('openFileDialog는 취소 시 null을 반환', async () => {
     const bridge: DataconBridge = {
       invoke: () => Promise.resolve({ ok: true, value: null }),
+      on: () => () => {},
     }
     const gw = createIpcConnectionGateway(bridge)
     expect(await gw.openFileDialog()).toBeNull()

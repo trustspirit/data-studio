@@ -7,7 +7,7 @@ import type { TableSelection } from '@renderer/entities/schema-tree'
 
 const SEL: TableSelection = { schema: 'public', table: 'users' }
 function gw(outcome: OperationOutcome): OperationGateway {
-  return { run: vi.fn().mockResolvedValue(outcome) as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]) }
+  return { run: vi.fn().mockResolvedValue(outcome) as OperationGateway['run'], cancel: vi.fn().mockResolvedValue(undefined), recentAudit: vi.fn().mockResolvedValue([]), onStreamMessage: vi.fn(() => () => {}) }
 }
 
 describe('useTableColumns', () => {
