@@ -178,7 +178,7 @@ async function wireServices(): Promise<void> {
   app.on('before-quit', (event) => {
     if (auditFlushed) return
     event.preventDefault()
-    void services.streamHub.closeAll().finally(() =>
+    void services.streamHub.closeAll().catch(() => {}).finally(() =>
       log.flush().finally(() => {
         auditFlushed = true
         app.quit()

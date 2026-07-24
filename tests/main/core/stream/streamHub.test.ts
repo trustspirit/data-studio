@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { wire } from '@shared/types/wire'
 import { StreamHub, type StreamPushPort } from '@main/core/stream/StreamHub'
 import type { StreamBatch } from '@shared/types/stream'
 import type {
@@ -118,6 +119,58 @@ describe('StreamHub', () => {
     await hub.closeConnection('c1')
     expect(a.stopped()).toBe(1)
     expect(b.stopped()).toBe(1)
+  })
+
+  it('flush 타이머가 매 interval마다 재예약된다(연속 tick으로 검증)', async () => {
+    const { clock, tick } = makeClock()
+    const pushed: { id: string; batch: StreamBatch }[] = []
+    const push: StreamPushPort = (id, batch) => pushed.push({ id, batch })
+    const hub = new StreamHub({ randomId: () => 'sub-1', clock, push })
+    const drv = fakeStream()
+    await hub.subscribe('c1', ctx, req, drv.cap)
+
+    drv.sink().emit([msg('a')])
+    tick()
+    expect(pushed).toHaveLength(1)
+    expect(pushed[0]?.batch.rows).toHaveLength(1)
+    expect(pushed[0]?.batch.rows[0]?.[2]).toEqual(wire.str('a'))
+
+    drv.sink().emit([msg('b')])
+    tick()
+    expect(pushed).toHaveLength(2)
+    expect(pushed[1]?.batch.rows).toHaveLength(1)
+    expect(pushed[1]?.batch.rows[0]?.[2]).toEqual(wire.str('b'))
+  })
+
+  it('droppedSince는 flush 이후 리셋되고 다음 flush에 누적되지 않는다', async () => {
+    const { clock, tick } = makeClock()
+    const pushed: StreamBatch[] = []
+    const hub = new StreamHub({ randomId: () => 's', clock, push: (_id, b) => pushed.push(b), config: { bufferCap: 2, flushMax: 100 } })
+    const drv = fakeStream()
+    await hub.subscribe('c1', ctx, req, drv.cap)
+
+    drv.sink().emit([msg('a'), msg('b'), msg('c'), msg('d')]) // cap 2 → a,b 버려짐
+    tick()
+    expect(pushed[0]?.droppedSince).toBe(2)
+
+    drv.sink().emit([msg('e')]) // 드롭 없음
+    tick()
+    expect(pushed[1]?.droppedSince).toBe(0)
+  })
+
+  it('flushMax만큼만 배출하고 나머지는 다음 flush로 넘긴다', async () => {
+    const { clock, tick } = makeClock()
+    const pushed: StreamBatch[] = []
+    const hub = new StreamHub({ randomId: () => 's', clock, push: (_id, b) => pushed.push(b), config: { bufferCap: 1000, flushMax: 2 } })
+    const drv = fakeStream()
+    await hub.subscribe('c1', ctx, req, drv.cap)
+
+    drv.sink().emit([msg('a'), msg('b'), msg('c')])
+    tick()
+    expect(pushed[0]?.rows).toHaveLength(2)
+
+    tick()
+    expect(pushed[1]?.rows).toHaveLength(1)
   })
 
   it('subscribe 중 드라이버가 던지면 구독이 남지 않는다', async () => {
