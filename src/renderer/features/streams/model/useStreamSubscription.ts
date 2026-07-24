@@ -36,6 +36,9 @@ export function useStreamSubscription(gateway: OperationGateway, connectionId: s
   const subId = useRef<string | null>(null)
   const off = useRef<(() => void) | null>(null)
   const mounted = useRef(true)
+  /** 재진입(reentrant) start() 가드용 세대 토큰. stop/teardown/unmount·connectionId 변경 시 증가시켜
+   * 그 사이 진행 중이던 start()의 continuation이 자신이 대체됐음을 감지하고 고아 구독을 정리하게 한다. */
+  const startToken = useRef(0)
 
   const teardown = useCallback(async () => {
     off.current?.()
@@ -52,6 +55,7 @@ export function useStreamSubscription(gateway: OperationGateway, connectionId: s
     mounted.current = true
     return () => {
       mounted.current = false
+      startToken.current += 1
       off.current?.()
       off.current = null
       const id = subId.current
@@ -64,19 +68,29 @@ export function useStreamSubscription(gateway: OperationGateway, connectionId: s
 
   const start = useCallback(
     (topic: string, from: 'latest' | 'earliest') => {
+      const token = (startToken.current += 1)
       void (async () => {
         await teardown()
+        if (token !== startToken.current) return // teardown 도중 다른 start/stop/unmount에 의해 대체됨
         setRows([]); setColumns([]); setDropped(0); setError(null)
         const outcome = await gateway.run({
           requestId: crypto.randomUUID(), connectionId,
           operation: { kind: 'stream', op: 'subscribe', topic, from },
         })
-        if (!mounted.current) return
-        if (!outcome.ok) { setError(outcome.reason); return }
+        if (!outcome.ok) {
+          if (token === startToken.current && mounted.current) setError(outcome.reason)
+          return
+        }
         if (outcome.payload.kind !== 'streamAck' || outcome.payload.subscriptionId === null) {
-          setError('subscribe did not return a subscription'); return
+          if (token === startToken.current && mounted.current) setError('subscribe did not return a subscription')
+          return
         }
         const id = outcome.payload.subscriptionId
+        if (token !== startToken.current || !mounted.current) {
+          // subscribe가 진행 중인 사이 대체되거나(reentrant start) 언마운트됨: 서버 구독이 고아가 되지 않도록 즉시 해제.
+          void gateway.run({ requestId: crypto.randomUUID(), connectionId, operation: { kind: 'stream', op: 'unsubscribe', subscriptionId: id } })
+          return
+        }
         subId.current = id
         setRunning(true)
         off.current = gateway.onStreamMessage(id, (batch) => {
@@ -88,12 +102,15 @@ export function useStreamSubscription(gateway: OperationGateway, connectionId: s
             return next.length > MAX_LIVE_ROWS ? next.slice(next.length - MAX_LIVE_ROWS) : next
           })
         })
-      })().catch((e: unknown) => { if (mounted.current) setError(messageOf(e)) })
+      })().catch((e: unknown) => { if (token === startToken.current && mounted.current) setError(messageOf(e)) })
     },
     [gateway, connectionId, teardown],
   )
 
-  const stop = useCallback(() => teardown(), [teardown])
+  const stop = useCallback(() => {
+    startToken.current += 1
+    return teardown()
+  }, [teardown])
   const clear = useCallback(() => { setRows([]); setDropped(0) }, [])
 
   return { columns, rows, dropped, running, error, start, stop, clear }
