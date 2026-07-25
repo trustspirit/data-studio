@@ -6,6 +6,7 @@ import { createMysqlDriver } from '../drivers/mysql'
 import { createMongoDriver } from '../drivers/mongo'
 import { createRedisDriver } from '../drivers/redis'
 import { createKafkaDriver } from '../drivers/kafka'
+import { createRabbitDriver } from '../drivers/rabbitmq'
 
 export interface RegisterDriversDeps {
   readonly secrets: Pick<SecretStore, 'get'>
@@ -28,4 +29,5 @@ export function registerDrivers(registry: DriverRegistry, deps: RegisterDriversD
   registry.register('mongodb', (config) => createMongoDriver(config, { getPassword: passwordFor(config.id) }))
   registry.register('redis', (config) => createRedisDriver(config, { getPassword: passwordFor(config.id) }))
   registry.register('kafka', (config) => createKafkaDriver(config, { getPassword: passwordFor(config.id) }))
+  registry.register('rabbitmq', (config) => createRabbitDriver(config, { getPassword: passwordFor(config.id) }))
 }

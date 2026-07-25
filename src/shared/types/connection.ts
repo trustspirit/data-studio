@@ -66,7 +66,7 @@ export const ENGINE_IMPLEMENTED = {
   redis: true,
   dynamodb: false,
   kafka: true,
-  rabbitmq: false,
+  rabbitmq: true,
 } as const satisfies Record<EngineId, boolean>
 
 /** `ENGINE_IMPLEMENTED`에서 파생 — 손으로 두 번 적지 않는다. */

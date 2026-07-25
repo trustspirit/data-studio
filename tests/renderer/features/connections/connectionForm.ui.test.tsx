@@ -120,7 +120,7 @@ describe('ConnectionForm', () => {
     expect(screen.getByText(/재시작 시/)).toBeTruthy()
   })
 
-  it('엔진 드롭다운은 구현된 7개만 노출한다', () => {
+  it('엔진 드롭다운은 구현된 8개만 노출한다', () => {
     wrap(<ConnectionForm draft={draft()} errors={{}} isNew={false} {...noop} />)
     const options = [...screen.getByLabelText('Engine').querySelectorAll('option')].map(
       (o) => o.value,
@@ -131,6 +131,7 @@ describe('ConnectionForm', () => {
       'mongodb',
       'mysql',
       'postgres',
+      'rabbitmq',
       'redis',
       'sqlite',
     ])
