@@ -11,6 +11,7 @@ import { ErView } from '../features/er'
 import { DocumentsView } from '../features/documents'
 import { KeyBrowserView } from '../features/keys'
 import { StreamsView } from '../features/streams'
+import { DynamoView } from '../features/dynamo'
 
 const Layout = styled.div`
   display: flex;
@@ -76,9 +77,9 @@ const EmptyState = styled.div`
   font-family: ${({ theme }) => theme.font.ui};
 `
 
-type View = 'query' | 'structure' | 'data' | 'er' | 'documents' | 'keys' | 'streams'
+type View = 'query' | 'structure' | 'data' | 'er' | 'documents' | 'keys' | 'streams' | 'dynamo'
 
-const VIEW_ORDER: readonly View[] = ['query', 'structure', 'data', 'er', 'documents', 'keys', 'streams']
+const VIEW_ORDER: readonly View[] = ['query', 'structure', 'data', 'er', 'documents', 'keys', 'streams', 'dynamo']
 const VIEW_CAPABILITY: Record<View, Capability> = {
   query: 'sql',
   structure: 'schema',
@@ -87,6 +88,7 @@ const VIEW_CAPABILITY: Record<View, Capability> = {
   documents: 'document',
   keys: 'keyvalue',
   streams: 'stream',
+  dynamo: 'dynamo',
 }
 const VIEW_LABEL: Record<View, string> = {
   query: 'Query',
@@ -96,6 +98,7 @@ const VIEW_LABEL: Record<View, string> = {
   documents: 'Documents',
   keys: 'Key Browser',
   streams: 'Streams',
+  dynamo: 'Items',
 }
 
 interface ConnectionWorkspaceProps {
@@ -155,6 +158,8 @@ export function ConnectionWorkspace({
           <KeyBrowserView gateway={gateway} connectionId={connectionId} />
         ) : activeView === 'streams' ? (
           <StreamsView gateway={gateway} connectionId={connectionId} />
+        ) : activeView === 'dynamo' ? (
+          <DynamoView gateway={gateway} connectionId={connectionId} />
         ) : (
           <ErView
             gateway={gateway}

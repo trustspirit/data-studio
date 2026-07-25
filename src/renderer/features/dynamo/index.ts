@@ -1,0 +1,1 @@
+export { DynamoView } from './DynamoView'
