@@ -52,6 +52,62 @@ export interface IndexSpec {
   readonly unique: boolean
 }
 
+export interface RenameTableSpec {
+  readonly schema?: string
+  readonly table: string
+  readonly newName: string
+}
+
+export interface RenameColumnSpec {
+  readonly schema?: string
+  readonly table: string
+  readonly column: string
+  readonly newName: string
+}
+
+/**
+ * 기존 테이블에 붙일 컬럼.
+ *
+ * `ColumnSpec`을 재사용하지 않는다 — 그쪽의 `primaryKey`·`autoIncrement`는
+ * ADD COLUMN에서 의미가 없고, 받아 두고 무시하면 사용자가 켠 설정이 조용히
+ * 사라진다. 필드를 없애서 그런 상태를 만들 수 없게 한다.
+ */
+export interface AddColumnSpec {
+  readonly schema?: string
+  readonly table: string
+  readonly name: string
+  readonly type: string
+  readonly notNull: boolean
+  readonly defaultExpr?: string
+}
+
+export interface DropColumnSpec {
+  readonly schema?: string
+  readonly table: string
+  readonly column: string
+}
+
+export interface DropTableSpec {
+  readonly schema?: string
+  readonly table: string
+}
+
+export interface DropIndexSpec {
+  readonly schema?: string
+  /** mysql 계열의 `DROP INDEX … ON <테이블>`에 필요하다. */
+  readonly table: string
+  readonly indexName: string
+}
+
+/**
+ * 기존 테이블에서 읽어 온 사실. sqlite의 DROP COLUMN 사전 검사에만 쓴다.
+ * `useTableStructure`가 이미 `describeTable`·`listIndexes`로 갖고 있는 값이다.
+ */
+export interface TableFacts {
+  readonly pkColumns: readonly string[]
+  readonly indexedColumns: readonly string[]
+}
+
 /**
  * 식별자 인용. postgres/sqlite는 큰따옴표, mysql/mariadb는 백틱.
  * 내부의 인용 문자는 두 번 적어 이스케이프한다 — 사용자가 어떤 이름을
@@ -145,6 +201,64 @@ export function buildCreateIndex(dialect: SqlEngineId, spec: IndexSpec): string 
   const name = quoteIdent(dialect, spec.indexName)
   const cols = spec.columns.map((c) => quoteIdent(dialect, c)).join(', ')
   return `CREATE ${unique}INDEX ${name} ON ${qualified(dialect, spec.schema, spec.table)} (${cols})`
+}
+
+/**
+ * 새 이름은 **비수식**으로 낸다.
+ *
+ * 실측: postgres에서 `ALTER TABLE s."t" RENAME TO s."t2"`는 syntax error다.
+ * RENAME은 스키마를 옮기는 문장이 아니다(그건 `SET SCHEMA`). 사용자가 새 이름에
+ * 점을 섞어 넣더라도 식별자 하나로 인용한다 — 인용 밖으로 새어 두 부분 이름이
+ * 되는 쪽이 훨씬 나쁘다.
+ */
+export function buildRenameTable(dialect: SqlEngineId, spec: RenameTableSpec): string {
+  const from = qualified(dialect, spec.schema, spec.table)
+  return `ALTER TABLE ${from} RENAME TO ${quoteIdent(dialect, spec.newName.trim())}`
+}
+
+/** 네 방언 모두 같은 형태다(sqlite 3.25+, mysql 8.0+, mariadb 10.5.2+, pg). */
+export function buildRenameColumn(dialect: SqlEngineId, spec: RenameColumnSpec): string {
+  const t = qualified(dialect, spec.schema, spec.table)
+  const from = quoteIdent(dialect, spec.column)
+  const to = quoteIdent(dialect, spec.newName.trim())
+  return `ALTER TABLE ${t} RENAME COLUMN ${from} TO ${to}`
+}
+
+export function buildAddColumn(dialect: SqlEngineId, spec: AddColumnSpec): string {
+  let line = `${quoteIdent(dialect, spec.name)} ${spec.type.trim()}`
+  // 절 순서는 CREATE TABLE과 같게 둔다 — 미리보기를 나란히 읽는 사용자가 있다.
+  if (spec.defaultExpr !== undefined && spec.defaultExpr.trim() !== '')
+    line += ` DEFAULT ${spec.defaultExpr.trim()}`
+  if (spec.notNull) line += ' NOT NULL'
+  return `ALTER TABLE ${qualified(dialect, spec.schema, spec.table)} ADD COLUMN ${line}`
+}
+
+export function buildDropColumn(dialect: SqlEngineId, spec: DropColumnSpec): string {
+  const t = qualified(dialect, spec.schema, spec.table)
+  return `ALTER TABLE ${t} DROP COLUMN ${quoteIdent(dialect, spec.column)}`
+}
+
+/**
+ * CASCADE를 붙이지 않는다. 다른 객체를 조용히 지우는 버튼은 두지 않는다 —
+ * FK가 걸려 있으면 엔진이 거부하고, 그 원문이 그대로 화면에 뜬다.
+ */
+export function buildDropTable(dialect: SqlEngineId, spec: DropTableSpec): string {
+  return `DROP TABLE ${qualified(dialect, spec.schema, spec.table)}`
+}
+
+/**
+ * 인덱스 삭제 문법은 둘로 갈린다(실측).
+ *
+ * - mysql·mariadb: `DROP INDEX <이름> ON <테이블>`. 표준형만 쓰면 **구문 오류**다.
+ * - sqlite: 인덱스 이름만. 스키마 한정 개념이 없다.
+ * - postgres: 인덱스가 스키마에 귀속된 객체이므로 **이름**을 한정하고 테이블은 쓰지 않는다.
+ */
+export function buildDropIndex(dialect: SqlEngineId, spec: DropIndexSpec): string {
+  const name = quoteIdent(dialect, spec.indexName)
+  if (dialect === 'mysql' || dialect === 'mariadb')
+    return `DROP INDEX ${name} ON ${qualified(dialect, spec.schema, spec.table)}`
+  if (dialect === 'sqlite') return `DROP INDEX ${name}`
+  return `DROP INDEX ${qualified(dialect, spec.schema, spec.indexName)}`
 }
 
 /** 폼 datalist용 타입 제안. 자유 입력을 막지 않는다 — 제안일 뿐이다. */
@@ -305,6 +419,86 @@ export function validateForeignKey(spec: ForeignKeySpec): readonly DdlIssue[] {
   if (spec.columns.length !== spec.refColumns.length)
     issues.push('원본 컬럼 수와 참조 컬럼 수가 다릅니다.')
   return issues
+}
+
+function renameIssues(current: string, next: string): readonly DdlIssue[] {
+  return current.trim() !== '' && current.trim() === next.trim() ? ['이름이 기존과 같습니다.'] : []
+}
+
+export function validateRenameTable(spec: RenameTableSpec): readonly DdlIssue[] {
+  const issues: DdlIssue[] = []
+  if (spec.table.trim() === '') issues.push('테이블을 고르세요.')
+  if (spec.newName.trim() === '') issues.push('새 테이블 이름을 입력하세요.')
+  else issues.push(...renameIssues(spec.table, spec.newName))
+  return issues
+}
+
+export function validateRenameColumn(spec: RenameColumnSpec): readonly DdlIssue[] {
+  const issues: DdlIssue[] = []
+  if (spec.column.trim() === '') issues.push('바꿀 컬럼을 고르세요.')
+  if (spec.newName.trim() === '') issues.push('새 컬럼 이름을 입력하세요.')
+  else issues.push(...renameIssues(spec.column, spec.newName))
+  return issues
+}
+
+/**
+ * NOT NULL을 켜면 DEFAULT를 **요구한다** — 방언 규칙이 아니라 정책이다.
+ *
+ * 실측: 행이 있는 테이블에 DEFAULT 없이 NOT NULL 컬럼을 붙이면
+ * sqlite와 postgres는 거부하지만 **mysql·mariadb는 성공하면서 기존 행에
+ * `''`·`0`을 조용히 채운다**(STRICT_TRANS_TABLES가 켜져 있어도 그렇다).
+ * 사용자는 "필수 컬럼"을 만들었다고 믿는데 기존 행은 빈 값이 된다.
+ * DEFAULT를 필수로 묶으면 네 엔진이 같은 결과를 내고, 채워질 값을 사용자가 고른다.
+ */
+export function validateAddColumn(
+  _dialect: SqlEngineId,
+  spec: AddColumnSpec,
+): readonly DdlIssue[] {
+  const issues: DdlIssue[] = []
+  if (spec.name.trim() === '') issues.push('컬럼 이름을 입력하세요.')
+  if (spec.type.trim() === '') issues.push('컬럼 타입을 입력하세요.')
+  const hasDefault = spec.defaultExpr !== undefined && spec.defaultExpr.trim() !== ''
+  if (spec.notNull && !hasDefault)
+    issues.push(
+      'NOT NULL 컬럼을 추가하려면 DEFAULT가 필요합니다. 기존 행에 채울 값이 없으면 엔진이 거부하거나(sqlite·postgres) 빈 값을 조용히 채웁니다(mysql).',
+    )
+  return issues
+}
+
+/**
+ * sqlite만 사전 검사가 필요하다(실측).
+ *
+ * - PK 컬럼: `cannot drop PRIMARY KEY column`
+ * - 인덱스가 걸린 컬럼: `error in index … after drop column`
+ *
+ * postgres·mysql·mariadb는 둘 다 허용하므로 막지 않는다. 엔진이 받아 주는 것을
+ * UI가 막으면 사용자는 왜 안 되는지 알 방법이 없다.
+ */
+export function validateDropColumn(
+  dialect: SqlEngineId,
+  spec: DropColumnSpec,
+  facts: TableFacts,
+): readonly DdlIssue[] {
+  const column = spec.column.trim()
+  if (column === '') return ['삭제할 컬럼을 고르세요.']
+  if (dialect !== 'sqlite') return []
+
+  const issues: DdlIssue[] = []
+  const eq = (n: string) => n.trim().toLowerCase() === column.toLowerCase()
+  if (facts.pkColumns.some(eq)) issues.push(`sqlite는 PK 컬럼('${column}')을 지울 수 없습니다.`)
+  if (facts.indexedColumns.some(eq))
+    issues.push(
+      `sqlite는 인덱스가 걸린 컬럼('${column}')을 지울 수 없습니다. 먼저 그 인덱스를 삭제하세요.`,
+    )
+  return issues
+}
+
+export function validateDropTable(spec: DropTableSpec): readonly DdlIssue[] {
+  return spec.table.trim() === '' ? ['테이블을 고르세요.'] : []
+}
+
+export function validateDropIndex(spec: DropIndexSpec): readonly DdlIssue[] {
+  return spec.indexName.trim() === '' ? ['삭제할 인덱스를 고르세요.'] : []
 }
 
 export function validateIndex(spec: IndexSpec): readonly DdlIssue[] {
