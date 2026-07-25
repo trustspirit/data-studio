@@ -50,6 +50,22 @@ describe('run_read_query', () => {
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.error).toContain('ai_write_requires_proposal')
   })
+
+  it('실패 결과에 엔진 원문이 실려 있어도 도구 출력에는 넣지 않는다', async () => {
+    // detail은 사용자 화면 전용이다. executor가 AI actor에게 채우지 않으므로
+    // 여기까지 올 일이 없지만, 그 조건은 OperationExecutor의 한 줄이다. 읽는
+    // 쪽에도 가드를 둬서 두 곳이 동시에 틀려야 유출이 되게 만든다.
+    const ctx = ctxWith(() =>
+      Promise.resolve({
+        ok: false,
+        reason: 'error',
+        detail: "duplicate key: email='alice@example.com'",
+      }),
+    )
+    const out = await runReadQueryTool.execute({ connectionId: 'c1', sql: 'SELECT 1' }, ctx)
+    expect(JSON.stringify(out)).not.toContain('alice@example.com')
+    expect(out).toEqual({ ok: false, error: 'query denied or failed: error' })
+  })
 })
 
 describe('run_read_query — end-to-end gate (real OperationExecutor + MemoryDriver)', () => {
