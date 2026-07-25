@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
+import type { AiGateway } from '../gateways/ports/AiGateway'
 import type { TableSelection } from '../entities/schema-tree'
 import type { Capability } from '../../shared/types/capability'
 import type { EngineId } from '../../shared/types/connection'
@@ -12,6 +13,7 @@ import { DocumentsView } from '../features/documents'
 import { KeyBrowserView } from '../features/keys'
 import { StreamsView } from '../features/streams'
 import { DynamoView } from '../features/dynamo'
+import { AiChatPanel } from '../features/ai'
 
 const Layout = styled.div`
   display: flex;
@@ -39,11 +41,36 @@ const SubTab = styled.button<{ $active: boolean }>`
     color: ${({ theme }) => theme.color.text};
   }
 `
+const Middle = styled.div`
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+`
 const Body = styled.div`
   flex: 1;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+`
+const AiPane = styled.div`
+  flex: 0 0 340px;
+  min-width: 0;
+  overflow: hidden;
+`
+const AiToggle = styled.button<{ $active: boolean }>`
+  margin-left: auto;
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  padding: 4px 12px;
+  border: none;
+  border-radius: ${({ theme }) => theme.radius.md};
+  cursor: pointer;
+  color: ${({ theme, $active }) => ($active ? theme.color.accent : theme.color.textDim)};
+  background: ${({ theme, $active }) => ($active ? theme.color.panel : 'transparent')};
+  &:hover {
+    color: ${({ theme, $active }) => ($active ? theme.color.accent : theme.color.text)};
+  }
 `
 const StatusBar = styled.div`
   display: flex;
@@ -103,6 +130,8 @@ const VIEW_LABEL: Record<View, string> = {
 
 interface ConnectionWorkspaceProps {
   gateway: OperationGateway
+  /** 없으면 AI 어시스턴트 토글이 표시되지 않는다(테스트·부분 조립 허용). */
+  ai?: AiGateway | undefined
   connectionId: string
   connectionName: string
   capabilities: readonly Capability[]
@@ -112,6 +141,7 @@ interface ConnectionWorkspaceProps {
 
 export function ConnectionWorkspace({
   gateway,
+  ai,
   connectionId,
   connectionName,
   capabilities,
@@ -120,6 +150,7 @@ export function ConnectionWorkspace({
   const availableViews = VIEW_ORDER.filter((v) => capabilities.includes(VIEW_CAPABILITY[v]))
   const [view, setView] = useState<View>(() => availableViews[0] ?? 'query')
   const [erJump, setErJump] = useState<TableSelection | null>(null)
+  const [aiOpen, setAiOpen] = useState(false)
 
   const activeView = availableViews.includes(view) ? view : (availableViews[0] ?? null)
 
@@ -137,40 +168,58 @@ export function ConnectionWorkspace({
             {VIEW_LABEL[v]}
           </SubTab>
         ))}
-      </SubTabs>
-      <Body>
-        {activeView === null ? (
-          <EmptyState>이 엔진에 표시할 뷰가 없습니다.</EmptyState>
-        ) : activeView === 'query' ? (
-          <QueryWorkspace
-            gateway={gateway}
-            connectionId={connectionId}
-            connectionName={connectionName}
-            engine={engine}
-          />
-        ) : activeView === 'structure' ? (
-          <StructureView gateway={gateway} connectionId={connectionId} externalSelection={erJump} />
-        ) : activeView === 'data' ? (
-          <DataView gateway={gateway} connectionId={connectionId} />
-        ) : activeView === 'documents' ? (
-          <DocumentsView gateway={gateway} connectionId={connectionId} />
-        ) : activeView === 'keys' ? (
-          <KeyBrowserView gateway={gateway} connectionId={connectionId} />
-        ) : activeView === 'streams' ? (
-          <StreamsView gateway={gateway} connectionId={connectionId} />
-        ) : activeView === 'dynamo' ? (
-          <DynamoView gateway={gateway} connectionId={connectionId} />
-        ) : (
-          <ErView
-            gateway={gateway}
-            connectionId={connectionId}
-            onOpenTable={(schema, table) => {
-              setErJump({ schema, table })
-              setView('structure')
-            }}
-          />
+        {ai !== undefined && (
+          <AiToggle
+            type="button"
+            data-testid="ai-toggle"
+            aria-pressed={aiOpen}
+            $active={aiOpen}
+            onClick={() => setAiOpen((v) => !v)}
+          >
+            Assistant
+          </AiToggle>
         )}
-      </Body>
+      </SubTabs>
+      <Middle>
+        <Body>
+          {activeView === null ? (
+            <EmptyState>이 엔진에 표시할 뷰가 없습니다.</EmptyState>
+          ) : activeView === 'query' ? (
+            <QueryWorkspace
+              gateway={gateway}
+              connectionId={connectionId}
+              connectionName={connectionName}
+              engine={engine}
+            />
+          ) : activeView === 'structure' ? (
+            <StructureView gateway={gateway} connectionId={connectionId} externalSelection={erJump} />
+          ) : activeView === 'data' ? (
+            <DataView gateway={gateway} connectionId={connectionId} />
+          ) : activeView === 'documents' ? (
+            <DocumentsView gateway={gateway} connectionId={connectionId} />
+          ) : activeView === 'keys' ? (
+            <KeyBrowserView gateway={gateway} connectionId={connectionId} />
+          ) : activeView === 'streams' ? (
+            <StreamsView gateway={gateway} connectionId={connectionId} />
+          ) : activeView === 'dynamo' ? (
+            <DynamoView gateway={gateway} connectionId={connectionId} />
+          ) : (
+            <ErView
+              gateway={gateway}
+              connectionId={connectionId}
+              onOpenTable={(schema, table) => {
+                setErJump({ schema, table })
+                setView('structure')
+              }}
+            />
+          )}
+        </Body>
+        {ai !== undefined && aiOpen && (
+          <AiPane>
+            <AiChatPanel ai={ai} operation={gateway} connectionId={connectionId} />
+          </AiPane>
+        )}
+      </Middle>
       <StatusBar>
         <StatusDot aria-hidden />
         <span>{connectionName}</span>

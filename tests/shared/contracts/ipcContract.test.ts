@@ -23,6 +23,14 @@ describe('IPC_CONTRACT', () => {
     // 비교만이 잡는다.
     expect([...contractChannels()].sort()).toEqual(
       [
+        'ai:cancel',
+        'ai:deleteKey',
+        'ai:keyStatus',
+        'ai:newSession',
+        'ai:proposals',
+        'ai:rejectProposal',
+        'ai:send',
+        'ai:setKey',
         'audit:recent',
         'connection:close',
         'connection:delete',

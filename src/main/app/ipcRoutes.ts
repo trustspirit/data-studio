@@ -106,6 +106,48 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
   register('audit:recent', ({ limit }) => Promise.resolve(services.log.recent(limit)))
 
   register('dialog:openFile', () => services.fileDialog.openFile())
+
+  register('ai:newSession', async ({ provider }) => {
+    // renderer에는 chatId로 노출한다 — sessionId는 main 전용 개념(AI actor 식별).
+    const { sessionId } = await services.ai.createSession(provider)
+    return { chatId: sessionId }
+  })
+
+  // 스트리밍은 ai:event push로 나간다 — 이 핸들러는 수락 여부만 즉시 돌려준다.
+  register('ai:send', ({ chatId, text }) => Promise.resolve(services.ai.send(chatId, text)))
+
+  register('ai:cancel', ({ chatId }) => {
+    services.ai.cancel(chatId)
+    return Promise.resolve(null)
+  })
+
+  register('ai:keyStatus', async () => {
+    const [anthropic, openai] = await Promise.all([
+      services.secrets.get({ kind: 'llm-api-key', ownerId: 'anthropic' }),
+      services.secrets.get({ kind: 'llm-api-key', ownerId: 'openai' }),
+    ])
+    // 존재 여부만 — 키 값은 renderer로 절대 보내지 않는다.
+    return { anthropic: anthropic !== null, openai: openai !== null }
+  })
+
+  register('ai:setKey', async ({ provider, value }) => {
+    await services.secrets.set({ kind: 'llm-api-key', ownerId: provider }, value)
+    return null
+  })
+
+  register('ai:deleteKey', async ({ provider }) => {
+    await services.secrets.delete({ kind: 'llm-api-key', ownerId: provider })
+    return null
+  })
+
+  // 승인 UI용. 승인 자체는 operation:run + proposalId(위) 경로 하나뿐이다.
+  register('ai:proposals', ({ connectionId }) =>
+    Promise.resolve(services.proposals.listPending(connectionId)),
+  )
+
+  register('ai:rejectProposal', ({ proposalId, connectionId }) =>
+    Promise.resolve({ rejected: services.proposals.reject(proposalId, connectionId) }),
+  )
 }
 
 /**

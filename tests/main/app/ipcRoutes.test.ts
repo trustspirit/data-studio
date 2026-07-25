@@ -35,6 +35,11 @@ function createHarness() {
     getReturns: { id: 'c1' } as unknown,
     statusReturns: 'ready' as string,
     capabilitiesReturns: ['sql', 'schema', 'data'] as string[],
+    aiNewSession: [] as string[],
+    aiSend: [] as { sessionId: string; text: string }[],
+    aiCancel: [] as string[],
+    proposalsListed: [] as string[],
+    proposalsRejected: [] as { proposalId: string; connectionId: string }[],
   }
 
   const register = ((channel, handler) => {
@@ -112,6 +117,29 @@ function createHarness() {
       },
       cancel: (requestId: string) => {
         calls.cancel.push(requestId)
+      },
+    },
+    proposals: {
+      listPending: (connectionId: string) => {
+        calls.proposalsListed.push(connectionId)
+        return [{ proposalId: 'p1', connectionId }]
+      },
+      reject: (proposalId: string, connectionId: string) => {
+        calls.proposalsRejected.push({ proposalId, connectionId })
+        return true
+      },
+    },
+    ai: {
+      createSession: (provider: string) => {
+        calls.aiNewSession.push(provider)
+        return Promise.resolve({ sessionId: 's1' })
+      },
+      send: (sessionId: string, text: string) => {
+        calls.aiSend.push({ sessionId, text })
+        return { accepted: true as const }
+      },
+      cancel: (sessionId: string) => {
+        calls.aiCancel.push(sessionId)
       },
     },
   } as unknown as AppServices
@@ -292,5 +320,66 @@ describe('registerIpcRoutes', () => {
     h.calls.statusReturns = 'connecting'
     const r = await h.invoke('connection:status', { connectionId: 'c1' })
     expect(r).toEqual({ status: 'connecting' })
+  })
+
+  it('ai:newSession은 세션 매니저로 보내고 chatId로 노출한다', async () => {
+    const h = createHarness()
+    const r = await h.invoke('ai:newSession', { provider: 'anthropic' })
+    expect(h.calls.aiNewSession).toEqual(['anthropic'])
+    // main 내부의 sessionId는 renderer에 chatId라는 이름으로만 나간다.
+    expect(r).toEqual({ chatId: 's1' })
+  })
+
+  it('ai:send는 수락 여부만 즉시 돌려준다', async () => {
+    const h = createHarness()
+    const r = await h.invoke('ai:send', { chatId: 's1', text: 'show tables' })
+    expect(h.calls.aiSend).toEqual([{ sessionId: 's1', text: 'show tables' }])
+    expect(r).toEqual({ accepted: true })
+  })
+
+  it('ai:cancel은 세션 매니저로 보낸다', async () => {
+    const h = createHarness()
+    await h.invoke('ai:cancel', { chatId: 's1' })
+    expect(h.calls.aiCancel).toEqual(['s1'])
+  })
+
+  it('ai:keyStatus는 존재 여부 boolean만 반환한다 (키 값 아님)', async () => {
+    const h = createHarness()
+    h.calls.secretHasReturns = 'sk-super-secret'
+    const r = await h.invoke('ai:keyStatus', undefined)
+    // 값을 새어 보내면 이 단언이 깨진다.
+    expect(r).toEqual({ anthropic: true, openai: true })
+
+    h.calls.secretHasReturns = null
+    const absent = await h.invoke('ai:keyStatus', undefined)
+    expect(absent).toEqual({ anthropic: false, openai: false })
+  })
+
+  it('ai:setKey는 llm-api-key ref로 store.set을 부른다', async () => {
+    const h = createHarness()
+    await h.invoke('ai:setKey', { provider: 'openai', value: 'sk-1' })
+    expect(h.calls.secretSet).toEqual([
+      { ref: { kind: 'llm-api-key', ownerId: 'openai' }, value: 'sk-1' },
+    ])
+  })
+
+  it('ai:deleteKey는 llm-api-key ref로 store.delete를 부른다', async () => {
+    const h = createHarness()
+    await h.invoke('ai:deleteKey', { provider: 'anthropic' })
+    expect(h.calls.secretDelete).toEqual([{ kind: 'llm-api-key', ownerId: 'anthropic' }])
+  })
+
+  it('ai:proposals는 그 커넥션의 살아 있는 제안서 목록을 준다', async () => {
+    const h = createHarness()
+    const r = await h.invoke('ai:proposals', { connectionId: 'c1' })
+    expect(h.calls.proposalsListed).toEqual(['c1'])
+    expect(r).toEqual([{ proposalId: 'p1', connectionId: 'c1' }])
+  })
+
+  it('ai:rejectProposal은 store.reject로 보낸다', async () => {
+    const h = createHarness()
+    const r = await h.invoke('ai:rejectProposal', { proposalId: 'p1', connectionId: 'c1' })
+    expect(h.calls.proposalsRejected).toEqual([{ proposalId: 'p1', connectionId: 'c1' }])
+    expect(r).toEqual({ rejected: true })
   })
 })
