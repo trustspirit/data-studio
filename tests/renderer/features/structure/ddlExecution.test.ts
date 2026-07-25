@@ -113,8 +113,10 @@ describe.skipIf(!PG_AVAILABLE)('생성된 CREATE TABLE — postgres 실행 (실�
   ): Promise<void> {
     await withSchema('', async (schema) => {
       const client = new Client({ connectionString: TEST_DB_URL })
-      await client.connect()
       try {
+        // connect()를 try 안에 둔다 — 밖에 두면 connect 실패 시 finally의 end()가
+        // 실행되지 않아 client가 정리되지 않는다. connect 실패 후 end()는 문제없이 resolve된다.
+        await client.connect()
         await fn(client, schema)
       } finally {
         await client.end()
