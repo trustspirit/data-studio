@@ -1,7 +1,9 @@
 import styled from 'styled-components'
+import type { EngineId } from '@shared/types/connection'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
 import { Button, Toolbar } from '../../../shared/ui'
 import { useQueryRunner } from '../model/useQueryRunner'
+import { useSqlSchema } from '../model/useSqlSchema'
 import { SqlEditor } from './SqlEditor'
 import { ResultArea } from './ResultArea'
 
@@ -31,10 +33,14 @@ interface Props {
   gateway: OperationGateway
   connectionId: string
   connectionName: string
+  /** SQL 방언·자동완성 선택용. 미지정이면 표준 SQL + 키워드 완성만 동작. */
+  engine?: EngineId | undefined
 }
 
-export function QueryWorkspace({ gateway, connectionId, connectionName }: Props) {
+export function QueryWorkspace({ gateway, connectionId, connectionName, engine }: Props) {
   const q = useQueryRunner(gateway, connectionId)
+  // 스키마/테이블 자동완성 — engine이 명시된 실사용 경로에서만 조회한다.
+  const completion = useSqlSchema(gateway, connectionId, engine !== undefined)
   return (
     <Layout>
       <Toolbar>
@@ -50,7 +56,14 @@ export function QueryWorkspace({ gateway, connectionId, connectionName }: Props)
         )}
       </Toolbar>
       <EditorPane>
-        <SqlEditor value={q.sql} onChange={q.setSql} onRun={() => void q.run()} />
+        <SqlEditor
+          value={q.sql}
+          onChange={q.setSql}
+          onRun={() => void q.run()}
+          engine={engine}
+          namespace={completion.namespace}
+          defaultSchema={completion.defaultSchema}
+        />
       </EditorPane>
       <ResultArea
         columns={q.columns}

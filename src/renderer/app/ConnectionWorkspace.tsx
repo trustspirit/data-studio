@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import type { TableSelection } from '../entities/schema-tree'
 import type { Capability } from '../../shared/types/capability'
+import type { EngineId } from '../../shared/types/connection'
 import { QueryWorkspace } from '../features/query'
 import { StructureView } from '../features/structure'
 import { DataView } from '../features/data'
@@ -102,6 +103,8 @@ interface ConnectionWorkspaceProps {
   connectionId: string
   connectionName: string
   capabilities: readonly Capability[]
+  /** 쿼리 에디터의 SQL 방언·자동완성 선택용. */
+  engine?: EngineId | undefined
 }
 
 export function ConnectionWorkspace({
@@ -109,6 +112,7 @@ export function ConnectionWorkspace({
   connectionId,
   connectionName,
   capabilities,
+  engine,
 }: ConnectionWorkspaceProps) {
   const availableViews = VIEW_ORDER.filter((v) => capabilities.includes(VIEW_CAPABILITY[v]))
   const [view, setView] = useState<View>(() => availableViews[0] ?? 'query')
@@ -135,7 +139,12 @@ export function ConnectionWorkspace({
         {activeView === null ? (
           <EmptyState>이 엔진에 표시할 뷰가 없습니다.</EmptyState>
         ) : activeView === 'query' ? (
-          <QueryWorkspace gateway={gateway} connectionId={connectionId} connectionName={connectionName} />
+          <QueryWorkspace
+            gateway={gateway}
+            connectionId={connectionId}
+            connectionName={connectionName}
+            engine={engine}
+          />
         ) : activeView === 'structure' ? (
           <StructureView gateway={gateway} connectionId={connectionId} externalSelection={erJump} />
         ) : activeView === 'data' ? (

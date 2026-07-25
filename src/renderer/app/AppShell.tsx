@@ -162,6 +162,7 @@ function QueryTab() {
         connectionId={active.id}
         connectionName={active.name}
         capabilities={openCaps}
+        engine={active.engine}
       />
     )
   }

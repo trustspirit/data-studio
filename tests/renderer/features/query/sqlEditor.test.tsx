@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, fireEvent } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
 import { SqlEditor } from '@renderer/features/query/ui/SqlEditor'
@@ -10,8 +10,10 @@ function wrap(node: React.ReactNode) {
 
 describe('SqlEditor', () => {
   it('초기 값을 렌더한다', () => {
-    wrap(<SqlEditor value="SELECT 1" onChange={() => {}} onRun={() => {}} />)
-    expect(screen.getByText(/SELECT 1/)).toBeTruthy()
+    // 구문 강조가 토큰별 span으로 쪼개므로 textContent로 확인한다.
+    const { container } = wrap(<SqlEditor value="SELECT 1" onChange={() => {}} onRun={() => {}} />)
+    const content = container.querySelector('.cm-content')
+    expect(content?.textContent).toContain('SELECT 1')
   })
 
   it('Mod-Enter가 onRun을 부른다', () => {
