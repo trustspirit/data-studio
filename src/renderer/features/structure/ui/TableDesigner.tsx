@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import type { SqlEngineId } from '../../../../shared/types/connection'
 import type { TableSelection } from '../../../entities/schema-tree'
+import { SqlCode } from '../../../entities/sql-lang'
 import { Button, ErrorBanner, Input, NativeSelect } from '../../../shared/ui'
 import {
   buildAddForeignKey,
@@ -65,18 +66,6 @@ const Check = styled.label`
   align-items: center;
   gap: 4px;
   white-space: nowrap;
-`
-const Preview = styled.pre`
-  margin: 0;
-  padding: ${({ theme }) => theme.space.sm};
-  border: 1px solid ${({ theme }) => theme.color.border};
-  border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.gridBg};
-  color: ${({ theme }) => theme.color.text};
-  font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  white-space: pre-wrap;
-  word-break: break-all;
 `
 const IssueList = styled.ul`
   margin: 0;
@@ -490,7 +479,7 @@ export function TableDesigner({
           ))}
         </IssueList>
       ) : (
-        <Preview data-testid="ddl-preview">{sql}</Preview>
+        <SqlCode engine={dialect} code={sql} data-testid="ddl-preview" />
       )}
       {runError !== null && <ErrorBanner>{runError}</ErrorBanner>}
 
