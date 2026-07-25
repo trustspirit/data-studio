@@ -20,7 +20,7 @@ const ctx = {} as AiToolContext
 
 describe('AiOrchestrator', () => {
   it('tool_use 턴이면 invoke로 실행하고 결과를 다음 요청에 넣고 반복한다', async () => {
-    const invoke = vi.fn(async () => ({ ok: true, data: { rows: [] } }))
+    const invoke = vi.fn(() => Promise.resolve({ ok: true, data: { rows: [] } }))
     const registry = { invoke, specs: () => [] } as unknown as ToolRegistry
     const provider = fakeLlmProvider([
       { text: 'let me look', toolUses: [{ id: 't1', name: 'get_schema', input: { connectionId: 'c1' } }], stopReason: 'tool_use' },
@@ -39,7 +39,7 @@ describe('AiOrchestrator', () => {
   })
 
   it('tool 실패는 isError tool_result로 넣는다', async () => {
-    const invoke = vi.fn(async () => ({ ok: false, error: 'denied' }))
+    const invoke = vi.fn(() => Promise.resolve({ ok: false, error: 'denied' }))
     const registry = { invoke, specs: () => [] } as unknown as ToolRegistry
     const provider = fakeLlmProvider([
       { text: '', toolUses: [{ id: 't1', name: 'run_read_query', input: {} }], stopReason: 'tool_use' },
@@ -52,10 +52,10 @@ describe('AiOrchestrator', () => {
   })
 
   it('반복 상한을 넘으면 onError로 끝낸다', async () => {
-    const invoke = vi.fn(async () => ({ ok: true, data: {} }))
+    const invoke = vi.fn(() => Promise.resolve({ ok: true, data: {} }))
     const registry = { invoke, specs: () => [] } as unknown as ToolRegistry
     // 항상 tool_use만 내는 provider → 무한 루프 시도
-    const provider = { id: 'anthropic' as const, chat: (_r: never, _s: never) => Promise.resolve({ text: '', toolUses: [{ id: 'x', name: 'get_schema', input: {} }], stopReason: 'tool_use' as const }) }
+    const provider = { id: 'anthropic' as const, chat: () => Promise.resolve({ text: '', toolUses: [{ id: 'x', name: 'get_schema', input: {} }], stopReason: 'tool_use' as const }) }
     const orch = new AiOrchestrator({ provider, toolRegistry: registry, toolContext: ctx, systemPrompt: 'S', schemaContext: '', maxRounds: 3 })
     const sink = recordingSink()
     await orch.sendMessage('q', sink)
@@ -91,9 +91,9 @@ describe('AiOrchestrator', () => {
   })
 
   it('이미 취소된 signal이면 provider/invoke를 호출하지 않고 즉시 onError로 끝낸다', async () => {
-    const invoke = vi.fn(async () => ({ ok: true, data: {} }))
+    const invoke = vi.fn(() => Promise.resolve({ ok: true, data: {} }))
     const registry = { invoke, specs: () => [] } as unknown as ToolRegistry
-    const chat = vi.fn(async () => ({ text: '', toolUses: [], stopReason: 'end' as const }))
+    const chat = vi.fn(() => Promise.resolve({ text: '', toolUses: [], stopReason: 'end' as const }))
     const provider = { id: 'anthropic' as const, chat }
     const orch = new AiOrchestrator({ provider, toolRegistry: registry, toolContext: ctx, systemPrompt: 'S', schemaContext: '' })
     const sink = recordingSink()

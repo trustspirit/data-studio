@@ -138,6 +138,11 @@ async function wireServices(): Promise<void> {
       const win = BrowserWindow.getAllWindows()[0]
       win?.webContents.send('stream:message', { subscriptionId, batch })
     },
+    aiPush: (sessionId, event) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      // 페이로드에서는 chatId — renderer가 보는 세션 핸들 이름이다(aiEvents.ts).
+      win?.webContents.send('ai:event', { chatId: sessionId, event })
+    },
     fileDialog: {
       openFile: async () => {
         const win = BrowserWindow.getFocusedWindow()

@@ -2,6 +2,10 @@ import { z, type ZodType } from 'zod'
 import { connectionConfigSchema } from '../types/connection'
 import { operationRequestSchema } from './operationDto'
 
+/** renderer가 고를 수 있는 LLM 프로바이더. main의 `ProviderId`와 같은 값 집합. */
+export const llmProviderIdSchema = z.enum(['anthropic', 'openai'])
+export type LlmProviderIdDto = z.infer<typeof llmProviderIdSchema>
+
 /**
  * IPC 채널 → 입력 스키마의 **단일 표.**
  *
@@ -28,6 +32,17 @@ export const IPC_CONTRACT = {
   'operation:cancel': { input: z.object({ requestId: z.string().min(1) }) },
   'audit:recent': { input: z.object({ limit: z.number().int() }) },
   'dialog:openFile': { input: z.undefined() },
+  'ai:newSession': { input: z.object({ provider: llmProviderIdSchema }) },
+  'ai:send': {
+    // chatId는 ai:newSession이 돌려준 main 생성 핸들이다. aiEvents.ts 주석 참고.
+    input: z.object({ chatId: z.string().min(1), text: z.string().min(1).max(32_768) }),
+  },
+  'ai:cancel': { input: z.object({ chatId: z.string().min(1) }) },
+  'ai:keyStatus': { input: z.undefined() },
+  'ai:setKey': {
+    input: z.object({ provider: llmProviderIdSchema, value: z.string().min(1).max(4096) }),
+  },
+  'ai:deleteKey': { input: z.object({ provider: llmProviderIdSchema }) },
 } as const satisfies Record<string, { readonly input: ZodType }>
 
 export type ContractChannel = keyof typeof IPC_CONTRACT
