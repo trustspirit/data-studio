@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
+import { Button, EmptyState, ErrorBanner, ListItem, Notice, Sidebar, Toolbar } from '../../shared/ui'
 import { useCollections } from './model/useCollections'
 import { useDocumentsData } from './model/useDocumentsData'
 
@@ -9,94 +10,47 @@ const DEFAULT_FILTER = '{}'
 const Layout = styled.div`
   display: flex;
   height: 100%;
+  min-height: 0;
   background: ${({ theme }) => theme.color.winBg};
   color: ${({ theme }) => theme.color.text};
-`
-const Left = styled.div`
-  width: 200px;
-  overflow: auto;
-  border-right: 1px solid ${({ theme }) => theme.color.border};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
-`
-const CollectionItem = styled.button<{ $active: boolean }>`
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 6px 10px;
-  border: none;
-  cursor: pointer;
-  color: ${({ theme, $active }) => ($active ? theme.color.text : theme.color.textDim)};
-  background: ${({ theme, $active }) => ($active ? theme.color.panel : 'transparent')};
 `
 const Right = styled.div`
   display: flex;
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  min-height: 0;
 `
-const Toolbar = styled.div`
-  display: flex;
+const FilterBar = styled(Toolbar)`
   align-items: flex-start;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.toolbar};
 `
 const FilterInput = styled.textarea`
   flex: 1;
   min-height: 32px;
   resize: vertical;
-  font: ${({ theme }) => theme.font.mono};
-  font-size: 12px;
+  font-family: ${({ theme }) => theme.font.mono};
+  font-size: ${({ theme }) => theme.fontSize.sm};
   padding: 6px 8px;
-  border-radius: 4px;
+  border-radius: ${({ theme }) => theme.radius.md};
   border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.panel};
+  background: ${({ theme }) => theme.color.gridBg};
   color: ${({ theme }) => theme.color.text};
-`
-const RunButton = styled.button`
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
-  padding: 6px 14px;
-  border-radius: 4px;
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.panel};
-  color: ${({ theme }) => theme.color.text};
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
 `
 const Results = styled.div`
   flex: 1;
   overflow: auto;
-  padding: 8px 12px;
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
 `
 const Doc = styled.pre`
-  margin: 0 0 10px 0;
-  padding: 8px 10px;
-  border-radius: 4px;
-  border: 1px solid ${({ theme }) => theme.color.border};
+  margin: 0 0 ${({ theme }) => theme.space.sm} 0;
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
+  border-radius: ${({ theme }) => theme.radius.md};
+  border: 1px solid ${({ theme }) => theme.color.borderSoft};
   background: ${({ theme }) => theme.color.panel};
-  font: ${({ theme }) => theme.font.mono};
-  font-size: 12px;
+  font-family: ${({ theme }) => theme.font.mono};
+  font-size: ${({ theme }) => theme.fontSize.sm};
   white-space: pre-wrap;
   word-break: break-word;
-`
-const Notice = styled.div`
-  padding: 16px;
-  color: ${({ theme }) => theme.color.textFaint};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
-`
-const Banner = styled.div`
-  padding: 8px 12px;
-  color: ${({ theme }) => theme.color.red};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
 `
 
 interface DocumentsViewProps {
@@ -129,38 +83,36 @@ export function DocumentsView({ gateway, connectionId }: DocumentsViewProps) {
 
   return (
     <Layout>
-      <Left>
+      <Sidebar>
         {collections.collections.map((name) => (
-          <CollectionItem
-            key={name}
-            type="button"
-            $active={selected === name}
-            onClick={() => setSelected(name)}
-          >
+          <ListItem key={name} active={selected === name} onSelect={() => setSelected(name)}>
             {name}
-          </CollectionItem>
+          </ListItem>
         ))}
+        {collections.loading && collections.collections.length === 0 && <Notice>불러오는 중…</Notice>}
         {collections.collections.length === 0 && !collections.loading && collections.error === null && (
           <Notice>컬렉션 없음</Notice>
         )}
-      </Left>
+      </Sidebar>
       <Right>
-        <Toolbar>
+        <FilterBar>
           <FilterInput
             aria-label="filter"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
-          <RunButton type="button" disabled={selected === null} onClick={handleRun}>
+          <Button variant="secondary" size="sm" disabled={selected === null} onClick={handleRun}>
             Run
-          </RunButton>
-        </Toolbar>
-        {collections.error !== null && <Banner>{collections.error}</Banner>}
-        {data.error !== null && <Banner>{data.error}</Banner>}
+          </Button>
+        </FilterBar>
+        {collections.error !== null && <ErrorBanner>{collections.error}</ErrorBanner>}
+        {data.error !== null && <ErrorBanner>{data.error}</ErrorBanner>}
         {selected === null ? (
-          <Notice>컬렉션을 선택하세요.</Notice>
-        ) : data.rows.length === 0 && !data.loading ? (
-          <Notice>결과 없음</Notice>
+          <EmptyState title="컬렉션을 선택하세요." hint="필터(EJSON)를 입력하고 Run으로 조회합니다" />
+        ) : data.loading && data.rows.length === 0 ? (
+          <Notice>불러오는 중…</Notice>
+        ) : data.rows.length === 0 ? (
+          <EmptyState title="결과 없음" />
         ) : (
           <Results>
             {data.rows.map((row, i) => {
@@ -170,9 +122,9 @@ export function DocumentsView({ gateway, connectionId }: DocumentsViewProps) {
               return <Doc key={i}>{text}</Doc>
             })}
             {data.hasMore && (
-              <RunButton type="button" onClick={() => void data.loadMore()}>
+              <Button variant="secondary" size="sm" onClick={() => void data.loadMore()}>
                 Load more
-              </RunButton>
+              </Button>
             )}
           </Results>
         )}

@@ -16,6 +16,7 @@ export function describeCapabilities(driver: Driver): Capability[] {
   if (driver.document !== undefined) capabilities.push('document')
   if (driver.keyValue !== undefined) capabilities.push('keyvalue')
   if (driver.stream !== undefined) capabilities.push('stream')
+  if (driver.dynamo !== undefined) capabilities.push('dynamo')
 
   return capabilities
 }

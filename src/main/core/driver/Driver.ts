@@ -5,6 +5,7 @@ import type { DataCapability } from './capabilities/DataCapability'
 import type { DocumentCapability } from './capabilities/DocumentCapability'
 import type { KeyValueCapability } from './capabilities/KeyValueCapability'
 import type { StreamCapability } from './capabilities/StreamCapability'
+import type { DynamoCapability } from './capabilities/DynamoCapability'
 
 export type { Capability } from '@shared/types/capability'
 
@@ -44,4 +45,5 @@ export interface Driver {
   readonly document?: DocumentCapability
   readonly keyValue?: KeyValueCapability
   readonly stream?: StreamCapability
+  readonly dynamo?: DynamoCapability
 }

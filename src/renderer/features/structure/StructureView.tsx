@@ -2,20 +2,23 @@ import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
 import { SchemaNavigator, useSchemaTree, type TableSelection } from '../../entities/schema-tree'
+import { ErrorBanner } from '../../shared/ui'
 import { useTableStructure } from './model/useTableStructure'
 import { StructurePanel } from './ui/StructurePanel'
 
 const Layout = styled.div`
   display: flex;
   height: 100%;
+  min-height: 0;
   background: ${({ theme }) => theme.color.winBg};
   color: ${({ theme }) => theme.color.text};
 `
-const Banner = styled.div`
-  padding: 8px 12px;
-  color: ${({ theme }) => theme.color.red};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
+const Main = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 `
 
 interface StructureViewProps {
@@ -48,8 +51,8 @@ export function StructureView({ gateway, connectionId, externalSelection }: Stru
         onToggle={tree.toggle}
         onSelect={setSelected}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-        {tree.error !== null && <Banner>{tree.error}</Banner>}
+      <Main>
+        {tree.error !== null && <ErrorBanner>{tree.error}</ErrorBanner>}
         <StructurePanel
           hasSelection={selected !== null}
           loading={structure.loading}
@@ -58,7 +61,7 @@ export function StructureView({ gateway, connectionId, externalSelection }: Stru
           indexes={structure.indexes}
           foreignKeys={structure.foreignKeys}
         />
-      </div>
+      </Main>
     </Layout>
   )
 }

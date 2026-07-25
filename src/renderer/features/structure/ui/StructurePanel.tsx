@@ -4,6 +4,7 @@ import type {
   ForeignKeyInfo,
   IndexInfo,
 } from '../../../../shared/types/schema'
+import { EmptyState, ErrorBanner, Notice } from '../../../shared/ui'
 import { ColumnsTable } from './ColumnsTable'
 import { IndexList } from './IndexList'
 import { ForeignKeyList } from './ForeignKeyList'
@@ -11,23 +12,15 @@ import { ForeignKeyList } from './ForeignKeyList'
 const Panel = styled.div`
   flex: 1;
   overflow: auto;
-  font: ${({ theme }) => theme.font.ui};
+  font-family: ${({ theme }) => theme.font.ui};
 `
 const SectionTitle = styled.h3`
   margin: 0;
-  padding: 10px 12px 4px;
-  font-size: 12px;
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md} ${theme.space.xs}`};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: ${({ theme }) => theme.color.textDim};
-`
-const Notice = styled.div`
-  padding: 16px;
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: 13px;
-`
-const Banner = styled.div`
-  padding: 12px 16px;
-  color: ${({ theme }) => theme.color.red};
-  font-size: 13px;
 `
 
 interface StructurePanelProps {
@@ -47,8 +40,9 @@ export function StructurePanel({
   indexes,
   foreignKeys,
 }: StructurePanelProps) {
-  if (!hasSelection) return <Notice>테이블을 선택하세요.</Notice>
-  if (error !== null) return <Banner>{error}</Banner>
+  if (!hasSelection)
+    return <EmptyState title="테이블을 선택하세요." hint="컬럼·인덱스·외래키 구조가 표시됩니다" />
+  if (error !== null) return <ErrorBanner>{error}</ErrorBanner>
   if (loading) return <Notice>불러오는 중…</Notice>
   return (
     <Panel>

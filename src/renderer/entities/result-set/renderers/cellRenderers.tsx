@@ -7,11 +7,11 @@ const Null = styled.span`
   font-style: italic;
 `
 const Mono = styled.span`
-  font: ${({ theme }) => theme.font.mono};
+  font-family: ${({ theme }) => theme.font.mono};
 `
 const Badge = styled.span`
   color: ${({ theme }) => theme.color.textDim};
-  font: ${({ theme }) => theme.font.mono};
+  font-family: ${({ theme }) => theme.font.mono};
   font-size: 11px;
 `
 const Note = styled.span`

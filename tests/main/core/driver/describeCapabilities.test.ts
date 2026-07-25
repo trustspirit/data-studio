@@ -232,4 +232,21 @@ describe('describeCapabilities', () => {
   it('stream 능력이 없으면 넣지 않는다', () => {
     expect(describeCapabilities(baseDriver())).not.toContain('stream')
   })
+
+  it('dynamo 능력이 있으면 목록에 dynamo를 넣는다', () => {
+    const driver = {
+      ...baseDriver(),
+      dynamo: {
+        listTables: async () => { throw new Error('unused') },
+        scan: async () => { throw new Error('unused') },
+        partiql: async () => { throw new Error('unused') },
+        isReadOnlyStatement: () => true,
+      },
+    }
+    expect(describeCapabilities(driver)).toContain('dynamo')
+  })
+
+  it('dynamo 능력이 없으면 넣지 않는다', () => {
+    expect(describeCapabilities(baseDriver())).not.toContain('dynamo')
+  })
 })

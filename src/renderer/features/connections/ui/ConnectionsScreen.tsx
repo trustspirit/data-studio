@@ -1,35 +1,27 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import type { ConnectionConfig, EngineId } from '@shared/types/connection'
+import { IMPLEMENTED_ENGINE_IDS, type ConnectionConfig, type EngineId } from '@shared/types/connection'
 import { useGateways } from '../../../app/GatewayProvider'
 import { useConnections } from '../model/useConnections'
 import { applyEngine, emptyDraft, validateDraft } from '../model/connectionForm'
+import { EmptyState, ErrorBanner } from '../../../shared/ui'
 import { ConnectionList } from './ConnectionList'
 import { ConnectionForm } from './ConnectionForm'
 
 const Layout = styled.div`
   display: grid;
-  grid-template-columns: 240px 1fr;
-  height: 100vh;
+  grid-template-columns: ${({ theme }) => theme.size.sidebar} 1fr;
+  height: 100%;
+  min-height: 0;
   background: ${({ theme }) => theme.color.winBg};
   color: ${({ theme }) => theme.color.text};
 `
 const Detail = styled.div`
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
-`
-const Empty = styled.div`
-  padding: 24px;
-  color: ${({ theme }) => theme.color.textDim};
-  font: ${({ theme }) => theme.font.ui};
-`
-const Banner = styled.div`
-  margin: 12px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  background: ${({ theme }) => theme.color.red};
-  color: ${({ theme }) => theme.color.onDanger};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
+  display: flex;
+  flex-direction: column;
 `
 
 export function ConnectionsScreen() {
@@ -97,9 +89,12 @@ export function ConnectionsScreen() {
         onNew={startNew}
       />
       <Detail>
-        {state.error !== null && <Banner>{state.error}</Banner>}
+        {state.error !== null && <ErrorBanner>{state.error}</ErrorBanner>}
         {mode === 'none' ? (
-          <Empty>왼쪽에서 연결을 고르거나 사이드바의 추가 버튼으로 새로 만드세요.</Empty>
+          <EmptyState
+            title="왼쪽에서 연결을 고르거나 사이드바의 추가 버튼으로 새로 만드세요."
+            hint={IMPLEMENTED_ENGINE_IDS.join(' · ')}
+          />
         ) : (
           <ConnectionForm
             key={draft.id}

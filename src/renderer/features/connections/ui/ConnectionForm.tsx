@@ -11,31 +11,54 @@ import { Button, Panel, Select, TextField } from '../../../shared/ui'
 const Body = styled(Panel)`
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  margin: 12px;
+  gap: ${({ theme }) => theme.space.md};
+  padding: ${({ theme }) => theme.space.lg};
+  margin: ${({ theme }) => theme.space.md};
+  max-width: 680px;
+  width: calc(100% - ${({ theme }) => theme.space.lg});
+`
+const FormTitle = styled.h2`
+  margin: 0;
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: 15px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.color.text};
+`
+const SectionLabel = styled.div`
+  margin-top: ${({ theme }) => theme.space.xs};
+  padding-top: ${({ theme }) => theme.space.md};
+  border-top: 1px solid ${({ theme }) => theme.color.borderSoft};
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: ${({ theme }) => theme.color.textFaint};
 `
 const Row = styled.div`
   display: flex;
-  gap: 12px;
+  gap: ${({ theme }) => theme.space.md};
+  align-items: flex-end;
   & > * {
     flex: 1;
   }
 `
 const Actions = styled.div`
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: ${({ theme }) => theme.space.sm};
+  margin-top: ${({ theme }) => theme.space.xs};
+  padding-top: ${({ theme }) => theme.space.md};
+  border-top: 1px solid ${({ theme }) => theme.color.borderSoft};
 `
 const Warn = styled.div`
   color: ${({ theme }) => theme.color.orange};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.sm};
 `
 const Hint = styled.div`
   color: ${({ theme }) => theme.color.textDim};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.sm};
 `
 
 interface Props {
@@ -96,6 +119,7 @@ export function ConnectionForm({
 
   return (
     <Body>
+      <FormTitle>{isNew ? '새 연결' : draft.name || '연결 편집'}</FormTitle>
       <TextField
         label="Name"
         value={draft.name}
@@ -118,6 +142,7 @@ export function ConnectionForm({
           />
         )}
       </Row>
+      <SectionLabel>Connection</SectionLabel>
       {!fileEngine && (
         <Row>
           <TextField
@@ -178,6 +203,7 @@ export function ConnectionForm({
           )}
         </>
       )}
+      <SectionLabel>AI Access</SectionLabel>
       <TextField
         label="AI read-only user"
         value={draft.aiReadOnlyUsername ?? ''}

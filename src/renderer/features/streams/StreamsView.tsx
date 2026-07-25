@@ -1,95 +1,45 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
+import { Button, EmptyState, ErrorBanner, ListItem, NativeSelect, Notice, Sidebar, Toolbar } from '../../shared/ui'
 import { useStreamTopics } from './model/useStreamTopics'
 import { useStreamSubscription } from './model/useStreamSubscription'
 
 const Layout = styled.div`
   display: flex;
   height: 100%;
+  min-height: 0;
   background: ${({ theme }) => theme.color.winBg};
   color: ${({ theme }) => theme.color.text};
-`
-const Left = styled.div`
-  width: 220px;
-  overflow: auto;
-  border-right: 1px solid ${({ theme }) => theme.color.border};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
-`
-const TopicItem = styled.button<{ $active: boolean }>`
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 6px 10px;
-  border: none;
-  cursor: pointer;
-  color: ${({ theme, $active }) => ($active ? theme.color.text : theme.color.textDim)};
-  background: ${({ theme, $active }) => ($active ? theme.color.panel : 'transparent')};
 `
 const Right = styled.div`
   display: flex;
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  min-height: 0;
 `
-const Toolbar = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.toolbar};
-`
-const Btn = styled.button`
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
-  padding: 5px 14px;
-  border-radius: 4px;
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.panel};
-  color: ${({ theme }) => theme.color.text};
-  cursor: pointer;
-  &:disabled { opacity: 0.4; cursor: default; }
-`
-const Select = styled.select`
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
+const FromSelect = styled(NativeSelect)`
+  font-size: ${({ theme }) => theme.fontSize.sm};
   padding: 4px 6px;
-  border-radius: 4px;
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.panel};
-  color: ${({ theme }) => theme.color.text};
 `
 const Dropped = styled.span`
   margin-left: auto;
   color: ${({ theme }) => theme.color.red};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.sm};
 `
 const Rows = styled.div`
   flex: 1;
   overflow: auto;
-  padding: 6px 12px;
+  padding: ${({ theme }) => `${theme.space.xs} ${theme.space.md}`};
 `
 const MsgRow = styled.pre`
-  margin: 0 0 4px 0;
-  font: ${({ theme }) => theme.font.mono};
-  font-size: 12px;
+  margin: 0 0 ${({ theme }) => theme.space.xs} 0;
+  font-family: ${({ theme }) => theme.font.mono};
+  font-size: ${({ theme }) => theme.fontSize.sm};
   white-space: pre-wrap;
   word-break: break-word;
-`
-const Notice = styled.div`
-  padding: 16px;
-  color: ${({ theme }) => theme.color.textFaint};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
-`
-const Banner = styled.div`
-  padding: 8px 12px;
-  color: ${({ theme }) => theme.color.red};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
 `
 
 interface StreamsViewProps {
@@ -120,34 +70,35 @@ export function StreamsView({ gateway, connectionId }: StreamsViewProps) {
 
   return (
     <Layout>
-      <Left>
+      <Sidebar>
+        {topics.loading && topics.topics.length === 0 && <Notice>불러오는 중…</Notice>}
         {topics.topics.map((name) => (
-          <TopicItem key={name} type="button" $active={selected === name} onClick={() => setSelected(name)}>
+          <ListItem key={name} active={selected === name} onSelect={() => setSelected(name)}>
             {name}
-          </TopicItem>
+          </ListItem>
         ))}
         {topics.topics.length === 0 && !topics.loading && topics.error === null && <Notice>토픽 없음</Notice>}
-      </Left>
+      </Sidebar>
       <Right>
         <Toolbar>
-          <Select aria-label="from" value={from} onChange={(e) => setFrom(e.target.value as 'latest' | 'earliest')} disabled={sub.running}>
+          <FromSelect aria-label="from" value={from} onChange={(e) => setFrom(e.target.value as 'latest' | 'earliest')} disabled={sub.running}>
             <option value="latest">latest</option>
             <option value="earliest">earliest</option>
-          </Select>
+          </FromSelect>
           {sub.running ? (
-            <Btn type="button" onClick={() => void sub.stop()}>Stop</Btn>
+            <Button variant="secondary" size="sm" onClick={() => void sub.stop()}>Stop</Button>
           ) : (
-            <Btn type="button" disabled={selected === null} onClick={() => selected !== null && sub.start(selected, from)}>Start</Btn>
+            <Button variant="secondary" size="sm" disabled={selected === null} onClick={() => selected !== null && sub.start(selected, from)}>Start</Button>
           )}
-          <Btn type="button" onClick={sub.clear}>Clear</Btn>
+          <Button variant="secondary" size="sm" onClick={sub.clear}>Clear</Button>
           {sub.dropped > 0 && <Dropped>{sub.dropped} dropped</Dropped>}
         </Toolbar>
-        {topics.error !== null && <Banner>{topics.error}</Banner>}
-        {sub.error !== null && <Banner>{sub.error}</Banner>}
+        {topics.error !== null && <ErrorBanner>{topics.error}</ErrorBanner>}
+        {sub.error !== null && <ErrorBanner>{sub.error}</ErrorBanner>}
         {selected === null ? (
-          <Notice>토픽을 선택하세요.</Notice>
+          <EmptyState title="토픽을 선택하세요." hint="왼쪽 목록에서 토픽을 고르고 Start로 tail을 시작합니다" />
         ) : sub.rows.length === 0 ? (
-          <Notice>{sub.running ? '메시지 대기 중…' : 'Start로 tail을 시작하세요.'}</Notice>
+          <EmptyState title={sub.running ? '메시지 대기 중…' : 'Start로 tail을 시작하세요.'} />
         ) : (
           <Rows>
             {sub.rows.map((row, i) => (

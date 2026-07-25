@@ -5,7 +5,7 @@ import type { Operation } from '@shared/types/operation'
 function input(over: Partial<PolicyInput> & { operation: Operation }): PolicyInput {
   return {
     actor: { type: 'user', grant: null },
-    hasSql: false, hasSchema: false, hasData: false, hasDocument: false, hasKeyValue: false, hasStream: false,
+    hasSql: false, hasSchema: false, hasData: false, hasDocument: false, hasKeyValue: false, hasStream: false, hasDynamo: false,
     supportsReadOnlyScope: false,
     driverClassify: () => 'unknown',
     requestedLimits: undefined,

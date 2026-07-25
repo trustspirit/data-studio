@@ -6,8 +6,9 @@ import {
 } from '@shared/types/connection'
 
 describe('ENGINE_IMPLEMENTED', () => {
-  it('구현된 드라이버 8개만 true', () => {
+  it('구현된 드라이버 9개 전부 true', () => {
     expect([...IMPLEMENTED_ENGINE_IDS].sort()).toEqual([
+      'dynamodb',
       'kafka',
       'mariadb',
       'mongodb',
@@ -18,8 +19,8 @@ describe('ENGINE_IMPLEMENTED', () => {
       'sqlite',
     ])
   })
-  it('미구현 엔진은 false', () => {
-    expect(ENGINE_IMPLEMENTED.dynamodb).toBe(false)
+  it('모든 엔진이 구현되었다', () => {
+    expect(Object.values(ENGINE_IMPLEMENTED).every(Boolean)).toBe(true)
   })
 })
 

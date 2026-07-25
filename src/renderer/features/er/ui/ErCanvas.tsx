@@ -1,6 +1,7 @@
 // src/renderer/features/er/ui/ErCanvas.tsx
 import { useCallback, useEffect, useRef, useState } from 'react'
 import styled, { useTheme } from 'styled-components'
+import { Button } from '../../../shared/ui'
 import type { PositionedGraph } from '../model/types'
 import { ER_HEADER_H, ER_ROW_H } from '../model/layoutGraph'
 
@@ -13,23 +14,13 @@ const Wrap = styled.div`
   overflow: hidden;
   background: ${({ theme }) => theme.color.winBg};
 `
-const Toolbar = styled.div`
+const Overlay = styled.div`
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: ${({ theme }) => theme.space.sm};
+  right: ${({ theme }) => theme.space.sm};
   display: flex;
-  gap: 4px;
+  gap: ${({ theme }) => theme.space.xs};
   z-index: 1;
-`
-const ToolButton = styled.button`
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
-  padding: 2px 8px;
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.toolbar};
-  color: ${({ theme }) => theme.color.text};
-  border-radius: 4px;
-  cursor: pointer;
 `
 
 interface Props {
@@ -79,17 +70,17 @@ export function ErCanvas({ graph, onOpenTable }: Props) {
 
   return (
     <Wrap ref={wrapRef}>
-      <Toolbar>
-        <ToolButton type="button" aria-label="zoom in" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.2))}>
+      <Overlay>
+        <Button variant="secondary" size="sm" aria-label="zoom in" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.2))}>
           +
-        </ToolButton>
-        <ToolButton type="button" aria-label="zoom out" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z * 0.8))}>
+        </Button>
+        <Button variant="secondary" size="sm" aria-label="zoom out" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z * 0.8))}>
           −
-        </ToolButton>
-        <ToolButton type="button" onClick={fit}>
+        </Button>
+        <Button variant="secondary" size="sm" onClick={fit}>
           Fit
-        </ToolButton>
-      </Toolbar>
+        </Button>
+      </Overlay>
       <svg
         data-er-svg
         width="100%"

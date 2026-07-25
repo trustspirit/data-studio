@@ -4,7 +4,7 @@ import type { ForeignKeyInfo } from '../../../../shared/types/schema'
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  font: ${({ theme }) => theme.font.ui};
+  font-family: ${({ theme }) => theme.font.ui};
   font-size: 12px;
   th, td {
     text-align: left;

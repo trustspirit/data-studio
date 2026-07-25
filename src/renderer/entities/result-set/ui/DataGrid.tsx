@@ -12,7 +12,7 @@ const Scroll = styled.div`
   overflow: auto;
   height: 100%;
   background: ${({ theme }) => theme.color.gridBg};
-  font: ${({ theme }) => theme.font.ui};
+  font-family: ${({ theme }) => theme.font.ui};
   font-size: 13px;
 `
 const HeaderRow = styled.div`

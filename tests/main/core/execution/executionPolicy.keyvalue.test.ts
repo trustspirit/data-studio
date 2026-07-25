@@ -11,6 +11,7 @@ function input(over: Partial<PolicyInput> & { operation: Operation }): PolicyInp
     hasDocument: false,
     hasKeyValue: false,
     hasStream: false,
+    hasDynamo: false,
     supportsReadOnlyScope: false,
     driverClassify: () => 'unknown',
     requestedLimits: undefined,

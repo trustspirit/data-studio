@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import type { BrowseSort } from '../../../shared/types/operation'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
 import { SchemaNavigator, useSchemaTree, type TableSelection } from '../../entities/schema-tree'
+import { Button, EmptyState, ErrorBanner, Notice, Toolbar } from '../../shared/ui'
 import { DataGrid } from '../../entities/result-set/ui/DataGrid'
 import { useTableData } from './model/useTableData'
 import { useTableColumns } from './model/useTableColumns'
@@ -11,6 +12,7 @@ import { useTableEditor } from './model/useTableEditor'
 const Layout = styled.div`
   display: flex;
   height: 100%;
+  min-height: 0;
   background: ${({ theme }) => theme.color.winBg};
   color: ${({ theme }) => theme.color.text};
 `
@@ -19,44 +21,10 @@ const Right = styled.div`
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  min-height: 0;
 `
-const Notice = styled.div`
-  padding: 16px;
-  color: ${({ theme }) => theme.color.textFaint};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
-`
-const Banner = styled.div`
-  padding: 8px 12px;
-  color: ${({ theme }) => theme.color.red};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
-`
-const Toolbar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 6px 12px;
-  border-bottom: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.toolbar};
-  color: ${({ theme }) => theme.color.textDim};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
-`
-const ToolbarButton = styled.button`
-  font: inherit;
-  padding: 4px 10px;
-  border-radius: 4px;
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.panel};
-  color: ${({ theme }) => theme.color.text};
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
+const Spacer = styled.span`
+  flex: 1;
 `
 
 interface DataViewProps {
@@ -107,23 +75,25 @@ export function DataView({ gateway, connectionId }: DataViewProps) {
         onSelect={select}
       />
       <Right>
-        {tree.error !== null && <Banner>{tree.error}</Banner>}
-        {data.error !== null && <Banner>{data.error}</Banner>}
-        {selected !== null && editor.error !== null && <Banner>{editor.error}</Banner>}
+        {tree.error !== null && <ErrorBanner>{tree.error}</ErrorBanner>}
+        {data.error !== null && <ErrorBanner>{data.error}</ErrorBanner>}
+        {selected !== null && editor.error !== null && <ErrorBanner>{editor.error}</ErrorBanner>}
         {selected === null ? (
-          <Notice>테이블을 선택하세요.</Notice>
+          <EmptyState title="테이블을 선택하세요." hint="왼쪽 트리에서 스키마를 펼쳐 테이블을 고르세요" />
         ) : (
           <>
             {canEdit ? (
               <Toolbar>
+                <Spacer />
                 <span>{editor.changeCount} changes</span>
-                <ToolbarButton onClick={editor.addRow}>Add row</ToolbarButton>
-                <ToolbarButton disabled={!editor.dirty} onClick={editor.discard}>Discard</ToolbarButton>
-                <ToolbarButton disabled={!editor.dirty} onClick={handleSave}>Save</ToolbarButton>
+                <Button variant="secondary" size="sm" onClick={editor.addRow}>Add row</Button>
+                <Button variant="secondary" size="sm" disabled={!editor.dirty} onClick={editor.discard}>Discard</Button>
+                <Button variant="secondary" size="sm" disabled={!editor.dirty} onClick={handleSave}>Save</Button>
               </Toolbar>
             ) : (
               <Notice>PK 없음 — 편집 불가</Notice>
             )}
+            {data.loading && data.rows.length === 0 && <Notice>불러오는 중…</Notice>}
             <DataGrid
               columns={data.columns}
               rows={data.rows}

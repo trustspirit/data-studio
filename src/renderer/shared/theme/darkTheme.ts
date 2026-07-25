@@ -29,6 +29,8 @@ export const darkTheme = {
     blue: '#5e9eff',
     onAccent: '#ffffff',
     onDanger: '#ffffff',
+    dangerBg: 'rgba(255, 69, 58, 0.12)',
+    dangerBorder: 'rgba(255, 69, 58, 0.35)',
   },
   syntax: {
     keyword: '#ff7ab2',
@@ -41,8 +43,15 @@ export const darkTheme = {
   },
   font: {
     ui: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
-    mono: "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace",
+    mono: "ui-monospace, 'SF Mono', Menlo, monospace",
   },
+  // 타이포 스케일 — 컴포넌트별 임의 font-size 대신 이 세 단계만 쓴다.
+  fontSize: { xs: '11px', sm: '12px', md: '13px' },
+  // 스페이싱 스케일 — 4px 그리드.
+  space: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '24px' },
+  radius: { sm: '4px', md: '6px', lg: '8px' },
+  // 레이아웃 고정 치수 — 모든 사이드바/레일이 같은 폭을 공유한다.
+  size: { rail: '56px', sidebar: '240px' },
   density: { rowPad: '4px 12px' },
 } as const
 
