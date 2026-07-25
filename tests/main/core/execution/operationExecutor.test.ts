@@ -732,6 +732,7 @@ describe('OperationExecutor — 쓰기 승인', () => {
     return h.proposals.propose({
       connectionId,
       statement: 'DELETE FROM users',
+      kind: 'write',
       impact: { summary: '', estimatedRows: null },
     })
   }

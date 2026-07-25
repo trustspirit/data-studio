@@ -1,3 +1,5 @@
+export type ProposalKind = 'write' | 'analyze'
+
 export interface ImpactAnalysis {
   readonly summary: string
   readonly estimatedRows: number | null
@@ -9,6 +11,7 @@ interface StoredProposal {
   readonly statementHash: string
   /** main에만 보관한다. 실행은 언제나 이 값으로 한다. */
   readonly statement: string
+  readonly kind: ProposalKind
   readonly impact: ImpactAnalysis
   readonly createdAt: number
   readonly expiresAt: number
@@ -21,12 +24,13 @@ export interface ProposalView {
   readonly connectionId: string
   readonly statement: string
   readonly statementHash: string
+  readonly kind: ProposalKind
   readonly impact: ImpactAnalysis
   readonly expiresAt: number
 }
 
 export type ConsumeResult =
-  | { readonly ok: true; readonly statement: string; readonly statementHash: string }
+  | { readonly ok: true; readonly statement: string; readonly statementHash: string; readonly kind: ProposalKind }
   | {
       readonly ok: false
       readonly reason: 'not_found' | 'expired' | 'consumed' | 'connection_mismatch'
@@ -35,6 +39,7 @@ export type ConsumeResult =
 export interface ProposalInput {
   readonly connectionId: string
   readonly statement: string
+  readonly kind: ProposalKind
   readonly impact: ImpactAnalysis
 }
 
@@ -80,6 +85,7 @@ export class WriteProposalStore {
       connectionId: input.connectionId,
       statementHash: this.deps.hash(input.statement),
       statement: input.statement,
+      kind: input.kind,
       impact: { ...input.impact },
       createdAt,
       expiresAt: createdAt + PROPOSAL_TTL_MS,
@@ -101,6 +107,7 @@ export class WriteProposalStore {
       connectionId: proposal.connectionId,
       statement: proposal.statement,
       statementHash: proposal.statementHash,
+      kind: proposal.kind,
       impact: { ...proposal.impact },
       expiresAt: proposal.expiresAt,
     }
@@ -120,7 +127,7 @@ export class WriteProposalStore {
 
     proposal.consumed = true
 
-    return { ok: true, statement: proposal.statement, statementHash: proposal.statementHash }
+    return { ok: true, statement: proposal.statement, statementHash: proposal.statementHash, kind: proposal.kind }
   }
 
   /**
@@ -141,6 +148,7 @@ export class WriteProposalStore {
       connectionId: proposal.connectionId,
       statement: proposal.statement,
       statementHash: proposal.statementHash,
+      kind: proposal.kind,
       impact: { ...proposal.impact },
       expiresAt: proposal.expiresAt,
     }
