@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
 import { StructureView } from '@renderer/features/structure'
@@ -221,6 +221,131 @@ describe('파괴적 작업 — 대상 이름을 입력해야 열린다', () => {
     expect(screen.queryByTestId('ddl-confirm-block')).toBeNull()
     expect(runButton().disabled).toBe(false)
   })
+})
+
+describe('이름에 공백이 있는 대상', () => {
+  // pg는 `"  x  "`를 유효한 식별자로 받는다. 확인 절차가 입력만 trim하고
+  // 대상은 그대로 두면 그런 이름은 **영구히 확인할 수 없다** — 실행이 잠긴다.
+  const PADDED = ' odd name '
+
+  function paddedGateway() {
+    const run = vi.fn((req: { operation: RanOperation }) => {
+      const op = req.operation
+      if (op.kind === 'sql') return Promise.resolve(outcomeFor(op))
+      if (op.op === 'listTables')
+        return Promise.resolve({
+          ok: true,
+          payload: {
+            kind: 'tables',
+            tables: [{ schema: 'public', name: PADDED, kind: 'table', estimatedRows: null }],
+          },
+        } as OperationOutcome)
+      return Promise.resolve(outcomeFor(op))
+    })
+    const gateway: OperationGateway = {
+      run,
+      cancel: vi.fn().mockResolvedValue(undefined),
+      recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
+    }
+    return { gateway, run }
+  }
+
+  async function mountedPadded() {
+    const { gateway, run } = paddedGateway()
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <StructureView gateway={gateway} connectionId="c1" engine="postgres" />
+      </ThemeProvider>,
+    )
+    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+    fireEvent.click(screen.getByText(/public/))
+    await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
+    fireEvent.click(screen.getByText(PADDED.trim()))
+    await waitFor(() => expect(screen.getByTestId('ddl-open-drop-table')).toBeTruthy())
+    return { run }
+  }
+
+  it('공백이 들어간 테이블도 확인하고 삭제할 수 있다', async () => {
+    const { run } = await mountedPadded()
+    fireEvent.click(screen.getByTestId('ddl-open-drop-table'))
+    fireEvent.change(screen.getByTestId('ddl-confirm'), { target: { value: 'odd name' } })
+    expect(runButton().disabled).toBe(false)
+    fireEvent.click(runButton())
+    await waitFor(() => expect(sqlCalls(run)).toHaveLength(1))
+    // 실행되는 문장은 실제 이름을 그대로 쓴다 — 확인 절차가 이름을 바꾸지 않는다.
+    expect(sqlCalls(run)[0]).toBe(`DROP TABLE "public"."${PADDED}"`)
+  })
+
+  it('여전히 다른 이름은 통과하지 못한다', async () => {
+    await mountedPadded()
+    fireEvent.click(screen.getByTestId('ddl-open-drop-table'))
+    fireEvent.change(screen.getByTestId('ddl-confirm'), { target: { value: 'odd' } })
+    expect(runButton().disabled).toBe(true)
+  })
+
+  it('공백이 들어간 컬럼·인덱스도 같은 규칙을 따른다', async () => {
+    // 컬럼/인덱스는 대상을 select로 고르므로 카탈로그 이름이 그대로 들어온다.
+    // 세 파괴적 모드가 같은 판정을 쓰는지 확인한다.
+    const { run } = await mountedPaddedColumn()
+    // testid에 공백을 담는 것은 취약하다 — 행을 찾아 그 안의 버튼을 누른다.
+    const row = screen.getByText('pad').closest('tr')
+    expect(row).not.toBeNull()
+    fireEvent.click(within(row as HTMLElement).getByText('Drop'))
+    fireEvent.change(screen.getByTestId('ddl-confirm'), { target: { value: 'wrong' } })
+    expect(runButton().disabled).toBe(true)
+    fireEvent.change(screen.getByTestId('ddl-confirm'), { target: { value: 'pad' } })
+    expect(runButton().disabled).toBe(false)
+    fireEvent.click(runButton())
+    await waitFor(() => expect(sqlCalls(run)).toHaveLength(1))
+    // 실행 문장은 카탈로그의 실제 이름을 쓴다.
+    expect(sqlCalls(run)[0]).toBe('ALTER TABLE "public"."users" DROP COLUMN " pad "')
+  })
+
+  async function mountedPaddedColumn() {
+    const run = vi.fn((req: { operation: RanOperation }) => {
+      const op = req.operation
+      if (op.kind === 'schema' && op.op === 'describeTable')
+        return Promise.resolve({
+          ok: true,
+          payload: {
+            kind: 'tableDetail',
+            detail: {
+              schema: 'public',
+              name: 'users',
+              columns: [
+                ...COLUMNS,
+                {
+                  name: ' pad ',
+                  type: 'text',
+                  nullable: true,
+                  defaultValue: null,
+                  primaryKeyOrdinal: null,
+                },
+              ],
+            },
+          },
+        } as OperationOutcome)
+      return Promise.resolve(outcomeFor(op))
+    })
+    const gateway: OperationGateway = {
+      run,
+      cancel: vi.fn().mockResolvedValue(undefined),
+      recentAudit: vi.fn().mockResolvedValue([]),
+      onStreamMessage: vi.fn(() => () => {}),
+    }
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <StructureView gateway={gateway} connectionId="c1" engine="postgres" />
+      </ThemeProvider>,
+    )
+    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+    fireEvent.click(screen.getByText(/public/))
+    await waitFor(() => expect(screen.getByText('users')).toBeTruthy())
+    fireEvent.click(screen.getByText('users'))
+    await waitFor(() => expect(screen.getByText('pad')).toBeTruthy())
+    return { run }
+  }
 })
 
 describe('sqlite의 DROP COLUMN 제약을 미리 막는다', () => {

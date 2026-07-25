@@ -344,18 +344,30 @@ export function TableDesigner({
 
   /**
    * 파괴적 모드에서 사용자가 입력해야 하는 대상 이름. 확인 절차의 기준이다.
+   * 실제 이름을 그대로 담는다 — 실행되는 문장도 이 이름을 쓴다.
    */
   const confirmTarget =
     mode === 'dropColumn'
-      ? targetColumn.trim()
+      ? targetColumn
       : mode === 'dropIndex'
-        ? targetIndex.trim()
+        ? targetIndex
         : mode === 'dropTable'
           ? (selection?.table ?? '')
           : ''
   const needsConfirm = DESTRUCTIVE.has(mode)
-  // 공백만 다른 입력을 통과시키지 않는다 — 지우는 문장이다.
-  const confirmed = !needsConfirm || (confirmTarget !== '' && confirmText.trim() === confirmTarget)
+  /**
+   * 대상과 입력을 **같은 방식으로** 다룬다.
+   *
+   * 한쪽만 trim하면 이름에 공백이 있는 대상은 확인이 영구히 불가능해진다 —
+   * pg는 `"  x  "`를 유효한 식별자로 받는다. 양쪽을 trim하면 그런 이름도
+   * 안쪽 이름을 쳐서 확인할 수 있고, 다른 이름은 여전히 막힌다.
+   *
+   * 이 절차는 대상의 신원을 증명받는 것이 아니다(행을 눌러 이미 골랐다).
+   * 실수로 누르는 것을 막는 속도 방지턱이므로 이 정도 관용이 맞다.
+   */
+  const confirmed =
+    !needsConfirm ||
+    (confirmTarget.trim() !== '' && confirmText.trim() === confirmTarget.trim())
 
   const run = () => {
     setBusy(true)

@@ -210,6 +210,11 @@ export function buildCreateIndex(dialect: SqlEngineId, spec: IndexSpec): string 
  * RENAME은 스키마를 옮기는 문장이 아니다(그건 `SET SCHEMA`). 사용자가 새 이름에
  * 점을 섞어 넣더라도 식별자 하나로 인용한다 — 인용 밖으로 새어 두 부분 이름이
  * 되는 쪽이 훨씬 나쁘다.
+ *
+ * **새 이름의 앞뒤 공백은 버린다.** 엔진은 `"  x  "`를 유효한 식별자로 받지만,
+ * 빈 칸에 이름을 타이핑하는 사용자가 그걸 의도하는 경우는 없다. 트림하지 않으면
+ * 실수로 남은 공백이 조용히 다른 이름의 테이블을 만든다. 검증도 같은 기준으로
+ * 비어 있음을 판정하므로 둘이 어긋나지 않는다.
  */
 export function buildRenameTable(dialect: SqlEngineId, spec: RenameTableSpec): string {
   const from = qualified(dialect, spec.schema, spec.table)

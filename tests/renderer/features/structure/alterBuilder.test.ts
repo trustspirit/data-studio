@@ -36,6 +36,23 @@ describe('buildRenameTable', () => {
     expect(sql).not.toContain('"app"."t2"')
   })
 
+  it('새 이름의 앞뒤 공백은 버린다 — 실수로 남은 공백이 다른 이름을 만들면 안 된다', () => {
+    // 엔진은 `"  t2  "`를 받지만, 빈 칸에 타이핑하는 사용자가 의도하는 이름은 아니다.
+    expect(buildRenameTable('postgres', { table: 't', newName: '  t2  ' })).toBe(
+      'ALTER TABLE "t" RENAME TO "t2"',
+    )
+    expect(buildRenameColumn('postgres', { table: 't', column: 'a', newName: ' b ' })).toBe(
+      'ALTER TABLE "t" RENAME COLUMN "a" TO "b"',
+    )
+  })
+
+  it('기존 이름의 공백은 건드리지 않는다 — 그건 실제 식별자다', () => {
+    // 대상 이름은 카탈로그에서 읽어 온 값이므로 그대로 써야 한다.
+    expect(buildRenameColumn('postgres', { table: ' t ', column: ' a ', newName: 'b' })).toBe(
+      'ALTER TABLE " t " RENAME COLUMN " a " TO "b"',
+    )
+  })
+
   it('새 이름에 스키마 구분자가 섞여 들어와도 식별자 하나로 인용한다', () => {
     // 사용자가 "app.t2"를 치면 새 스키마로 옮기는 것이 아니라 그 이름의 테이블이 된다.
     // 인용 밖으로 새어 두 부분 이름이 되는 쪽이 훨씬 나쁘다.
