@@ -29,7 +29,7 @@ const NODE_ONLY_GLOBAL_PATTERN =
 // 바깥 계층 디렉토리 이름. core는 이 디렉토리들을 어떤 형태로도 import할 수 없다:
 //   - 상대 경로, 어떤 깊이든: '../infrastructure', '../../../infrastructure/x' 등
 //   - 별칭 경로: '@main/infrastructure', '@main/infrastructure/x'
-const FORBIDDEN_LAYER_SEGMENTS = ['infrastructure', 'drivers', 'ipc', 'security']
+const FORBIDDEN_LAYER_SEGMENTS = ['infrastructure', 'drivers', 'ipc', 'security', 'ai']
 
 // import/export의 정적 specifier(`from '...'`, `from "..."`)와
 // 동적 import(`import('...')`), CommonJS `require('...')`를 모두 잡는다.

@@ -4,20 +4,22 @@ import { describe, expect, it, vi } from 'vitest'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
 import { useSchemaTree } from '@renderer/entities/schema-tree'
 
-function gateway(handler: (op: { op: string; schema?: string }) => OperationOutcome): OperationGateway {
-  return {
-    run: vi.fn((req: { operation: { op: string; schema?: string } }) =>
-      Promise.resolve(handler(req.operation)),
-    ) as OperationGateway['run'],
+function gateway(handler: (op: { op: string; schema?: string }) => OperationOutcome) {
+  const run = vi.fn((req: { operation: { op: string; schema?: string } }) =>
+    Promise.resolve(handler(req.operation)),
+  )
+  const gw: OperationGateway = {
+    run: run as OperationGateway['run'],
     cancel: vi.fn().mockResolvedValue(undefined),
     recentAudit: vi.fn().mockResolvedValue([]),
     onStreamMessage: vi.fn(() => () => {}),
   }
+  return { gw, run }
 }
 
 describe('useSchemaTree', () => {
   it('마운트 시 스키마를 로드한다', async () => {
-    const gw = gateway((op) =>
+    const { gw } = gateway((op) =>
       op.op === 'listSchemas'
         ? { ok: true, payload: { kind: 'schemas', schemas: [{ name: 'public' }, { name: 'sales' }] } }
         : { ok: true, payload: { kind: 'tables', tables: [] } },
@@ -28,7 +30,7 @@ describe('useSchemaTree', () => {
   })
 
   it('스키마를 펼치면 그 테이블을 로드해 캐시한다', async () => {
-    const gw = gateway((op) => {
+    const { gw, run } = gateway((op) => {
       if (op.op === 'listSchemas')
         return { ok: true, payload: { kind: 'schemas', schemas: [{ name: 'public' }] } }
       return {
@@ -42,28 +44,26 @@ describe('useSchemaTree', () => {
     const { result } = renderHook(() => useSchemaTree(gw, 'c1'))
     await waitFor(() => expect(result.current.schemas).toHaveLength(1))
 
-    await act(async () => result.current.toggle('public'))
+    act(() => { result.current.toggle('public') })
     await waitFor(() => expect(result.current.tablesBySchema['public']).toHaveLength(1))
     expect(result.current.expanded['public']).toBe(true)
     expect(result.current.tablesBySchema['public']?.[0]?.name).toBe('users')
 
     // 두 번째 토글은 접기만 하고 다시 fetch하지 않는다(캐시).
-    // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock
-    const callsBefore = vi.mocked(gw.run).mock.calls.length
-    await act(async () => result.current.toggle('public'))
+    const callsBefore = run.mock.calls.length
+    act(() => { result.current.toggle('public') })
     expect(result.current.expanded['public']).toBe(false)
-    // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock
-    expect(vi.mocked(gw.run).mock.calls.length).toBe(callsBefore)
+    expect(run.mock.calls.length).toBe(callsBefore)
   })
 
   it('listSchemas가 실패하면 오류를 노출한다', async () => {
-    const gw = gateway(() => ({ ok: false, reason: 'not open' }))
+    const { gw } = gateway(() => ({ ok: false, reason: 'not open' }))
     const { result } = renderHook(() => useSchemaTree(gw, 'c1'))
     await waitFor(() => expect(result.current.error).toBe('not open'))
   })
 
   it('연결이 바뀌면 이전 연결의 테이블 캐시를 버린다', async () => {
-    const gw = gateway((op) => {
+    const { gw } = gateway((op) => {
       if (op.op === 'listSchemas')
         return { ok: true, payload: { kind: 'schemas', schemas: [{ name: 'public' }] } }
       return {
@@ -78,7 +78,7 @@ describe('useSchemaTree', () => {
       initialProps: { id: 'c1' },
     })
     await waitFor(() => expect(result.current.schemas).toHaveLength(1))
-    await act(async () => result.current.toggle('public'))
+    act(() => { result.current.toggle('public') })
     await waitFor(() => expect(result.current.tablesBySchema['public']).toHaveLength(1))
 
     // 연결 전환: 캐시 리셋으로 옛 테이블이 사라져야 한다.
@@ -89,7 +89,7 @@ describe('useSchemaTree', () => {
 
   it('listTables가 실패하면 재확장 시 다시 시도한다', async () => {
     let failNext = true
-    const gw = gateway((op) => {
+    const { gw } = gateway((op) => {
       if (op.op === 'listSchemas')
         return { ok: true, payload: { kind: 'schemas', schemas: [{ name: 'public' }] } }
       if (failNext) {
@@ -106,10 +106,10 @@ describe('useSchemaTree', () => {
     })
     const { result } = renderHook(() => useSchemaTree(gw, 'c1'))
     await waitFor(() => expect(result.current.schemas).toHaveLength(1))
-    await act(async () => result.current.toggle('public'))
+    act(() => { result.current.toggle('public') })
     await waitFor(() => expect(result.current.error).toBe('load failed'))
     // 실패 후 requested가 비워졌으므로 다음 toggle이 재시도해 테이블을 채운다.
-    await act(async () => result.current.toggle('public'))
+    act(() => { result.current.toggle('public') })
     await waitFor(() => expect(result.current.tablesBySchema['public']).toHaveLength(1))
   })
 })

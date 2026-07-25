@@ -55,7 +55,7 @@ describe('RabbitStreamCapability.listTopics (management API 파싱, 단위)', ()
 
   it('빈 문자열(default exchange)과 amq.*는 걸러내고 정렬해서 반환한다', async () => {
     const cap = new RabbitStreamCapability(
-      fakeDeps(async () => [{ name: '' }, { name: 'amq.direct' }, { name: 'orders' }, { name: 'events' }]),
+      fakeDeps(() => Promise.resolve([{ name: '' }, { name: 'amq.direct' }, { name: 'orders' }, { name: 'events' }])),
     )
     const rs = await cap.listTopics(fakeCtx(), page)
     expect(rowsOf(rs)).toEqual(['events', 'orders'])
@@ -63,20 +63,20 @@ describe('RabbitStreamCapability.listTopics (management API 파싱, 단위)', ()
 
   it('name이 없거나 문자열이 아닌 항목은 크래시 없이 건너뛴다', async () => {
     const cap = new RabbitStreamCapability(
-      fakeDeps(async () => [{ name: 'a' }, {}, { name: 123 }, { foo: 'b' }]),
+      fakeDeps(() => Promise.resolve([{ name: 'a' }, {}, { name: 123 }, { foo: 'b' }])),
     )
     const rs = await cap.listTopics(fakeCtx(), page)
     expect(rowsOf(rs)).toEqual(['a'])
   })
 
   it('payload가 배열이 아니면 (에러 응답 등) throw한다', async () => {
-    const cap = new RabbitStreamCapability(fakeDeps(async () => ({ error: 'boom' })))
+    const cap = new RabbitStreamCapability(fakeDeps(() => Promise.resolve({ error: 'boom' })))
     await expect(cap.listTopics(fakeCtx(), page)).rejects.toThrow()
   })
 
   it('offset 커서로 페이지를 이어받고, 잘못된 커서는 reject한다', async () => {
     const names = ['a', 'b', 'c', 'd', 'e']
-    const cap = new RabbitStreamCapability(fakeDeps(async () => names.map((name) => ({ name }))))
+    const cap = new RabbitStreamCapability(fakeDeps(() => Promise.resolve(names.map((name) => ({ name })))))
     const page1: PageRequest = { cursor: null, maxRows: 2, maxBytes: 8 * 1024 * 1024 }
     const rs1 = await cap.listTopics(fakeCtx(), page1)
     expect(rowsOf(rs1)).toEqual(['a', 'b'])

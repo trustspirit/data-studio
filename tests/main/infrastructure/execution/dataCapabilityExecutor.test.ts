@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { DataCapabilityExecutor } from '@main/infrastructure/execution/DataCapabilityExecutor'
 import type { CapabilityExecuteInput } from '@main/core/execution/CapabilityExecutor'
 import type { Driver } from '@main/core/driver/Driver'

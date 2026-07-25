@@ -2,7 +2,6 @@ import type { ExecutionContext } from '../ExecutionContext'
 import type {
   SchemaInfo,
   TableInfo,
-  ColumnInfo,
   TableDetail,
   IndexInfo,
   ForeignKeyInfo,

@@ -119,6 +119,7 @@ describe('buildAppServices', () => {
     const view = services.proposals.propose({
       connectionId: 'c1',
       statement: 'DELETE FROM users',
+      kind: 'write',
       impact: { summary: '', estimatedRows: null },
     })
 

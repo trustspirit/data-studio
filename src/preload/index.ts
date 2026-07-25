@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { ALL_CHANNELS, type ChannelName } from '../shared/contracts/channels'
-import { isPushChannel, type PushChannelName } from '../shared/contracts/pushChannels'
+import { isPushChannel } from '../shared/contracts/pushChannels'
 
 const allowed = new Set<string>(ALL_CHANNELS)
 
@@ -19,7 +19,8 @@ function invoke(channel: ChannelName, input: unknown): Promise<unknown> {
  * main→renderer push 구독. `PUSH_CHANNELS`에 있는 채널만 허용한다 — invoke
  * 화이트리스트와 분리된 목록이다. 반환값은 리스너 해제 함수다.
  */
-function on(channel: PushChannelName, listener: (payload: unknown) => void): () => void {
+function on(channel: string, listener: (payload: unknown) => void): () => void {
+  // 렌더러가 주는 값은 신뢰하지 않는다 — string으로 받고 가드로 좁힌다.
   if (!isPushChannel(channel)) {
     throw new Error(`push channel not allowed: ${channel}`)
   }

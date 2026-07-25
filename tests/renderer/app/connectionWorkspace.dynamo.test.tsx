@@ -7,22 +7,23 @@ import type { OperationGateway, OperationOutcome } from '@renderer/gateways/port
 
 const gateway: OperationGateway = {
   run: vi.fn(
-    async (): Promise<OperationOutcome> => ({
-      ok: true,
-      payload: {
-        kind: 'rows',
-        rows: {
-          requestId: 'r',
-          columns: [],
-          rows: [],
-          page: { cursor: null, hasMore: false, rowCount: 0, bytes: 0 },
-          meta: { durationMs: 0, truncatedRows: false, truncatedBytes: false, rowsAffected: null },
+    (): Promise<OperationOutcome> =>
+      Promise.resolve({
+        ok: true,
+        payload: {
+          kind: 'rows',
+          rows: {
+            requestId: 'r',
+            columns: [],
+            rows: [],
+            page: { cursor: null, hasMore: false, rowCount: 0, bytes: 0 },
+            meta: { durationMs: 0, truncatedRows: false, truncatedBytes: false, rowsAffected: null },
+          },
         },
-      },
-    }),
+      }),
   ),
-  cancel: vi.fn(async () => {}),
-  recentAudit: vi.fn(async () => []),
+  cancel: vi.fn(() => Promise.resolve()),
+  recentAudit: vi.fn(() => Promise.resolve([])),
   onStreamMessage: vi.fn(() => () => {}),
 }
 

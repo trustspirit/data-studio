@@ -66,7 +66,7 @@ describe('ErView', () => {
   it('스키마 미선택 시 안내 문구를 보여준다', async () => {
     wrap()
     await waitFor(() =>
-      expect((screen.getByLabelText('schema') as HTMLSelectElement).options.length).toBeGreaterThan(1),
+      expect(screen.getByLabelText<HTMLSelectElement>('schema').options.length).toBeGreaterThan(1),
     )
     expect(screen.getByText(/스키마를 선택/)).toBeTruthy()
   })

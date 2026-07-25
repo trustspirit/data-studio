@@ -17,7 +17,7 @@ function createStore(startAt = 1_000) {
 const IMPACT = { summary: '', estimatedRows: null }
 
 function proposeDelete(store: WriteProposalStore, connectionId = 'conn-1') {
-  return store.propose({ connectionId, statement: 'DELETE FROM users', impact: IMPACT })
+  return store.propose({ connectionId, statement: 'DELETE FROM users', kind: 'write', impact: IMPACT })
 }
 
 describe('WriteProposalStore', () => {
@@ -48,6 +48,7 @@ describe('WriteProposalStore', () => {
     const view = store.propose({
       connectionId: 'conn-1',
       statement: 'DELETE FROM users',
+      kind: 'write',
       impact: { summary: '1 table', estimatedRows: 10 },
     })
 
@@ -156,9 +157,9 @@ describe('WriteProposalStore', () => {
 
   it('sweep은 만료된 것만 지운다', () => {
     const { store, advance } = createStore()
-    const stale = store.propose({ connectionId: 'conn-1', statement: 'A', impact: IMPACT })
+    const stale = store.propose({ connectionId: 'conn-1', statement: 'A', kind: 'write', impact: IMPACT })
     advance(PROPOSAL_TTL_MS)
-    const fresh = store.propose({ connectionId: 'conn-1', statement: 'B', impact: IMPACT })
+    const fresh = store.propose({ connectionId: 'conn-1', statement: 'B', kind: 'write', impact: IMPACT })
 
     store.sweep()
 
@@ -170,8 +171,8 @@ describe('WriteProposalStore', () => {
     // 제안서를 둘 이상 담아야 조회가 실제로 일어나는지 알 수 있다. 하나만 두면
     // 인자를 무시하고 아무거나 돌려주는 구현도 통과한다.
     const { store } = createStore()
-    const a = store.propose({ connectionId: 'conn-1', statement: 'DELETE FROM a', impact: IMPACT })
-    const b = store.propose({ connectionId: 'conn-1', statement: 'DELETE FROM b', impact: IMPACT })
+    const a = store.propose({ connectionId: 'conn-1', statement: 'DELETE FROM a', kind: 'write', impact: IMPACT })
+    const b = store.propose({ connectionId: 'conn-1', statement: 'DELETE FROM b', kind: 'write', impact: IMPACT })
 
     expect(store.pending(a.proposalId)?.statement).toBe('DELETE FROM a')
     expect(store.pending(b.proposalId)?.statement).toBe('DELETE FROM b')
@@ -201,10 +202,10 @@ describe('WriteProposalStore', () => {
       randomId: () => 'same-id',
       hash: (t) => t,
     })
-    store.propose({ connectionId: 'conn-1', statement: 'A', impact: IMPACT })
+    store.propose({ connectionId: 'conn-1', statement: 'A', kind: 'write', impact: IMPACT })
 
     expect(() =>
-      store.propose({ connectionId: 'conn-1', statement: 'B', impact: IMPACT }),
+      store.propose({ connectionId: 'conn-1', statement: 'B', kind: 'write', impact: IMPACT }),
     ).toThrow(/collision/)
     // 원래 제안서가 살아 있어야 한다.
     expect(store.pending('same-id')?.statement).toBe('A')
@@ -268,6 +269,7 @@ describe('WriteProposalStore', () => {
     const view = store.propose({
       connectionId: 'conn-1',
       statement: 'DELETE FROM users',
+      kind: 'write',
       impact: { summary: '10 rows', estimatedRows: 10 },
     })
 
@@ -288,6 +290,7 @@ describe('WriteProposalStore', () => {
     const view = store.propose({
       connectionId: 'conn-1',
       statement: 'DELETE FROM users',
+      kind: 'write',
       impact: { summary: '10 rows', estimatedRows: 10 },
     })
 
@@ -305,7 +308,7 @@ describe('WriteProposalStore', () => {
   it('호출자가 넘긴 impact를 나중에 바꿔도 보관본이 바뀌지 않는다', () => {
     const { store } = createStore()
     const impact = { summary: '10 rows', estimatedRows: 10 }
-    const view = store.propose({ connectionId: 'conn-1', statement: 'DELETE FROM users', impact })
+    const view = store.propose({ connectionId: 'conn-1', statement: 'DELETE FROM users', kind: 'write', impact })
 
     impact.summary = '0 rows'
     impact.estimatedRows = 0
@@ -314,5 +317,24 @@ describe('WriteProposalStore', () => {
       summary: '10 rows',
       estimatedRows: 10,
     })
+  })
+
+  it('propose/pending/consume가 kind를 왕복한다', () => {
+    const store = new WriteProposalStore({
+      now: () => 1000,
+      randomId: () => 'p1',
+      hash: (t) => `h(${t})`,
+    })
+    const view = store.propose({ connectionId: 'c1', statement: 'DELETE FROM t', kind: 'write', impact: { summary: 's', estimatedRows: null } })
+    expect(view.kind).toBe('write')
+    expect(store.pending('p1')?.kind).toBe('write')
+    const consumed = store.consume('p1', 'c1')
+    expect(consumed).toEqual({ ok: true, statement: 'DELETE FROM t', statementHash: 'h(DELETE FROM t)', kind: 'write' })
+  })
+
+  it('analyze kind도 왕복한다', () => {
+    const store = new WriteProposalStore({ now: () => 0, randomId: () => 'p2', hash: (t) => t })
+    const view = store.propose({ connectionId: 'c1', statement: 'EXPLAIN ANALYZE SELECT 1', kind: 'analyze', impact: { summary: 's', estimatedRows: null } })
+    expect(view.kind).toBe('analyze')
   })
 })

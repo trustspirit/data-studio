@@ -80,7 +80,7 @@ function deferredGateway() {
         }
         return Promise.resolve({ ok: true, payload: { kind: 'streamAck', subscriptionId: null } })
       },
-      onStreamMessage: (_id: string, _l: (b: StreamBatch) => void) => vi.fn(),
+      onStreamMessage: () => vi.fn(),
     } as unknown as OperationGateway,
     resolveSubscribeWith: (id: string) => resolveSubscribe?.({ ok: true, payload: { kind: 'streamAck', subscriptionId: id } }),
     runCalls,

@@ -17,12 +17,12 @@ const ctx = { requestId: 'r', signal: new AbortController().signal }
 const page = { cursor: null, maxRows: 100, maxBytes: 8 * 1024 * 1024 }
 
 function itemValue(rs: { rows: readonly (readonly { t: string; v?: unknown }[])[] }): unknown[] {
-  return rs.rows.map((row) => JSON.parse(String(row[0]?.v)))
+  return rs.rows.map((row) => JSON.parse(String(row[0]?.v)) as unknown)
 }
 
 d('DynamoCapability (live)', () => {
   it('ping은 유한 ms, disconnect 후 거부', async () => {
-    const drv = createDynamoDriver(cfg(), { getPassword: async () => 'fake' })
+    const drv = createDynamoDriver(cfg(), { getPassword: () => Promise.resolve('fake') })
     await drv.connect(cfg())
     expect(await drv.ping()).toBeGreaterThanOrEqual(0)
     await drv.disconnect()
@@ -31,7 +31,7 @@ d('DynamoCapability (live)', () => {
 
   it('listTables가 생성한 테이블을 포함한다', async () => {
     await withTable([], async (table) => {
-      const drv = createDynamoDriver(cfg(), { getPassword: async () => 'fake' })
+      const drv = createDynamoDriver(cfg(), { getPassword: () => Promise.resolve('fake') })
       await drv.connect(cfg())
       try {
         const rs = await drv.dynamo.listTables(ctx, page)
@@ -45,7 +45,7 @@ d('DynamoCapability (live)', () => {
 
   it('scan이 아이템을 _item으로 전부 돌려준다', async () => {
     await withTable([{ pk: 'a', n: 1 }, { pk: 'b', n: 2 }], async (table) => {
-      const drv = createDynamoDriver(cfg(), { getPassword: async () => 'fake' })
+      const drv = createDynamoDriver(cfg(), { getPassword: () => Promise.resolve('fake') })
       await drv.connect(cfg())
       try {
         const rs = await drv.dynamo.scan(ctx, { table }, page)
@@ -59,7 +59,7 @@ d('DynamoCapability (live)', () => {
 
   it('PartiQL SELECT가 WHERE로 파티션 키 조회를 한다', async () => {
     await withTable([{ pk: 'a', n: 1 }, { pk: 'b', n: 2 }], async (table) => {
-      const drv = createDynamoDriver(cfg(), { getPassword: async () => 'fake' })
+      const drv = createDynamoDriver(cfg(), { getPassword: () => Promise.resolve('fake') })
       await drv.connect(cfg())
       try {
         const rs = await drv.dynamo.partiql(ctx, { statement: `SELECT * FROM "${table}" WHERE pk = 'a'` }, page)
@@ -74,7 +74,7 @@ d('DynamoCapability (live)', () => {
 
   it('executor 관문이 비-SELECT PartiQL을 던진다(드라이버 도달 전)', async () => {
     await withTable([{ pk: 'a' }], async (table) => {
-      const drv = createDynamoDriver(cfg(), { getPassword: async () => 'fake' })
+      const drv = createDynamoDriver(cfg(), { getPassword: () => Promise.resolve('fake') })
       await drv.connect(cfg())
       try {
         const ex = new DynamoCapabilityExecutor()
