@@ -106,7 +106,15 @@ interface ColumnDraft extends ColumnSpec {
 let colKey = 0
 function emptyColumn(): ColumnDraft {
   colKey += 1
-  return { key: colKey, name: '', type: '', notNull: false, primaryKey: false, defaultExpr: '' }
+  return {
+    key: colKey,
+    name: '',
+    type: '',
+    notNull: false,
+    primaryKey: false,
+    defaultExpr: '',
+    autoIncrement: false,
+  }
 }
 
 function splitColumns(raw: string): readonly string[] {
