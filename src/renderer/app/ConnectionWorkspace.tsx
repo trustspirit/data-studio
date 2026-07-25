@@ -19,24 +19,29 @@ const Layout = styled.div`
 `
 const SubTabs = styled.div`
   display: flex;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: ${({ theme }) => theme.space.xs};
+  padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
   border-bottom: 1px solid ${({ theme }) => theme.color.border};
   background: ${({ theme }) => theme.color.toolbar};
 `
 const SubTab = styled.button<{ $active: boolean }>`
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.sm};
   padding: 4px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: ${({ theme }) => theme.radius.md};
   cursor: pointer;
   color: ${({ theme, $active }) => ($active ? theme.color.text : theme.color.textDim)};
   background: ${({ theme, $active }) => ($active ? theme.color.panel : 'transparent')};
+  &:hover {
+    color: ${({ theme }) => theme.color.text};
+  }
 `
 const Body = styled.div`
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 `
 const EmptyState = styled.div`
   flex: 1;
@@ -44,7 +49,7 @@ const EmptyState = styled.div`
   align-items: center;
   justify-content: center;
   color: ${({ theme }) => theme.color.textDim};
-  font: ${({ theme }) => theme.font.ui};
+  font-family: ${({ theme }) => theme.font.ui};
 `
 
 type View = 'query' | 'structure' | 'data' | 'er' | 'documents' | 'keys' | 'streams'

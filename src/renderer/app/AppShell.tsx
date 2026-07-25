@@ -4,45 +4,56 @@ import { useGateways } from './GatewayProvider'
 import { useConnections } from '../features/connections/model/useConnections'
 import { ConnectionsScreen } from '../features/connections'
 import { ConnectionWorkspace } from './ConnectionWorkspace'
-import { Button } from '../shared/ui'
+import { Button, ErrorBanner } from '../shared/ui'
 import type { Capability } from '../../shared/types/capability'
 
 const Layout = styled.div`
   display: grid;
-  grid-template-columns: 56px 1fr;
-  height: 100vh;
+  grid-template-columns: ${({ theme }) => theme.size.rail} 1fr;
+  height: 100%;
+  min-height: 0;
   background: ${({ theme }) => theme.color.winBg};
   color: ${({ theme }) => theme.color.text};
 `
 const Rail = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 4px;
+  gap: ${({ theme }) => theme.space.xs};
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.xs}`};
   background: ${({ theme }) => theme.color.toolbar};
   border-right: 1px solid ${({ theme }) => theme.color.border};
 `
 const RailButton = styled.button<{ $active: boolean }>`
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 11px;
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.xs};
   padding: 8px 4px;
   border: none;
-  border-radius: 6px;
+  border-radius: ${({ theme }) => theme.radius.md};
   cursor: pointer;
   color: ${({ theme, $active }) => ($active ? theme.color.text : theme.color.textDim)};
   background: ${({ theme, $active }) => ($active ? theme.color.panel : 'transparent')};
+  &:hover {
+    color: ${({ theme }) => theme.color.text};
+  }
+`
+const Content = styled.div`
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 `
 const Picker = styled.div`
-  padding: 16px;
+  padding: ${({ theme }) => theme.space.lg};
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font: ${({ theme }) => theme.font.ui};
+  gap: ${({ theme }) => theme.space.sm};
+  font-family: ${({ theme }) => theme.font.ui};
+  overflow: auto;
+  height: 100%;
 `
 const Row = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: ${({ theme }) => theme.space.sm};
 `
 const Dot = styled.span<{ $status: string }>`
   display: inline-block;
@@ -54,10 +65,6 @@ const Dot = styled.span<{ $status: string }>`
 `
 const Name = styled.span`
   flex: 1;
-`
-const Banner = styled.div`
-  color: ${({ theme }) => theme.color.red};
-  font-size: 13px;
 `
 
 function QueryTab() {
@@ -98,7 +105,7 @@ function QueryTab() {
   }
   return (
     <Picker>
-      {openError !== null && <Banner>{openError}</Banner>}
+      {openError !== null && <ErrorBanner>{openError}</ErrorBanner>}
       {conns.connections.map((c) => (
         <Row key={c.id}>
           <Dot $status={statuses[c.id] ?? 'closed'} />
@@ -125,7 +132,7 @@ export function AppShell() {
           Workspace
         </RailButton>
       </Rail>
-      {tab === 'connections' ? <ConnectionsScreen /> : <QueryTab />}
+      <Content>{tab === 'connections' ? <ConnectionsScreen /> : <QueryTab />}</Content>
     </Layout>
   )
 }

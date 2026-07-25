@@ -29,12 +29,12 @@ const Actions = styled.div`
 `
 const Warn = styled.div`
   color: ${({ theme }) => theme.color.orange};
-  font: ${({ theme }) => theme.font.ui};
+  font-family: ${({ theme }) => theme.font.ui};
   font-size: 12px;
 `
 const Hint = styled.div`
   color: ${({ theme }) => theme.color.textDim};
-  font: ${({ theme }) => theme.font.ui};
+  font-family: ${({ theme }) => theme.font.ui};
   font-size: 12px;
 `
 

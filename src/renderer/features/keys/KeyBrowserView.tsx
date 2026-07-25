@@ -1,109 +1,66 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
+import { Button, ErrorBanner, Input, ListItem, Notice, Sidebar, Toolbar } from '../../shared/ui'
 import { useKeys } from './model/useKeys'
 import { useKeyValue } from './model/useKeyValue'
 
 const Layout = styled.div`
   display: flex;
   height: 100%;
+  min-height: 0;
   background: ${({ theme }) => theme.color.winBg};
   color: ${({ theme }) => theme.color.text};
 `
-const Left = styled.div`
-  display: flex;
-  flex-direction: column;
-  width: 260px;
-  border-right: 1px solid ${({ theme }) => theme.color.border};
-  min-height: 0;
+const Left = styled(Sidebar)`
+  overflow: hidden;
 `
-const Toolbar = styled.div`
-  display: flex;
-  gap: 6px;
-  padding: 8px;
-  border-bottom: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.toolbar};
-`
-const MatchInput = styled.input`
+const MatchInput = styled(Input)`
   flex: 1;
-  min-width: 0;
-  font: ${({ theme }) => theme.font.mono};
-  font-size: 12px;
+  font-family: ${({ theme }) => theme.font.mono};
+  font-size: ${({ theme }) => theme.fontSize.sm};
   padding: 4px 6px;
-  border-radius: 4px;
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.panel};
-  color: ${({ theme }) => theme.color.text};
-`
-const Btn = styled.button`
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
-  padding: 4px 12px;
-  border-radius: 4px;
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.panel};
-  color: ${({ theme }) => theme.color.text};
-  cursor: pointer;
-
-  &:disabled { opacity: 0.4; cursor: default; }
 `
 const KeyList = styled.div`
   flex: 1;
   overflow: auto;
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.sm};
 `
-const KeyItem = styled.button<{ $active: boolean }>`
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-  padding: 5px 10px;
-  border: none;
-  cursor: pointer;
-  color: ${({ theme, $active }) => ($active ? theme.color.text : theme.color.textDim)};
-  background: ${({ theme, $active }) => ($active ? theme.color.panel : 'transparent')};
+const KeyName = styled.span`
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `
 const KeyType = styled.span`
   color: ${({ theme }) => theme.color.textFaint};
-  font: ${({ theme }) => theme.font.mono};
-  font-size: 11px;
+  font-family: ${({ theme }) => theme.font.mono};
+  font-size: ${({ theme }) => theme.fontSize.xs};
 `
 const Right = styled.div`
   display: flex;
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  min-height: 0;
 `
 const Meta = styled.div`
-  padding: 8px 12px;
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
   border-bottom: 1px solid ${({ theme }) => theme.color.border};
-  font: ${({ theme }) => theme.font.mono};
-  font-size: 12px;
+  font-family: ${({ theme }) => theme.font.mono};
+  font-size: ${({ theme }) => theme.fontSize.sm};
   color: ${({ theme }) => theme.color.textDim};
 `
 const Value = styled.pre`
   flex: 1;
   margin: 0;
   overflow: auto;
-  padding: 10px 12px;
-  font: ${({ theme }) => theme.font.mono};
-  font-size: 12px;
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
+  font-family: ${({ theme }) => theme.font.mono};
+  font-size: ${({ theme }) => theme.fontSize.sm};
   white-space: pre-wrap;
   word-break: break-word;
-`
-const Notice = styled.div`
-  padding: 16px;
-  color: ${({ theme }) => theme.color.textFaint};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
-`
-const Banner = styled.div`
-  padding: 8px 12px;
-  color: ${({ theme }) => theme.color.red};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
 `
 
 interface KeyBrowserViewProps {
@@ -151,23 +108,24 @@ export function KeyBrowserView({ gateway, connectionId }: KeyBrowserViewProps) {
             onChange={(e) => setMatch(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') keys.run(match) }}
           />
-          <Btn type="button" onClick={() => keys.run(match)}>Run</Btn>
+          <Button variant="secondary" size="sm" onClick={() => keys.run(match)}>Run</Button>
         </Toolbar>
-        {keys.error !== null && <Banner>{keys.error}</Banner>}
+        {keys.error !== null && <ErrorBanner>{keys.error}</ErrorBanner>}
         <KeyList>
+          {keys.loading && keys.keys.length === 0 && <Notice>불러오는 중…</Notice>}
           {keys.keys.map((k) => (
-            <KeyItem key={k.key} type="button" $active={selected === k.key} onClick={() => selectKey(k.key)}>
-              <span>{k.key}</span>
+            <ListItem key={k.key} active={selected === k.key} onSelect={() => selectKey(k.key)}>
+              <KeyName>{k.key}</KeyName>
               <KeyType>{k.type}</KeyType>
-            </KeyItem>
+            </ListItem>
           ))}
           {keys.hasMore && (
-            <Btn type="button" onClick={() => void keys.loadMore()}>Load more</Btn>
+            <Button variant="secondary" size="sm" onClick={() => void keys.loadMore()}>Load more</Button>
           )}
         </KeyList>
       </Left>
       <Right>
-        {value.error !== null && <Banner>{value.error}</Banner>}
+        {value.error !== null && <ErrorBanner>{value.error}</ErrorBanner>}
         {selected === null ? (
           <Notice>키를 선택하세요.</Notice>
         ) : value.entry === null ? (

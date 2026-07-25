@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import type { ColumnDescriptor } from '../../../../shared/types/resultSet'
 import type { WireValue } from '../../../../shared/types/wire'
+import { ErrorBanner, Notice } from '../../../shared/ui'
 import { DataGrid } from '../../../entities/result-set/ui/DataGrid'
 
 const Wrap = styled.div`
@@ -8,20 +9,7 @@ const Wrap = styled.div`
   min-height: 0;
   display: flex;
   flex-direction: column;
-`
-const Banner = styled.div`
-  margin: 8px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  background: ${({ theme }) => theme.color.red};
-  color: ${({ theme }) => theme.color.onDanger};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
-`
-const Info = styled.div`
-  padding: 12px;
-  color: ${({ theme }) => theme.color.textDim};
-  font: ${({ theme }) => theme.font.ui};
+  border-top: 1px solid ${({ theme }) => theme.color.borderSoft};
 `
 
 interface Props {
@@ -37,12 +25,12 @@ interface Props {
 export function ResultArea({ columns, rows, rowsAffected, notices, error, hasMore, onLoadMore }: Props) {
   return (
     <Wrap>
-      {error !== null && <Banner>{error}</Banner>}
+      {error !== null && <ErrorBanner>{error}</ErrorBanner>}
       {notices.map((n, i) => (
-        <Info key={i}>{n}</Info>
+        <Notice key={i}>{n}</Notice>
       ))}
       {error === null && columns.length === 0 && rowsAffected !== null && (
-        <Info>{rowsAffected} rows affected</Info>
+        <Notice>{rowsAffected} rows affected</Notice>
       )}
       {error === null && columns.length > 0 && (
         <DataGrid columns={columns} rows={rows} hasMore={hasMore} onLoadMore={onLoadMore} />

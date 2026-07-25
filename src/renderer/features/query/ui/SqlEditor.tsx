@@ -12,7 +12,7 @@ const Host = styled.div`
   & .cm-editor {
     background: ${({ theme }) => theme.color.gridBg};
     color: ${({ theme }) => theme.color.text};
-    font: ${({ theme }) => theme.font.mono};
+    font-family: ${({ theme }) => theme.font.mono};
     font-size: 13px;
   }
   & .cm-content {

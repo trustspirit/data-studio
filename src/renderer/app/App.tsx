@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { ThemeProvider, darkTheme } from '../shared/theme'
+import { ThemeProvider, darkTheme, GlobalStyle } from '../shared/theme'
 import { GatewayProvider } from './GatewayProvider'
 import { buildGateways } from './container'
 import { AppShell } from './AppShell'
@@ -18,6 +18,7 @@ export function App() {
   const gateways = useMemo(() => buildGateways(resolveBridge()), [])
   return (
     <ThemeProvider theme={darkTheme}>
+      <GlobalStyle />
       <GatewayProvider gateways={gateways}>
         <AppShell />
       </GatewayProvider>

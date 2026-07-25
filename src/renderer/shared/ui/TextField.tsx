@@ -1,27 +1,24 @@
 import styled from 'styled-components'
 import type { InputHTMLAttributes } from 'react'
+import { controlCss } from './controls'
 
 const Wrap = styled.label`
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font: ${({ theme }) => theme.font.ui};
+  gap: ${({ theme }) => theme.space.xs};
+  font-family: ${({ theme }) => theme.font.ui};
 `
 const Caption = styled.span`
   color: ${({ theme }) => theme.color.textDim};
-  font-size: 12px;
+  font-size: ${({ theme }) => theme.fontSize.sm};
 `
 const Input = styled.input<{ $invalid: boolean }>`
-  font: inherit;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: ${({ theme }) => theme.color.gridBg};
-  color: ${({ theme }) => theme.color.text};
-  border: 1px solid ${({ theme, $invalid }) => ($invalid ? theme.color.red : theme.color.border)};
+  ${controlCss}
+  ${({ theme, $invalid }) => ($invalid ? `border-color: ${theme.color.red};` : '')}
 `
 const Err = styled.span`
   color: ${({ theme }) => theme.color.red};
-  font-size: 12px;
+  font-size: ${({ theme }) => theme.fontSize.sm};
 `
 
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> & {

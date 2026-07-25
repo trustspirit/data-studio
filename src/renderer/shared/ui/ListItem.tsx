@@ -2,17 +2,21 @@ import styled from 'styled-components'
 import type { ReactNode } from 'react'
 
 const Row = styled.button<{ $active: boolean }>`
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.sm};
   width: 100%;
   text-align: left;
-  font: ${({ theme }) => theme.font.ui};
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.sm};
   padding: ${({ theme }) => theme.density.rowPad};
   border: none;
   cursor: pointer;
-  color: ${({ theme }) => theme.color.text};
+  color: ${({ theme, $active }) => ($active ? theme.color.text : theme.color.textDim)};
   background: ${({ theme, $active }) => ($active ? theme.color.rowHover : 'transparent')};
   &:hover {
     background: ${({ theme }) => theme.color.rowHover};
+    color: ${({ theme }) => theme.color.text};
   }
 `
 

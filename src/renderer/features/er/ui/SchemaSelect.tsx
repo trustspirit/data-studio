@@ -1,13 +1,9 @@
 import styled from 'styled-components'
+import { NativeSelect } from '../../../shared/ui'
 
-const Select = styled.select`
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
-  padding: 3px 8px;
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.panel};
-  color: ${({ theme }) => theme.color.text};
-  border-radius: 4px;
+const Select = styled(NativeSelect)`
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  padding: 4px 8px;
 `
 
 interface Props {

@@ -5,25 +5,27 @@ import { Button, ListItem } from '../../../shared/ui'
 const Wrap = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  gap: ${({ theme }) => theme.space.sm};
+  padding: ${({ theme }) => theme.space.sm};
   background: ${({ theme }) => theme.color.sidebar};
+  border-right: 1px solid ${({ theme }) => theme.color.border};
   height: 100%;
-  box-sizing: border-box;
+  min-height: 0;
+  overflow: auto;
 `
 const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   color: ${({ theme }) => theme.color.textDim};
-  font: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.sm};
   text-transform: uppercase;
 `
 const Sub = styled.span`
+  margin-left: auto;
   color: ${({ theme }) => theme.color.textFaint};
-  font-size: 11px;
-  margin-left: 8px;
+  font-size: ${({ theme }) => theme.fontSize.xs};
 `
 
 interface Props {
@@ -38,7 +40,7 @@ export function ConnectionList({ connections, selectedId, onSelect, onNew }: Pro
     <Wrap>
       <Header>
         Connections
-        <Button variant="secondary" onClick={onNew}>
+        <Button variant="secondary" size="sm" onClick={onNew}>
           + New
         </Button>
       </Header>
