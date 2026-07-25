@@ -50,9 +50,13 @@ const ColumnsGrid = styled.div`
 `
 const ColumnRow = styled.div`
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 1fr auto auto auto;
+  grid-template-columns: 1.2fr 1.2fr 1fr auto auto auto auto;
   gap: ${({ theme }) => theme.space.xs};
   align-items: center;
+`
+const AddRow = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.space.xs};
 `
 const Check = styled.label`
   font-size: ${({ theme }) => theme.fontSize.xs};
@@ -114,6 +118,26 @@ function emptyColumn(): ColumnDraft {
     primaryKey: false,
     defaultExpr: '',
     autoIncrement: false,
+  }
+}
+
+/**
+ * 방언에 맞는 자동 증가 PK 컬럼.
+ *
+ * sqlite가 `integer`인 것은 취향이 아니라 제약이다. rowid 별칭은 선언 타입이
+ * 정확히 INTEGER일 때만 성립하고, `bigint`로 만들면 AUTOINCREMENT가 거부되거나
+ * (PK만 걸린 경우) **오류 없이 id가 NULL로 들어간다.**
+ */
+function idColumn(dialect: SqlEngineId): ColumnDraft {
+  colKey += 1
+  return {
+    key: colKey,
+    name: 'id',
+    type: dialect === 'sqlite' ? 'integer' : 'bigint',
+    notNull: false,
+    primaryKey: true,
+    defaultExpr: '',
+    autoIncrement: true,
   }
 }
 
@@ -273,9 +297,11 @@ export function TableDesigner({
                   placeholder="type"
                 />
                 <Input
+                  data-testid={`ddl-col-default-${i}`}
                   value={c.defaultExpr ?? ''}
+                  disabled={c.autoIncrement}
                   onChange={(e) => patchColumn(c.key, { defaultExpr: e.target.value })}
-                  placeholder="DEFAULT (선택)"
+                  placeholder={c.autoIncrement ? '자동 증가' : 'DEFAULT (선택)'}
                 />
                 <Check>
                   <input
@@ -294,6 +320,24 @@ export function TableDesigner({
                   />
                   PK
                 </Check>
+                <Check>
+                  <input
+                    type="checkbox"
+                    data-testid={`ddl-col-auto-${i}`}
+                    checked={c.autoIncrement}
+                    onChange={(e) =>
+                      // 켤 때 DEFAULT를 함께 지운다. 두 값은 함께 있을 수 없고
+                      // (엔진이 거부한다), 남겨 두면 검증이 계속 막는다.
+                      patchColumn(
+                        c.key,
+                        e.target.checked
+                          ? { autoIncrement: true, defaultExpr: '' }
+                          : { autoIncrement: false },
+                      )
+                    }
+                  />
+                  AUTO
+                </Check>
                 <Button
                   type="button"
                   variant="secondary"
@@ -310,7 +354,21 @@ export function TableDesigner({
                 <option key={t} value={t} />
               ))}
             </datalist>
-            <div>
+            <AddRow>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                data-testid="ddl-add-id"
+                onClick={() =>
+                  setColumns((cols) => [
+                    idColumn(dialect),
+                    ...cols.filter((c) => c.name.trim() !== '' || c.type.trim() !== ''),
+                  ])
+                }
+              >
+                + ID
+              </Button>
               <Button
                 type="button"
                 variant="secondary"
@@ -320,7 +378,7 @@ export function TableDesigner({
               >
                 + Column
               </Button>
-            </div>
+            </AddRow>
           </ColumnsGrid>
         </>
       )}
