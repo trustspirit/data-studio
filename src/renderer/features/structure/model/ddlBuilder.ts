@@ -198,8 +198,91 @@ export const TYPE_SUGGESTIONS: Record<SqlEngineId, readonly string[]> = {
 
 export type DdlIssue = string
 
+/**
+ * pg가 IDENTITY를 허용하는 타입.
+ *
+ * 서버 오류 메시지는 `smallint, integer, or bigint`만 말하지만 실제로는 내부
+ * 별칭도 받는다 — `int8`·`int4`·`int`·`int2`를 실측으로 확인했다. 메시지를
+ * 그대로 옮겨 적으면 엔진이 받아 주는 입력을 UI가 막는다.
+ */
+const PG_IDENTITY_TYPES: ReadonlySet<string> = new Set([
+  'smallint', 'integer', 'bigint', 'int', 'int2', 'int4', 'int8',
+])
+
+/**
+ * `serial` 계열. 그 자체가 시퀀스 DEFAULT를 만들므로 IDENTITY와 겹쳐
+ * pg가 거부한다(`both default and identity specified`). 이 타입들은
+ * `TYPE_SUGGESTIONS`에 있어서 사용자가 고르기 쉽다 — 안내가 필요한 조합이다.
+ */
+const PG_SERIAL_TYPES: ReadonlySet<string> = new Set([
+  'serial', 'bigserial', 'smallserial', 'serial2', 'serial4', 'serial8',
+])
+
+function normalizedType(raw: string): string {
+  return raw.trim().toLowerCase()
+}
+
+/**
+ * 자동 증가 관련 검증. 규칙이 방언마다 다르고 근거가 전부 실측이다 —
+ * 설계 문서 §2에 어떤 DDL이 어떤 이유로 거부되었는지 적혀 있다.
+ *
+ * 규칙을 엔진의 실제 제약보다 좁게 잡지 않는다. 엔진이 받아 주는 것을 UI가
+ * 막으면 사용자는 왜 안 되는지 알 방법이 없다. 그래서 pg에는 "하나만"·"PK여야"
+ * 규칙을 걸지 않는다 — pg는 둘 다 허용한다.
+ */
+function autoIncrementIssues(
+  dialect: SqlEngineId,
+  spec: CreateTableSpec,
+): readonly DdlIssue[] {
+  const autos = spec.columns.filter((c) => c.autoIncrement)
+  if (autos.length === 0) return []
+
+  const issues: DdlIssue[] = []
+  const pkCount = spec.columns.filter((c) => c.primaryKey).length
+
+  for (const c of autos) {
+    const name = c.name.trim()
+    const label = name === '' ? '자동 증가 컬럼' : `'${name}'`
+    const type = normalizedType(c.type)
+
+    if (c.defaultExpr !== undefined && c.defaultExpr.trim() !== '')
+      issues.push(`${label}은 자동 증가이므로 DEFAULT를 함께 지정할 수 없습니다.`)
+
+    if (dialect === 'postgres') {
+      if (PG_SERIAL_TYPES.has(type))
+        issues.push(
+          `${label}의 ${type}은 그 자체가 자동 증가입니다. 타입을 bigint로 바꾸거나 자동 증가를 끄세요.`,
+        )
+      else if (type !== '' && !PG_IDENTITY_TYPES.has(type))
+        issues.push(`${label}은 정수 타입(smallint·integer·bigint)이어야 자동 증가가 됩니다.`)
+    }
+
+    if (dialect === 'sqlite') {
+      if (type !== '' && type !== 'integer')
+        issues.push(
+          `${label}의 타입은 정확히 integer여야 합니다. int·bigint는 id가 비어 저장되고 오류도 나지 않습니다.`,
+        )
+      if (!c.primaryKey) issues.push(`${label}은 자동 증가이므로 PK여야 합니다.`)
+      if (pkCount > 1) issues.push('sqlite는 복합 PK에 자동 증가를 쓸 수 없습니다.')
+    }
+
+    if ((dialect === 'mysql' || dialect === 'mariadb') && !c.primaryKey)
+      issues.push(`${label}은 자동 증가이므로 PK여야 합니다.`)
+  }
+
+  // pg는 IDENTITY 컬럼을 여러 개 허용한다(실측). mysql·sqlite는 하나뿐이다.
+  if (dialect !== 'postgres' && autos.length > 1)
+    issues.push('자동 증가 컬럼은 테이블에 하나만 둘 수 있습니다.')
+
+  // 같은 위반이 컬럼마다 반복될 수 있다(복합 PK 규칙 등). 중복은 걷어낸다.
+  return [...new Set(issues)]
+}
+
 /** 폼 검증. 빌더는 총함수로 두고(주어진 대로 인용), 실행 가능 여부는 여기서 판정한다. */
-export function validateCreateTable(spec: CreateTableSpec): readonly DdlIssue[] {
+export function validateCreateTable(
+  dialect: SqlEngineId,
+  spec: CreateTableSpec,
+): readonly DdlIssue[] {
   const issues: DdlIssue[] = []
   if (spec.table.trim() === '') issues.push('테이블 이름을 입력하세요.')
   if (spec.columns.length === 0) issues.push('컬럼을 하나 이상 추가하세요.')
@@ -209,7 +292,7 @@ export function validateCreateTable(spec: CreateTableSpec): readonly DdlIssue[] 
   })
   const names = spec.columns.map((c) => c.name.trim()).filter((n) => n !== '')
   if (new Set(names).size !== names.length) issues.push('컬럼 이름이 중복되었습니다.')
-  return issues
+  return [...issues, ...autoIncrementIssues(dialect, spec)]
 }
 
 export function validateForeignKey(spec: ForeignKeySpec): readonly DdlIssue[] {

@@ -168,7 +168,7 @@ export function TableDesigner({
   const { sql, issues } = useMemo(() => {
     if (mode === 'create') {
       const spec = { schema, table, columns }
-      return { sql: buildCreateTable(dialect, spec), issues: validateCreateTable(spec) }
+      return { sql: buildCreateTable(dialect, spec), issues: validateCreateTable(dialect, spec) }
     }
     const target = { schema: selection?.schema ?? '', table: selection?.table ?? '' }
     if (mode === 'fk') {

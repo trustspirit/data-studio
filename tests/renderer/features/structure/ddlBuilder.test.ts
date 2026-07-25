@@ -243,11 +243,11 @@ describe('TYPE_SUGGESTIONS', () => {
   })
 })
 
-describe('validate*', () => {
-  it('validateCreateTable — 빈 이름·빈 컬럼·중복 이름을 잡는다', () => {
-    expect(validateCreateTable({ table: '', columns: [] }).length).toBeGreaterThanOrEqual(2)
+describe('validateCreateTable', () => {
+  it('빈 이름·빈 컬럼·중복 이름을 잡는다', () => {
+    expect(validateCreateTable('postgres', { table: '', columns: [] }).length).toBeGreaterThanOrEqual(2)
     expect(
-      validateCreateTable({
+      validateCreateTable('postgres', {
         table: 't',
         columns: [
           { name: 'a', type: 'text', notNull: false, primaryKey: false, autoIncrement: false },
@@ -256,12 +256,143 @@ describe('validate*', () => {
       }),
     ).toContain('컬럼 이름이 중복되었습니다.')
     expect(
-      validateCreateTable({
+      validateCreateTable('postgres', {
         table: 't',
         columns: [{ name: 'a', type: 'text', notNull: false, primaryKey: false, autoIncrement: false }],
       }),
     ).toEqual([])
   })
+
+  it('자동 증가와 DEFAULT를 함께 지정하면 막는다', () => {
+    // pg가 실제로 거부한다: "both default and identity specified".
+    const issues = validateCreateTable('postgres', {
+      table: 't',
+      columns: [
+        { name: 'id', type: 'bigint', notNull: false, primaryKey: true, autoIncrement: true, defaultExpr: '0' },
+      ],
+    })
+    expect(issues.join(' ')).toContain('DEFAULT')
+  })
+
+  it('postgres는 정수 별칭을 모두 허용한다', () => {
+    // 서버 오류 메시지는 "smallint, integer, or bigint"만 말하지만 실제로는
+    // int8·int4·int2·int도 받는다(설계 §2.2 실측). 메시지를 그대로 화이트리스트로
+    // 옮기면 정상 입력을 막는다 — 그 회귀를 여기서 고정한다.
+    for (const type of ['smallint', 'integer', 'bigint', 'int', 'int2', 'int4', 'int8', 'BIGINT']) {
+      const issues = validateCreateTable('postgres', {
+        table: 't',
+        columns: [{ name: 'id', type, notNull: false, primaryKey: true, autoIncrement: true }],
+      })
+      expect(issues, `${type}은 허용되어야 한다`).toEqual([])
+    }
+  })
+
+  it('postgres는 정수가 아닌 타입에 자동 증가를 막는다', () => {
+    for (const type of ['text', 'numeric', 'uuid', 'numeric(12,2)']) {
+      const issues = validateCreateTable('postgres', {
+        table: 't',
+        columns: [{ name: 'id', type, notNull: false, primaryKey: true, autoIncrement: true }],
+      })
+      expect(issues.length, `${type}은 거부되어야 한다`).toBeGreaterThan(0)
+    }
+  })
+
+  it('postgres는 serial 계열에 자동 증가를 막고 대안을 알려준다', () => {
+    // serial이 이미 시퀀스 DEFAULT를 만들어 IDENTITY와 충돌한다. 그런데
+    // serial·bigserial은 TYPE_SUGGESTIONS 목록에 있어서 사용자가 고르기 쉽다.
+    const issues = validateCreateTable('postgres', {
+      table: 't',
+      columns: [{ name: 'id', type: 'bigserial', notNull: false, primaryKey: true, autoIncrement: true }],
+    })
+    expect(issues.join(' ')).toContain('bigint')
+  })
+
+  it('postgres는 자동 증가 컬럼을 여러 개 허용한다', () => {
+    // 엔진이 실제로 허용한다. UI가 엔진보다 좁으면 사용자가 이유를 알 수 없다.
+    const issues = validateCreateTable('postgres', {
+      table: 't',
+      columns: [
+        { name: 'a', type: 'bigint', notNull: false, primaryKey: true, autoIncrement: true },
+        { name: 'b', type: 'integer', notNull: false, primaryKey: false, autoIncrement: true },
+      ],
+    })
+    expect(issues).toEqual([])
+  })
+
+  it('sqlite 자동 증가는 타입이 정확히 integer여야 한다', () => {
+    // int·bigint·integer(11)은 rowid 별칭이 아니다. AUTOINCREMENT가 붙으면
+    // 엔진이 거부해 주지만 PK만 걸린 경우는 **오류 없이 id에 NULL이 들어간다.**
+    // 엔진이 알려주지 않는 유일한 항목이라 검증이 반드시 막아야 한다.
+    for (const type of ['int', 'bigint', 'integer(11)', 'text']) {
+      const issues = validateCreateTable('sqlite', {
+        table: 't',
+        columns: [{ name: 'id', type, notNull: false, primaryKey: true, autoIncrement: true }],
+      })
+      expect(issues.length, `${type}은 거부되어야 한다`).toBeGreaterThan(0)
+    }
+  })
+
+  it('sqlite는 integer의 대소문자를 가리지 않는다', () => {
+    // rowid 별칭 규칙은 대소문자를 무시한다(실측: integer·INTEGER·Integer 모두 성립).
+    // 대소문자만 다른 것을 막으면 정상 입력을 막는 셈이다.
+    for (const type of ['integer', 'INTEGER', 'Integer', ' integer ']) {
+      const issues = validateCreateTable('sqlite', {
+        table: 't',
+        columns: [{ name: 'id', type, notNull: false, primaryKey: true, autoIncrement: true }],
+      })
+      expect(issues, `${type}은 허용되어야 한다`).toEqual([])
+    }
+  })
+
+  it('sqlite는 복합 PK에 자동 증가를 막는다', () => {
+    const issues = validateCreateTable('sqlite', {
+      table: 't',
+      columns: [
+        { name: 'a', type: 'integer', notNull: false, primaryKey: true, autoIncrement: true },
+        { name: 'b', type: 'text', notNull: false, primaryKey: true, autoIncrement: false },
+      ],
+    })
+    expect(issues.length).toBeGreaterThan(0)
+  })
+
+  it('sqlite·mysql은 자동 증가 컬럼이 PK가 아니면 막는다', () => {
+    for (const dialect of ['sqlite', 'mysql', 'mariadb'] as const) {
+      const issues = validateCreateTable(dialect, {
+        table: 't',
+        columns: [
+          { name: 'id', type: 'integer', notNull: false, primaryKey: false, autoIncrement: true },
+        ],
+      })
+      expect(issues.length, `${dialect}는 PK를 요구한다`).toBeGreaterThan(0)
+    }
+  })
+
+  it('sqlite·mysql은 자동 증가 컬럼을 하나로 제한한다', () => {
+    for (const dialect of ['sqlite', 'mysql', 'mariadb'] as const) {
+      const issues = validateCreateTable(dialect, {
+        table: 't',
+        columns: [
+          { name: 'a', type: 'integer', notNull: false, primaryKey: true, autoIncrement: true },
+          { name: 'b', type: 'integer', notNull: false, primaryKey: true, autoIncrement: true },
+        ],
+      })
+      expect(issues.length, `${dialect}는 하나만 허용한다`).toBeGreaterThan(0)
+    }
+  })
+
+  it('자동 증가를 쓰지 않으면 새 규칙이 개입하지 않는다', () => {
+    const issues = validateCreateTable('sqlite', {
+      table: 't',
+      columns: [
+        { name: 'id', type: 'bigint', notNull: false, primaryKey: true, autoIncrement: false },
+        { name: 'l', type: 'text', notNull: false, primaryKey: false, autoIncrement: false },
+      ],
+    })
+    expect(issues).toEqual([])
+  })
+})
+
+describe('validate*', () => {
 
   it('validateForeignKey — 컬럼 수 불일치를 잡는다', () => {
     expect(
