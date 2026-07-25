@@ -77,6 +77,17 @@ export type StreamOp =
 
 export type StreamOperation = { readonly kind: 'stream' } & StreamOp
 
+/**
+ * 와이드컬럼(DynamoDB) 조회. v1은 읽기 전용 — listTables + scan + PartiQL SELECT.
+ * 비-SELECT PartiQL 거부는 executor 관문 + 드라이버 isReadOnlyStatement가 담당한다.
+ */
+export type DynamoOp =
+  | { readonly op: 'listTables' }
+  | { readonly op: 'scan'; readonly table: string }
+  | { readonly op: 'partiql'; readonly statement: string }
+
+export type DynamoOperation = { readonly kind: 'dynamo' } & DynamoOp
+
 export type Operation =
   | SqlOperation
   | SchemaOperation
@@ -84,6 +95,7 @@ export type Operation =
   | DocumentOperation
   | KeyValueOperation
   | StreamOperation
+  | DynamoOperation
 
 export interface ExecutionLimits {
   /** 엔진 네이티브 statement timeout */

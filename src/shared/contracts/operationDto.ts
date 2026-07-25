@@ -116,6 +116,12 @@ const streamOperationSchema = z.discriminatedUnion('op', [
   }),
 ])
 
+const dynamoOperationSchema = z.discriminatedUnion('op', [
+  z.object({ kind: z.literal('dynamo'), op: z.literal('listTables') }),
+  z.object({ kind: z.literal('dynamo'), op: z.literal('scan'), table: z.string().min(1) }),
+  z.object({ kind: z.literal('dynamo'), op: z.literal('partiql'), statement: z.string().min(1) }),
+])
+
 const operationSchema = z.union([
   sqlOperationSchema,
   schemaOperationSchema,
@@ -123,6 +129,7 @@ const operationSchema = z.union([
   documentOperationSchema,
   keyValueOperationSchema,
   streamOperationSchema,
+  dynamoOperationSchema,
 ])
 
 const pageRequestSchema = z.object({

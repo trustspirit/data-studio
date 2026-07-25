@@ -130,6 +130,7 @@ export class OperationExecutor {
       hasDocument: driver.document !== undefined,
       hasKeyValue: driver.keyValue !== undefined,
       hasStream: driver.stream !== undefined,
+      hasDynamo: driver.dynamo !== undefined,
       supportsReadOnlyScope: driver.sql?.beginReadOnly !== undefined,
       driverClassify: (sql) => driver.sql?.classify(sql) ?? 'unknown',
       requestedLimits: req.limits,
@@ -265,6 +266,8 @@ export class OperationExecutor {
         return driver.keyValue !== undefined
       case 'stream':
         return driver.stream !== undefined
+      case 'dynamo':
+        return driver.dynamo !== undefined
     }
   }
 
@@ -410,6 +413,17 @@ function describeOperation(operation: Operation): string {
         return `stream:subscribe ${operation.topic}`
       case 'unsubscribe':
         return `stream:unsubscribe ${operation.subscriptionId}`
+    }
+  }
+
+  if (operation.kind === 'dynamo') {
+    switch (operation.op) {
+      case 'listTables':
+        return 'dynamo:listTables'
+      case 'scan':
+        return `dynamo:scan ${operation.table}`
+      case 'partiql':
+        return 'dynamo:partiql'
     }
   }
 

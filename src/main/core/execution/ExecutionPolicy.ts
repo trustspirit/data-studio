@@ -28,6 +28,7 @@ export interface PolicyInput {
   readonly hasDocument: boolean
   readonly hasKeyValue: boolean
   readonly hasStream: boolean
+  readonly hasDynamo: boolean
   /** 드라이버가 `beginReadOnly`를 구현하는가 */
   readonly supportsReadOnlyScope: boolean
   /** 드라이버의 엔진 고유 분류 */
@@ -40,7 +41,7 @@ function deny(reason: DenialReason): PolicyDecision {
 }
 
 /** `decide`가 실제로 판정 로직을 갖고 있는 operation 종류. */
-const HANDLED_KINDS = ['sql', 'schema', 'data', 'document', 'keyvalue', 'stream'] as const
+const HANDLED_KINDS = ['sql', 'schema', 'data', 'document', 'keyvalue', 'stream', 'dynamo'] as const
 
 type HandledKind = (typeof HANDLED_KINDS)[number]
 
@@ -124,6 +125,18 @@ export function decide(input: PolicyInput): PolicyDecision {
     // listTopics/subscribe/unsubscribe 모두 읽기(v1). 브로커에 쓰지 않으므로
     // keyvalue와 같은 순수 read 분기다. (AI 스트리밍은 push sink가 없어 v1 미배선이나,
     // 정책은 균일하게 read로 둔다.)
+    return {
+      allow: true,
+      limits: actor.type === 'ai' ? aiLimits(input) : userLimits(input),
+      readOnlyScope: false,
+    }
+  }
+
+  if (operation.kind === 'dynamo') {
+    if (!input.hasDynamo) return deny('capability_missing')
+    // listTables/scan/partiql 모두 읽기(v1). PartiQL의 숨은 쓰기 벡터(INSERT/
+    // UPDATE/DELETE)는 executor 관문 + 드라이버 isReadOnlyStatement가 막으므로
+    // 정책 계층은 keyvalue/stream과 같은 순수 read 분기다.
     return {
       allow: true,
       limits: actor.type === 'ai' ? aiLimits(input) : userLimits(input),

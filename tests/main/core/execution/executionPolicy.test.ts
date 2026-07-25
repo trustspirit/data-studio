@@ -21,6 +21,7 @@ function input(actor: Actor, operation: Operation, over: Partial<Parameters<type
     hasDocument: true,
     hasKeyValue: true,
     hasStream: true,
+    hasDynamo: true,
     supportsReadOnlyScope: true,
     driverClassify: (): 'read' | 'write' | 'unknown' => 'read',
     requestedLimits: undefined,
@@ -234,7 +235,7 @@ describe('decide — data:apply (write)', () => {
   function inp(over: Partial<PolicyInput>): PolicyInput {
     return {
       actor: { type: 'user', grant: null }, operation: applyOp,
-      hasSql: true, hasSchema: true, hasData: true, hasDocument: true, hasKeyValue: true, hasStream: true,
+      hasSql: true, hasSchema: true, hasData: true, hasDocument: true, hasKeyValue: true, hasStream: true, hasDynamo: true,
       supportsReadOnlyScope: true, driverClassify: () => 'read', requestedLimits: undefined,
       ...over,
     }
