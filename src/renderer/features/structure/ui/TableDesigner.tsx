@@ -170,6 +170,8 @@ export function TableDesigner({
   const [schema, setSchema] = useState(seedSchema)
   const [table, setTable] = useState('')
   const [columns, setColumns] = useState<readonly ColumnDraft[]>([emptyColumn()])
+  // 프리셋으로 중복 id 컬럼을 만들 수 없어야 한다.
+  const hasIdColumn = columns.some((column) => column.name.trim().toLowerCase() === 'id')
   // fk
   const [fkName, setFkName] = useState('')
   const [fkColumns, setFkColumns] = useState('')
@@ -360,6 +362,8 @@ export function TableDesigner({
                 variant="secondary"
                 size="sm"
                 data-testid="ddl-add-id"
+                disabled={hasIdColumn}
+                title={hasIdColumn ? 'ID 컬럼이 이미 있어 추가할 수 없습니다.' : undefined}
                 onClick={() =>
                   setColumns((cols) => [
                     idColumn(dialect),

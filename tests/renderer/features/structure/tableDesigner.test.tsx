@@ -148,6 +148,34 @@ describe('StructureView 테이블 디자이너', () => {
     expect(screen.queryByTestId('ddl-issues')).toBeNull()
   })
 
+  it('+ ID를 한 번 누르면 다시 눌러 중복 id를 만들 수 없다', async () => {
+    const { gateway } = fakeGateway()
+    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('ddl-open-create'))
+    fireEvent.change(screen.getByTestId('ddl-table'), { target: { value: 'users' } })
+    const addId = screen.getByTestId<HTMLButtonElement>('ddl-add-id')
+    fireEvent.click(addId)
+
+    expect(addId.disabled).toBe(true)
+    expect(addId.title).toBe('ID 컬럼이 이미 있어 추가할 수 없습니다.')
+    fireEvent.click(addId)
+    expect(screen.queryByTestId('ddl-col-name-1')).toBeNull()
+    expect(screen.queryByTestId('ddl-issues')).toBeNull()
+  })
+
+  it('직접 입력한 대문자 ID도 + ID 프리셋을 비활성화한다', async () => {
+    const { gateway } = fakeGateway()
+    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('ddl-open-create'))
+    fireEvent.change(screen.getByTestId('ddl-col-name-0'), { target: { value: 'ID' } })
+
+    expect(screen.getByTestId<HTMLButtonElement>('ddl-add-id').disabled).toBe(true)
+  })
+
   it('sqlite의 + ID는 integer를 쓴다', async () => {
     // bigint는 rowid 별칭이 아니라 id가 오류 없이 비어 저장된다 — 프리셋이
     // 그 함정을 만들면 안 된다.
