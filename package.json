@@ -20,6 +20,7 @@
     "verify:sqlite-native": "node scripts/verify-sqlite-native.cjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@aws-sdk/client-dynamodb": "^3.1095.0",
     "@aws-sdk/credential-providers": "^3.1095.0",
     "@aws-sdk/util-dynamodb": "^3.996.7",
