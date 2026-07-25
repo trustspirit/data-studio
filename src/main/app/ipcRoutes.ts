@@ -33,6 +33,12 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
 
   register('connection:save', async (config) => {
     await services.repository.save(config)
+    // AI 계정을 비운 저장은 그 계정의 비밀을 무효로 만든다. 여기서 지우지 않으면
+    // 참조하는 설정이 없는 비밀번호가 남고, 나중에 같은 계정명을 다시 넣는 순간
+    // 사용자가 입력한 적 없는 옛 비밀번호로 조용히 접속을 시도한다.
+    if (aiAccountUsername(config) === null) {
+      await services.secrets.delete({ kind: 'db-password-ai-readonly', ownerId: config.id })
+    }
     return null
   })
 
@@ -57,12 +63,9 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
     // (executor.poolIdFor). 결과에 aiAccount를 실어 UI가 폴백 상태를 표시하고,
     // 로그에도 남겨 조용히 사라지지 않게 한다.
     let aiAccount: 'none' | 'ready' | 'failed' = 'none'
-    if (typeof config.aiReadOnlyUsername === 'string' && config.aiReadOnlyUsername !== '') {
-      const aiConfig = {
-        ...config,
-        id: aiConnectionIdOf(config.id),
-        username: config.aiReadOnlyUsername,
-      }
+    const aiUsername = aiAccountUsername(config)
+    if (aiUsername !== null) {
+      const aiConfig = { ...config, id: aiConnectionIdOf(config.id), username: aiUsername }
       try {
         await services.connections.open(aiConfig)
         aiAccount = 'ready'
@@ -180,6 +183,24 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
   register('ai:rejectProposal', ({ proposalId, connectionId }) =>
     Promise.resolve({ rejected: services.proposals.reject(proposalId, connectionId) }),
   )
+}
+
+/**
+ * 이 커넥션의 AI 전용 읽기 계정 이름. 없으면 null.
+ *
+ * 빈 문자열도 "없음"으로 본다 — 폼이 빈 입력을 null로 바꾸지만, 저장소에 이미
+ * 있는 설정이나 다른 경로가 `''`를 실어 올 수 있고, 그때 username이 빈 커넥션을
+ * 열려고 하면 인증 실패로만 드러난다.
+ *
+ * boolean 대신 값을 돌려주는 이유: 호출부가 이 이름을 파생 config의 username으로
+ * 그대로 쓰므로, 판정과 값이 갈라지면 "있다고 했는데 null을 넣는" 틈이 생긴다.
+ */
+function aiAccountUsername(config: { readonly aiReadOnlyUsername: string | null }): string | null {
+  // `typeof`로 좁힌다 — 타입은 `string | null`이라고 하지만 저장소에 남은 옛
+  // 설정에는 이 필드가 아예 없을 수 있고, `!== null`만 보면 `undefined`가
+  // 통과해 username이 undefined인 커넥션을 열려고 한다.
+  const name = config.aiReadOnlyUsername
+  return typeof name === 'string' && name !== '' ? name : null
 }
 
 /**

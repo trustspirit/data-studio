@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { connectionIdSchema } from '../types/connection'
 
 /**
  * `OperationRequest`의 IPC 표현.
@@ -148,7 +149,9 @@ const executionLimitsSchema = z
 
 export const operationRequestSchema = z.object({
   requestId: z.string().min(1),
-  connectionId: z.string().min(1),
+  // 파생 접미사(`::ai`)로 끝나는 id를 거부한다 — 사용자 요청이 AI 전용 풀
+  // entry에서 실행되는 경로를 경계에서 끊는다(connectionIdSchema 주석 참고).
+  connectionId: connectionIdSchema,
   operation: operationSchema,
   page: pageRequestSchema.optional(),
   limits: executionLimitsSchema.optional(),

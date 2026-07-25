@@ -78,11 +78,16 @@ export function ConnectionsScreen() {
       setHasSavedSecret(true)
       setPassword('')
     }
-    if (aiPassword !== '') {
+    // AI 계정이 없는 저장이면 비밀번호를 쓰지 않는다. 필드는 계정명을 비우는
+    // 순간 사라지지만 입력값은 이 화면 상태에 남아 있어서, 그대로 보내면 main이
+    // 방금 지운 비밀(connection:save)을 다시 만들어 고아로 남긴다.
+    const keepsAiAccount = draft.aiReadOnlyUsername !== null && draft.aiReadOnlyUsername !== ''
+    if (keepsAiAccount && aiPassword !== '') {
       await gateways.connection.setSecret(draft.id, aiPassword, true)
       setHasSavedAiSecret(true)
-      setAiPassword('')
     }
+    if (!keepsAiAccount) setHasSavedAiSecret(false)
+    setAiPassword('')
     setMode('edit')
   }
 

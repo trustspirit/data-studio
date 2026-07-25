@@ -1,5 +1,5 @@
 import { z, type ZodType } from 'zod'
-import { connectionConfigSchema } from '../types/connection'
+import { connectionConfigSchema, connectionIdSchema } from '../types/connection'
 import { operationRequestSchema } from './operationDto'
 
 /** renderer가 고를 수 있는 LLM 프로바이더. main의 `ProviderId`와 같은 값 집합. */
@@ -19,21 +19,21 @@ export type LlmProviderIdDto = z.infer<typeof llmProviderIdSchema>
 export const IPC_CONTRACT = {
   'connection:list': { input: z.undefined() },
   'connection:save': { input: connectionConfigSchema },
-  'connection:delete': { input: z.object({ id: z.string().min(1) }) },
-  'connection:open': { input: z.object({ connectionId: z.string().min(1) }) },
-  'connection:close': { input: z.object({ connectionId: z.string().min(1) }) },
-  'connection:status': { input: z.object({ connectionId: z.string().min(1) }) },
+  'connection:delete': { input: z.object({ id: connectionIdSchema }) },
+  'connection:open': { input: z.object({ connectionId: connectionIdSchema }) },
+  'connection:close': { input: z.object({ connectionId: connectionIdSchema }) },
+  'connection:status': { input: z.object({ connectionId: connectionIdSchema }) },
   'secrets:status': { input: z.undefined() },
   'secrets:set': {
     input: z.object({
-      connectionId: z.string().min(1),
+      connectionId: connectionIdSchema,
       value: z.string().min(1).max(4096),
       // true면 AI 읽기 전용 계정(aiReadOnlyUsername)의 비밀번호를 저장한다.
       forAi: z.boolean().optional(),
     }),
   },
   'secrets:has': {
-    input: z.object({ connectionId: z.string().min(1), forAi: z.boolean().optional() }),
+    input: z.object({ connectionId: connectionIdSchema, forAi: z.boolean().optional() }),
   },
   'operation:run': { input: operationRequestSchema },
   'operation:cancel': { input: z.object({ requestId: z.string().min(1) }) },
@@ -50,9 +50,9 @@ export const IPC_CONTRACT = {
     input: z.object({ provider: llmProviderIdSchema, value: z.string().min(1).max(4096) }),
   },
   'ai:deleteKey': { input: z.object({ provider: llmProviderIdSchema }) },
-  'ai:proposals': { input: z.object({ connectionId: z.string().min(1) }) },
+  'ai:proposals': { input: z.object({ connectionId: connectionIdSchema }) },
   'ai:rejectProposal': {
-    input: z.object({ proposalId: z.string().min(1), connectionId: z.string().min(1) }),
+    input: z.object({ proposalId: z.string().min(1), connectionId: connectionIdSchema }),
   },
 } as const satisfies Record<string, { readonly input: ZodType }>
 

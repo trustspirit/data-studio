@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { IPC_CONTRACT, contractChannels } from '@shared/contracts/ipcContract'
 import { ALL_CHANNELS } from '@shared/contracts/channels'
+import { DERIVED_CONNECTION_ID_SUFFIX } from '@shared/types/connection'
 
 describe('IPC_CONTRACT', () => {
   it('모든 채널에 입력 스키마가 있다', () => {
@@ -81,6 +82,59 @@ describe('IPC_CONTRACT', () => {
   it('connection:save는 커넥션 설정 스키마를 쓴다', () => {
     // 필수 필드가 빠진 설정은 거부되어야 한다.
     expect(IPC_CONTRACT['connection:save'].input.safeParse({ id: 'c1' }).success).toBe(false)
+  })
+
+  it('파생 접미사(::ai)로 끝나는 connectionId는 모든 채널에서 거부된다', () => {
+    // main 내부의 AI 파생 풀 id를 renderer가 지정할 수 없어야 한다. 한 채널만
+    // 뚫려도 사용자 요청이 AI 전용 entry에 닿거나 다른 커넥션의 AI 비밀을
+    // 가리키게 된다 — 그래서 채널별로 하나씩 확인한다.
+    const derived = `c1${DERIVED_CONNECTION_ID_SUFFIX}`
+
+    for (const channel of ['connection:open', 'connection:close', 'connection:status', 'ai:proposals'] as const) {
+      expect(
+        IPC_CONTRACT[channel].input.safeParse({ connectionId: derived }).success,
+        `${channel}이 파생 id를 통과시켰다`,
+      ).toBe(false)
+      expect(IPC_CONTRACT[channel].input.safeParse({ connectionId: 'c1' }).success).toBe(true)
+    }
+
+    expect(IPC_CONTRACT['connection:delete'].input.safeParse({ id: derived }).success).toBe(false)
+    expect(
+      IPC_CONTRACT['secrets:set'].input.safeParse({ connectionId: derived, value: 'pw' }).success,
+    ).toBe(false)
+    expect(IPC_CONTRACT['secrets:has'].input.safeParse({ connectionId: derived }).success).toBe(false)
+    expect(
+      IPC_CONTRACT['ai:rejectProposal'].input.safeParse({ proposalId: 'p1', connectionId: derived })
+        .success,
+    ).toBe(false)
+    expect(
+      IPC_CONTRACT['operation:run'].input.safeParse({
+        requestId: 'r1',
+        connectionId: derived,
+        operation: { kind: 'sql', sql: 'SELECT 1' },
+      }).success,
+    ).toBe(false)
+  })
+
+  it('파생 접미사로 끝나는 id를 가진 커넥션 설정은 저장할 수 없다', () => {
+    // 그런 설정이 저장되면 그 커넥션의 드라이버가 dbPasswordRefFor를 통해
+    // 다른 커넥션(base id)의 AI 비밀을 집어 든다.
+    const config = {
+      id: `c1${DERIVED_CONNECTION_ID_SUFFIX}`,
+      name: 'x',
+      engine: 'postgres',
+      host: 'h',
+      port: 5432,
+      database: 'd',
+      username: 'u',
+      tlsMode: 'disable',
+      aiReadOnlyUsername: null,
+      maskedColumnPatterns: [],
+    }
+    expect(IPC_CONTRACT['connection:save'].input.safeParse(config).success).toBe(false)
+    expect(IPC_CONTRACT['connection:save'].input.safeParse({ ...config, id: 'c1' }).success).toBe(
+      true,
+    )
   })
 
   it('operation 스키마는 sql과 schema 종류만 받는다', () => {

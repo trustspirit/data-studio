@@ -173,6 +173,26 @@ describe('registerIpcRoutes', () => {
     expect(h.calls.delete).toEqual(['c1'])
   })
 
+  it('connection:save는 AI 계정이 없으면 AI 비밀을 지운다 (고아 방지)', async () => {
+    const h = createHarness()
+    await h.invoke('connection:save', { id: 'c1', name: 'x', aiReadOnlyUsername: null })
+    // 남겨 두면 나중에 같은 계정명을 다시 넣는 순간 사용자가 입력한 적 없는
+    // 옛 비밀번호로 조용히 접속을 시도한다.
+    expect(h.calls.secretDelete).toEqual([{ kind: 'db-password-ai-readonly', ownerId: 'c1' }])
+  })
+
+  it('connection:save는 빈 문자열 AI 계정도 없음으로 보고 비밀을 지운다', async () => {
+    const h = createHarness()
+    await h.invoke('connection:save', { id: 'c1', name: 'x', aiReadOnlyUsername: '' })
+    expect(h.calls.secretDelete).toEqual([{ kind: 'db-password-ai-readonly', ownerId: 'c1' }])
+  })
+
+  it('connection:save는 AI 계정이 있으면 비밀을 건드리지 않는다', async () => {
+    const h = createHarness()
+    await h.invoke('connection:save', { id: 'c1', name: 'x', aiReadOnlyUsername: 'ai_reader' })
+    expect(h.calls.secretDelete).toEqual([])
+  })
+
   it('secrets:status를 secret store로 보낸다', async () => {
     const h = createHarness()
     await h.invoke('secrets:status', undefined)
