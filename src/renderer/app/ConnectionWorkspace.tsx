@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import type { AiGateway } from '../gateways/ports/AiGateway'
@@ -179,6 +179,19 @@ export function ConnectionWorkspace({
     if (onSelectionChange !== undefined) onSelectionChange(sel)
     if (!controlled) setOwnSelection(sel)
   }
+
+  const canData = capabilities.includes('data')
+  const seen = useRef(activeSelection)
+  useEffect(() => {
+    const prev = seen.current
+    seen.current = activeSelection
+    if (activeSelection === null) return
+    if (prev?.schema === activeSelection.schema && prev.table === activeSelection.table) return
+    if (!canData) return
+    // 트리에서 테이블을 눌렀는데 화면이 그대로면 클릭이 먹었는지 알 수 없다.
+    // 다만 Structure를 보던 중이면 두 화면 다 그 테이블을 보는 곳이므로 뺏지 않는다.
+    setView((cur) => (cur === 'structure' || cur === 'data' ? cur : 'data'))
+  }, [activeSelection, canData])
 
   const activeView = availableViews.includes(view) ? view : (availableViews[0] ?? null)
 

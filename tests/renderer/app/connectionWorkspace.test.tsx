@@ -80,6 +80,42 @@ function wrap(capabilities: readonly Capability[] = ['sql', 'schema', 'data']) {
 }
 
 describe('ConnectionWorkspace', () => {
+  it('셸이 테이블을 고르면 Query에 있어도 Data로 넘어간다', async () => {
+    const props = { gateway: gateway(), connectionId: 'c1', connectionName: 'prod', capabilities: ['sql', 'schema', 'data'] as const }
+    const { rerender } = render(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace {...props} selection={null} />
+      </ThemeProvider>,
+    )
+    expect(screen.getByText(/Query — prod/)).toBeTruthy()
+
+    // 트리에서 테이블을 눌렀는데 화면이 그대로면 클릭이 먹었는지 알 수 없다.
+    rerender(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace {...props} selection={{ schema: 'public', table: 'users' }} />
+      </ThemeProvider>,
+    )
+    await waitFor(() => expect(screen.getByText('7')).toBeTruthy())
+    expect(screen.queryByText(/Query — prod/)).toBeNull()
+  })
+
+  it('Structure를 보던 중에 테이블을 고르면 Structure에 머문다', async () => {
+    const props = { gateway: gateway(), connectionId: 'c1', connectionName: 'prod', capabilities: ['sql', 'schema', 'data'] as const }
+    const { rerender } = render(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace {...props} selection={null} />
+      </ThemeProvider>,
+    )
+    fireEvent.click(screen.getByTestId('subtab-structure'))
+    rerender(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace {...props} selection={{ schema: 'public', table: 'users' }} />
+      </ThemeProvider>,
+    )
+    // 구조도 테이블을 보는 화면이다 — 굳이 뺏어 오지 않는다.
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Columns' })).toBeTruthy())
+  })
+
   it('기본은 Query 서브뷰다', () => {
     wrap()
     expect(screen.getByText(/Query — prod/)).toBeTruthy()
