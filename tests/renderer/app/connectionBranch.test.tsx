@@ -107,7 +107,7 @@ describe('ConnectionBranch', () => {
     fireEvent.click(screen.getByTestId('chevron-a'))
     await waitFor(() => expect(within(tree()).queryByText(/schema_a/)).toBeNull())
     // 접기는 시각적일 뿐이다 — 연결은 그대로 열려 있다.
-    expect(screen.getByTestId('close-a')).toBeTruthy()
+    expect(screen.getByTestId('more-a')).toBeTruthy()
 
     fireEvent.click(screen.getByTestId('chevron-a'))
     await waitFor(() => expect(within(tree()).getByText(/schema_a/)).toBeTruthy())
@@ -145,6 +145,7 @@ describe('ConnectionBranch', () => {
   it('연결을 닫으면 그 가지도 사라진다', async () => {
     await openBoth(bridge([conn('a', 'prod'), conn('b', 'staging')]))
     await waitFor(() => expect(within(tree()).getByText(/schema_a/)).toBeTruthy())
+    fireEvent.click(screen.getByTestId('more-a'))
     fireEvent.click(screen.getByTestId('close-a'))
     await waitFor(() => expect(within(tree()).queryByText(/schema_a/)).toBeNull())
     expect(within(tree()).getByText(/schema_b/)).toBeTruthy()

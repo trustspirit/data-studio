@@ -125,6 +125,7 @@ describe('AppShell', () => {
     fireEvent.click(screen.getByTestId('connect-a'))
     await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
 
+    fireEvent.click(screen.getByTestId('more-a'))
     fireEvent.click(screen.getByTestId('close-a'))
 
     await waitFor(() => expect(channelsOf(bridge)).toContain('connection:close'))

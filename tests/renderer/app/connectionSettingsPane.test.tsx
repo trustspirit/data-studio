@@ -66,7 +66,8 @@ describe('ConnectionSettingsPane', () => {
 
   it('행의 설정 버튼이 그 연결의 설정을 메인에 띄운다', async () => {
     wrap(bridgeWith([conn('a', 'prod')]))
-    await waitFor(() => expect(screen.getByTestId('settings-a')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('more-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('more-a'))
     fireEvent.click(screen.getByTestId('settings-a'))
     await waitFor(() => expect(screen.getByTestId('connection-settings')).toBeTruthy())
     expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('prod')
@@ -85,14 +86,16 @@ describe('ConnectionSettingsPane', () => {
 
   it('레코드를 전환하면 삭제 확인 상태가 초기화된다', async () => {
     wrap(bridgeWith([conn('a', 'A'), conn('b', 'B')]))
-    await waitFor(() => expect(screen.getByTestId('settings-a')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('more-a')).toBeTruthy())
 
+    fireEvent.click(screen.getByTestId('more-a'))
     fireEvent.click(screen.getByTestId('settings-a'))
     await waitFor(() => expect(screen.getByText('Delete')).toBeTruthy())
     fireEvent.click(screen.getByText('Delete'))
     await waitFor(() => expect(screen.getByText(/Confirm delete/i)).toBeTruthy())
 
     // B로 전환하면 B의 폼은 확인 상태가 아니어야 한다.
+    fireEvent.click(screen.getByTestId('more-b'))
     fireEvent.click(screen.getByTestId('settings-b'))
     await waitFor(() => expect(screen.queryByText(/Confirm delete/i)).toBeNull())
     expect(screen.getByText('Delete')).toBeTruthy()
@@ -172,6 +175,7 @@ describe('ConnectionSettingsPane', () => {
     fireEvent.click(screen.getByTestId('connect-a'))
     await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
 
+    fireEvent.click(screen.getByTestId('more-a'))
     fireEvent.click(screen.getByTestId('settings-a'))
     await waitFor(() => expect(screen.getByTestId('connection-settings')).toBeTruthy())
     // 폼을 잠깐 보는 동안 워크스페이스가 사라지면 작성 중이던 것이 날아간다.
@@ -189,6 +193,7 @@ describe('ConnectionSettingsPane', () => {
     fireEvent.click(screen.getByTestId('connect-a'))
     await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
 
+    fireEvent.click(screen.getByTestId('more-a'))
     fireEvent.click(screen.getByTestId('settings-a'))
     await waitFor(() => expect(screen.getByText('Delete')).toBeTruthy())
     fireEvent.click(screen.getByText('Delete'))

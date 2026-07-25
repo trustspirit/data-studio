@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
+import { RowMenu, type RowMenuItem } from '../../../shared/ui'
 
 /** 트리 행이 그리는 연결의 상태. 셸의 `OpenState`에 '닫힘'을 더한 것. */
 export type ConnectionRowState = 'closed' | 'connecting' | 'ready' | 'error'
@@ -144,6 +145,21 @@ export function ConnectionRow({
   children,
 }: ConnectionRowProps) {
   const opened = state === 'ready' || state === 'connecting'
+  // 접속만 행에 남긴다. 나머지는 메뉴 안에서 글자 라벨을 받는다 — 사이드바에
+  // 연결이 쌓이면 행마다 늘어선 버튼이 이름보다 시끄럽다.
+  const menuItems: readonly RowMenuItem[] = [
+    ...(opened
+      ? [
+          {
+            label: '연결 끊기',
+            onSelect: onClose,
+            disabled: state === 'connecting',
+            testId: `close-${id}`,
+          },
+        ]
+      : []),
+    { label: '설정', onSelect: onSettings, testId: `settings-${id}` },
+  ]
   return (
     <Wrap>
       <Row $active={active}>
@@ -172,25 +188,7 @@ export function ConnectionRow({
               {state === 'error' ? '재시도' : '연결'}
             </Action>
           )}
-          {opened && (
-            <Action
-              type="button"
-              data-testid={`close-${id}`}
-              title={`${name} 연결 끊기`}
-              onClick={onClose}
-              disabled={state === 'connecting'}
-            >
-              닫기
-            </Action>
-          )}
-          <Action
-            type="button"
-            data-testid={`settings-${id}`}
-            aria-label={`${name} 설정`}
-            onClick={onSettings}
-          >
-            ⚙
-          </Action>
+          <RowMenu label={`${name} 더 보기`} items={menuItems} testId={`more-${id}`} />
         </Actions>
       </Row>
       {state === 'error' && error != null && error !== '' && (

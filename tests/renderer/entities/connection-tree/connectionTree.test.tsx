@@ -70,19 +70,22 @@ describe('ConnectionRow', () => {
     expect(onToggle).toHaveBeenCalledOnce()
   })
 
-  it('닫힌 연결은 연결 버튼을, 열린 연결은 닫기 버튼을 갖는다', () => {
+  it('닫힌 연결은 연결 버튼을, 열린 연결은 메뉴 안의 연결 끊기를 갖는다', () => {
     const { unmount } = wrap(row({}, { state: 'closed' }))
     expect(screen.getByTestId('connect-a')).toBeTruthy()
+    fireEvent.click(screen.getByTestId('more-a'))
     expect(screen.queryByTestId('close-a')).toBeNull()
     unmount()
 
     wrap(row({}, { state: 'ready' }))
-    expect(screen.getByTestId('close-a')).toBeTruthy()
     expect(screen.queryByTestId('connect-a')).toBeNull()
+    fireEvent.click(screen.getByTestId('more-a'))
+    expect(screen.getByTestId('close-a')).toBeTruthy()
   })
 
-  it('여는 중에는 닫기를 누를 수 없다', () => {
+  it('여는 중에는 연결 끊기를 누를 수 없다', () => {
     wrap(row({}, { state: 'connecting' }))
+    fireEvent.click(screen.getByTestId('more-a'))
     expect(screen.getByTestId<HTMLButtonElement>('close-a').disabled).toBe(true)
   })
 
@@ -101,10 +104,11 @@ describe('ConnectionRow', () => {
     expect(screen.getByText('public')).toBeTruthy()
   })
 
-  it('설정 버튼이 onSettings를 부른다', () => {
+  it('메뉴의 설정 항목이 onSettings를 부른다', () => {
     const onSettings = vi.fn()
     wrap(row({ onSettings }))
-    fireEvent.click(screen.getByRole('button', { name: 'prod 설정' }))
+    fireEvent.click(screen.getByRole('button', { name: 'prod 더 보기' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '설정' }))
     expect(onSettings).toHaveBeenCalledOnce()
   })
 })
