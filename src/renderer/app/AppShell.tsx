@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { useGateways } from './GatewayProvider'
 import { useConnections } from '../features/connections/model/useConnections'
 import { ConnectionsScreen } from '../features/connections'
+import { AuditView } from '../features/audit'
 import { ConnectionWorkspace } from './ConnectionWorkspace'
 import { Button, EmptyState, ErrorBanner } from '../shared/ui'
 import type { Capability } from '../../shared/types/capability'
@@ -73,6 +74,16 @@ function WorkspaceIcon() {
       <rect x="3" y="3.5" width="14" height="13" rx="1.8" stroke="currentColor" strokeWidth="1.5" />
       <path d="M8 3.5v13" stroke="currentColor" strokeWidth="1.5" />
       <path d="M8 8.5h9" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+function AuditIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="4" y="2.8" width="12" height="14.4" rx="1.6" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M7 6.6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M7 10h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M7 13.4h3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }
@@ -188,8 +199,13 @@ function QueryTab() {
   )
 }
 
+function AuditTab() {
+  const gateways = useGateways()
+  return <AuditView gateway={gateways.operation} />
+}
+
 export function AppShell() {
-  const [tab, setTab] = useState<'connections' | 'workspace'>('connections')
+  const [tab, setTab] = useState<'connections' | 'workspace' | 'audit'>('connections')
   return (
     <Layout>
       <Rail>
@@ -211,8 +227,19 @@ export function AppShell() {
         >
           <WorkspaceIcon />
         </RailButton>
+        <RailButton
+          type="button"
+          aria-label="Audit"
+          title="Audit"
+          $active={tab === 'audit'}
+          onClick={() => setTab('audit')}
+        >
+          <AuditIcon />
+        </RailButton>
       </Rail>
-      <Content>{tab === 'connections' ? <ConnectionsScreen /> : <QueryTab />}</Content>
+      <Content>
+        {tab === 'connections' ? <ConnectionsScreen /> : tab === 'workspace' ? <QueryTab /> : <AuditTab />}
+      </Content>
     </Layout>
   )
 }

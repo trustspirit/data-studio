@@ -1,0 +1,165 @@
+import styled from 'styled-components'
+import type { AuditEntry, OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { Button, EmptyState, ErrorBanner, Notice } from '../../../shared/ui'
+import { useAuditLog } from '../model/useAuditLog'
+
+const Layout = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: ${({ theme }) => theme.color.winBg};
+  color: ${({ theme }) => theme.color.text};
+  font-family: ${({ theme }) => theme.font.ui};
+`
+const Bar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.sm};
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border};
+  background: ${({ theme }) => theme.color.toolbar};
+`
+const BarTitle = styled.h2`
+  margin: 0;
+  font-size: ${({ theme }) => theme.fontSize.md};
+  font-weight: 600;
+`
+const Count = styled.span`
+  color: ${({ theme }) => theme.color.textFaint};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+`
+const Spacer = styled.span`
+  margin-left: auto;
+`
+const Scroll = styled.div`
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+`
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: ${({ theme }) => theme.fontSize.sm};
+`
+const Th = styled.th`
+  position: sticky;
+  top: 0;
+  text-align: left;
+  padding: ${({ theme }) => theme.density.rowPad};
+  background: ${({ theme }) => theme.color.gridHeader};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border};
+  color: ${({ theme }) => theme.color.textDim};
+  font-weight: 600;
+  white-space: nowrap;
+`
+const Td = styled.td`
+  padding: ${({ theme }) => theme.density.rowPad};
+  border-bottom: 1px solid ${({ theme }) => theme.color.borderSoft};
+  vertical-align: top;
+  white-space: nowrap;
+`
+const Statement = styled(Td)`
+  font-family: ${({ theme }) => theme.font.mono};
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-width: 0;
+  width: 60%;
+`
+const ActorBadge = styled.span<{ $ai: boolean }>`
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  border: 1px solid ${({ theme }) => theme.color.border};
+  color: ${({ theme, $ai }) => ($ai ? theme.color.purple : theme.color.textDim)};
+`
+const Outcome = styled.span<{ $tone: 'ok' | 'bad' | 'warn' | 'dim' }>`
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  font-weight: 600;
+  color: ${({ theme, $tone }) =>
+    $tone === 'ok'
+      ? theme.color.green
+      : $tone === 'bad'
+        ? theme.color.red
+        : $tone === 'warn'
+          ? theme.color.orange
+          : theme.color.textDim};
+`
+
+function toneOf(outcome: string): 'ok' | 'bad' | 'warn' | 'dim' {
+  if (outcome === 'allowed' || outcome === 'approved') return 'ok'
+  if (outcome === 'denied' || outcome === 'rejected') return 'bad'
+  if (outcome === 'failed') return 'warn'
+  return 'dim' // proposed / expired 등
+}
+
+function timeOf(at: number): string {
+  const d = new Date(at)
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
+}
+
+interface AuditViewProps {
+  gateway: OperationGateway
+}
+
+export function AuditView({ gateway }: AuditViewProps) {
+  const log = useAuditLog(gateway)
+
+  return (
+    <Layout>
+      <Bar>
+        <BarTitle>Audit Log</BarTitle>
+        <Count>{log.entries.length} entries</Count>
+        <Spacer />
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          data-testid="audit-refresh"
+          disabled={log.loading}
+          onClick={log.refresh}
+        >
+          Refresh
+        </Button>
+      </Bar>
+      {log.error !== null && <ErrorBanner>{log.error}</ErrorBanner>}
+      {log.loading && log.entries.length === 0 ? (
+        <Notice>불러오는 중…</Notice>
+      ) : log.entries.length === 0 ? (
+        <EmptyState
+          title="감사 기록이 없습니다."
+          hint="쿼리 실행·AI 제안·승인이 모두 여기에 남습니다"
+        />
+      ) : (
+        <Scroll>
+          <Table data-testid="audit-table">
+            <thead>
+              <tr>
+                <Th>Time</Th>
+                <Th>Actor</Th>
+                <Th>Connection</Th>
+                <Th>Statement</Th>
+                <Th>Outcome</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {log.entries.map((e: AuditEntry) => (
+                <tr key={`${e.requestId}:${e.at}:${e.outcome}`}>
+                  <Td>{timeOf(e.at)}</Td>
+                  <Td>
+                    <ActorBadge $ai={e.actorType === 'ai'}>{e.actorType}</ActorBadge>
+                  </Td>
+                  <Td>{e.connectionId}</Td>
+                  <Statement>{e.statement}</Statement>
+                  <Td>
+                    <Outcome $tone={toneOf(e.outcome)}>{e.outcome}</Outcome>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Scroll>
+      )}
+    </Layout>
+  )
+}
