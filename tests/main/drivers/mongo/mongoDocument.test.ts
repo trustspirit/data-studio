@@ -25,12 +25,12 @@ function cfg(dbName: string): ConnectionConfig {
 }
 
 function ctx(requestId = 'r'): ExecutionContext {
-  return { requestId, signal: new AbortController().signal }
+  return { requestId, signal: new AbortController().signal, resolveColumnOrigins: false }
 }
 function abortedCtx(): ExecutionContext {
   const c = new AbortController()
   c.abort()
-  return { requestId: 'r', signal: c.signal }
+  return { requestId: 'r', signal: c.signal, resolveColumnOrigins: false }
 }
 const FULL: PageRequest = { cursor: null, maxRows: 1000, maxBytes: 8_000_000 }
 

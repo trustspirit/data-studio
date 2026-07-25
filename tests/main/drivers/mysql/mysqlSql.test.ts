@@ -5,7 +5,7 @@ import { MYSQL_AVAILABLE, MYSQL_URL } from '../../../contract/mysqlTestEnv'
 import type { MysqlClientLike } from '@main/drivers/mysql/MysqlDriver'
 import type { ExecutionContext } from '@main/core/driver/ExecutionContext'
 
-const ctx = (): ExecutionContext => ({ requestId: 'r1', signal: new AbortController().signal })
+const ctx = (): ExecutionContext => ({ requestId: 'r1', signal: new AbortController().signal, resolveColumnOrigins: false })
 const PAGE = { cursor: null, maxRows: 1000, maxBytes: 8_000_000 }
 
 describe('MysqlSqlCapability.classify (서버 불필요)', () => {
@@ -63,7 +63,7 @@ describe.skipIf(!MYSQL_AVAILABLE)('MysqlSqlCapability (실서버)', () => {
   it('이미 abort된 컨텍스트는 거부', async () => {
     const ac = new AbortController()
     ac.abort()
-    await expect(cap.execute({ requestId: 'r', signal: ac.signal }, 'SELECT 1', PAGE)).rejects.toThrow()
+    await expect(cap.execute({ requestId: 'r', signal: ac.signal, resolveColumnOrigins: false }, 'SELECT 1', PAGE)).rejects.toThrow()
   })
 
   it('한 행씩 커서 페이지네이션이 전체 읽기와 같다', async () => {

@@ -76,7 +76,7 @@ describe('타입 고정: SqlCapability의 explain/beginReadOnly는 선택 멤버
       },
     }
 
-    const ctx: ExecutionContext = { requestId: 'req-1', signal: new AbortController().signal }
+    const ctx: ExecutionContext = { requestId: 'req-1', signal: new AbortController().signal, resolveColumnOrigins: false }
 
     // 단언(`as`)도, non-null(`!`)도 쓰지 않는다 — optional chaining +
     // undefined 체크만으로 좁혀져야 컴파일된다.

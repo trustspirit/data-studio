@@ -23,7 +23,7 @@ function streamCap(over: Partial<StreamCapability> = {}): StreamCapability {
 function driverWith(stream: StreamCapability): Driver {
   return { id: 'c', engine: 'kafka', connect: () => Promise.resolve(), disconnect: () => Promise.resolve(), ping: () => Promise.resolve(0), stream }
 }
-const ctx = { requestId: 'r1', signal: new AbortController().signal }
+const ctx = { requestId: 'r1', signal: new AbortController().signal, resolveColumnOrigins: false }
 const page = { cursor: null, maxRows: 100, maxBytes: 1000 }
 function inputFor(driver: Driver, operation: Operation): CapabilityExecuteInput {
   return { ctx, driver, operation, page, limits: { timeoutMs: 1000, maxRows: 100, maxBytes: 1000 }, readOnlyScope: false, connectionId: 'conn-1' }

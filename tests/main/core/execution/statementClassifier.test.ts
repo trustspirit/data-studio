@@ -179,6 +179,30 @@ describe('classifyStatement', () => {
     expect(classifyStatement('EXPLAIN (ANALYZE true) SELECT 1')).toBe('write')
   })
 
+  it('영국식 철자 ANALYSE도 ANALYZE와 같게 본다', () => {
+    // PostgreSQL 문법이 두 철자를 동등한 별칭으로 정의한다. 한쪽만 보면
+    // `EXPLAIN ANALYSE`가 read로 분류되어 AI가 승인 없이 실제 실행을 시킬 수
+    // 있었다 — 철자 하나가 승인 게이트를 통째로 비껴가는 형태였다.
+    expect(classifyStatement('EXPLAIN ANALYSE SELECT 1')).toBe('write')
+    expect(classifyStatement('EXPLAIN (ANALYSE, BUFFERS) SELECT 1')).toBe('write')
+    expect(classifyStatement('ANALYSE users')).toBe('write')
+  })
+
+  it('읽기 머리를 감싸도 함수 호출 가드는 유지된다', () => {
+    // 한때 `WITH` 분기가 함수 호출 검사 앞에서 조기 반환했다. 그래서 감싸기 한
+    // 겹으로 가드가 사라졌다. 읽기 전용 트랜잭션은 이걸 덮지 못한다 —
+    // PostgreSQL READ ONLY는 테이블 DML/DDL만 막고 setval·pg_read_file·
+    // pg_sleep·dblink는 허용하기 때문이다.
+    expect(classifyStatement("SELECT pg_read_file('/etc/passwd')")).toBe('unknown')
+    expect(classifyStatement("WITH x AS (SELECT 1) SELECT pg_read_file('/etc/passwd')")).toBe('unknown')
+    expect(classifyStatement("WITH x AS (SELECT 1) SELECT setval('s', 1)")).toBe('unknown')
+    expect(classifyStatement('WITH x AS (SELECT pg_sleep(10)) SELECT * FROM x')).toBe('unknown')
+    // EXPLAIN도 같은 검사를 공유한다.
+    expect(classifyStatement("EXPLAIN SELECT pg_read_file('/etc/passwd')")).toBe('unknown')
+    // 순수 내장은 감싸도 그대로 읽기다 — 가드가 정상 쿼리를 막지 않는다.
+    expect(classifyStatement('WITH x AS (SELECT 1) SELECT count(*) FROM x')).toBe('read')
+  })
+
   it('리터럴 안의 쓰기 키워드에 속지 않는다 (오탐 방지)', () => {
     expect(classifyStatement("SELECT 'DROP TABLE x' AS msg")).toBe('read')
   })

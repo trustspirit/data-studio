@@ -7,6 +7,7 @@ import type {
 } from '../../core/driver/capabilities/SqlCapability'
 import { classifyStatement } from '../../core/execution/StatementClassifier'
 import { sqliteValueMap } from './sqliteValueMap'
+import { reportedOrigin } from '../../core/driver/columnOrigin'
 import type { DatabaseInstance } from './SqliteDriver'
 
 const CURSOR_PREFIX = 'sqlite:1:'
@@ -33,7 +34,11 @@ function rejected(error: unknown): Promise<never> {
 /** better-sqlite3 Statement의 우리가 쓰는 최소 표면. */
 interface StmtLike {
   reader: boolean
-  columns(): { name: string; type: string | null }[]
+  /**
+   * `column`/`table`은 sqlite3_column_origin_name/table_name이다 — 결과 컬럼이
+   * 식이면 null이다. 별칭에 속지 않는 판정(PII 마스킹)이 이 값을 쓴다.
+   */
+  columns(): { name: string; type: string | null; column: string | null; table: string | null }[]
   raw(toggle?: boolean): StmtLike
   all(...params: unknown[]): unknown[]
   run(...params: unknown[]): { changes: number }
@@ -96,7 +101,12 @@ export class SqliteSqlCapability implements SqlCapability {
         )
       }
 
-      const columns = stmt.columns().map((c) => ({ name: c.name, type: c.type ?? '' }))
+      // 출처는 better-sqlite3가 공짜로 주므로 ctx.resolveColumnOrigins와 무관하게 채운다.
+      const columns = stmt.columns().map((c) => ({
+        name: c.name,
+        type: c.type ?? '',
+        origin: reportedOrigin(c.table, c.column),
+      }))
       const offset = page.cursor === null ? 0 : decodeCursor(page.cursor, sql)
       const allRows = stmt.raw(true).all(...bind) as unknown[][]
       const total = allRows.length

@@ -14,7 +14,7 @@ function config(): ConnectionConfig {
   }
 }
 const PASSWORD = decodeURIComponent(new URL(TEST_DB_URL).password)
-function ctx(): ExecutionContext { return { requestId: 'r', signal: new AbortController().signal } }
+function ctx(): ExecutionContext { return { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false } }
 
 describe.skipIf(!PG_AVAILABLE)('PostgreSQL data:browse (통합)', () => {
   it('실제 테이블을 정렬해 브라우즈한다', async () => {

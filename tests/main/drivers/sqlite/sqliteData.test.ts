@@ -11,7 +11,7 @@ import type { RowChange } from '@shared/types/operation'
 let dir: string
 let db: DatabaseInstance
 function ctx(): ExecutionContext {
-  return { requestId: 'r', signal: new AbortController().signal }
+  return { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false }
 }
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), 'datacon-sqlite-data-'))
@@ -73,11 +73,52 @@ describe('SqliteDataCapability', () => {
     expect(count.n).toBe(2) // 원래 2행 그대로
   })
 
+  it('bytes를 base64 문자열이 아니라 BLOB으로 저장한다', async () => {
+    // wv.v는 base64 ASCII다. 그대로 바인딩하면 typeof(b)가 'text'가 되고
+    // 내용도 원본 바이트가 아니라 'AQL/'이 된다.
+    db.exec('DROP TABLE IF EXISTS b; CREATE TABLE b (id integer primary key, payload blob)')
+    await cap().applyChanges(ctx(), 'main', 'b', [
+      {
+        op: 'insert',
+        values: { id: { t: 'int', v: 1 }, payload: { t: 'bytes', v: 'AQL/', enc: 'base64', truncated: false } },
+      },
+    ])
+    const row = db.prepare('SELECT typeof(payload) AS ty, hex(payload) AS hex FROM b').get() as {
+      ty: string
+      hex: string
+    }
+    expect(row).toEqual({ ty: 'blob', hex: '0102FF' })
+  })
+
+  it('이진 PK로 삭제하면 실제로 그 행이 지워진다', async () => {
+    // SQLite는 BLOB과 TEXT를 서로 다른 값으로 비교한다 — base64 문자열로
+    // WHERE하면 에러 없이 0행이 지워지고 성공으로 보고된다.
+    db.exec('DROP TABLE IF EXISTS bpk; CREATE TABLE bpk (id blob primary key, n int)')
+    db.prepare('INSERT INTO bpk VALUES (?, ?)').run(Buffer.from([0x00, 0x01, 0x02]), 7)
+    const res = await cap().applyChanges(ctx(), 'main', 'bpk', [
+      { op: 'delete', pk: { id: { t: 'bytes', v: 'AAEC', enc: 'base64', truncated: false } } },
+    ])
+    expect(res.affected).toBe(1)
+    expect((db.prepare('SELECT COUNT(*) AS n FROM bpk').get() as { n: number }).n).toBe(0)
+  })
+
+  it('잘린 bytes는 되쓰기를 거부한다 (남은 바이트를 복원할 수 없다)', async () => {
+    await expect(
+      cap().applyChanges(ctx(), 'main', 't', [
+        {
+          op: 'update',
+          pk: { id: { t: 'int', v: 1 } },
+          set: { name: { t: 'bytes', v: 'AQL/', enc: 'base64', truncated: true } },
+        },
+      ]),
+    ).rejects.toThrow(/truncated/)
+  })
+
   it('이미 취소된 컨텍스트는 applyChanges를 거부한다', async () => {
     const c = new AbortController()
     c.abort()
     await expect(
-      cap().applyChanges({ requestId: 'r', signal: c.signal }, 'main', 't', [
+      cap().applyChanges({ requestId: 'r', signal: c.signal, resolveColumnOrigins: false }, 'main', 't', [
         { op: 'delete', pk: { id: { t: 'int', v: 1 } } },
       ]),
     ).rejects.toThrow()

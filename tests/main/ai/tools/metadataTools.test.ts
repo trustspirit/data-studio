@@ -21,7 +21,7 @@ function ctxWith(over: Partial<AiToolContext> & { run?: RunFn }): AiToolContext 
     executor: { run: vi.fn(run) } as unknown as OperationExecutor,
     connections: over.connections ?? { list: () => Promise.resolve([]), get: () => Promise.resolve(null) },
     proposals: {} as unknown as WriteProposalStore,
-    redactor: { redact: (rs) => rs },
+    redactor: { redact: (req) => req.resultSet },
     sessionId: 's1',
     aiActor: () => ({ type: 'ai', sessionId: 's1' }),
     newRequestId: () => 'req1',

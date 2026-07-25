@@ -181,13 +181,13 @@ export interface DriverContractHarness {
 export type DriverContractFactory = () => DriverContractHarness
 
 function ctx(requestId = 'contract-req'): ExecutionContext {
-  return { requestId, signal: new AbortController().signal }
+  return { requestId, signal: new AbortController().signal, resolveColumnOrigins: false }
 }
 
 function abortedCtx(): ExecutionContext {
   const controller = new AbortController()
   controller.abort()
-  return { requestId: 'contract-aborted', signal: controller.signal }
+  return { requestId: 'contract-aborted', signal: controller.signal, resolveColumnOrigins: false }
 }
 
 function must<T>(value: T | undefined, message: string): T {

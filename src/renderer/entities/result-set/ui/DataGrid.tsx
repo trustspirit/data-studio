@@ -28,12 +28,17 @@ const HeaderCell = styled.div`
   padding: ${({ theme }) => theme.density.rowPad};
   font-weight: 600;
 `
-const Cell = styled.div`
+// $modified: 아직 적용되지 않은 스테이징 값을 보여주는 셀. 서버 값과 구분되지 않으면
+// 사용자는 무엇을 쓰려는지 검토할 수 없다(= 명시적 apply의 의미가 사라진다).
+// box-shadow(레이아웃에 영향 없음)로 표시해 가상화 행 높이를 흔들지 않는다.
+const Cell = styled.div<{ $modified: boolean }>`
   flex: 1 0 120px;
   padding: ${({ theme }) => theme.density.rowPad};
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  background: ${({ theme, $modified }) => ($modified ? theme.color.rowAlt : 'transparent')};
+  box-shadow: ${({ theme, $modified }) => ($modified ? `inset 2px 0 0 ${theme.color.accent}` : 'none')};
 `
 const CellInput = styled.input`
   width: 100%;
@@ -61,6 +66,8 @@ const DeleteToggleCell = styled.div`
 
 export interface EditingProps {
   onCommitCell: (rowIndex: number, column: string, text: string) => void
+  /** 행 인덱스 → 컬럼명 → 스테이징 값. 서버 값 대신 이걸 그린다(저장 전 검토용). */
+  edits: ReadonlyMap<number, ReadonlyMap<string, WireValue>>
   deletedRows: ReadonlySet<number>
   onToggleDelete: (rowIndex: number) => void
   newRows: readonly ReadonlyMap<string, WireValue>[]
@@ -136,6 +143,8 @@ export function DataGrid({
           if (row === undefined) return null
           const rowIndex = item.index
           const deleted = editing?.deletedRows.has(rowIndex) ?? false
+          // 행 단위로 한 번만 꺼낸다 — 셀마다 전체 edits를 훑으면 가상화 이득이 사라진다.
+          const rowEdits = editing?.edits.get(rowIndex)
           return (
             <div
               key={item.key}
@@ -161,35 +170,55 @@ export function DataGrid({
                 </DeleteToggleCell>
               )}
               {row.map((value, ci) => {
+                // edits는 컬럼명 키인데 셀 순회는 인덱스다 — onCommitCell과 같은 방식으로 이름을 뽑는다.
+                const columnName = columns[ci]?.name
+                const staged = columnName === undefined ? undefined : rowEdits?.get(columnName)
+                const shown = staged ?? value
                 const isEditingThisCell =
                   editingCell !== null && editingCell.row === rowIndex && editingCell.col === ci
                 if (editing !== undefined && isEditingThisCell) {
+                  // 스테이징 값이 있으면 그게 초기값이다. 서버 값으로 되돌리면 사용자가
+                  // 값을 확인하려고 셀을 다시 연 것만으로 자기 편집이 취소된다.
+                  const initialText = rawCellText(shown)
+                  const commit = (text: string) => {
+                    if (columnName !== undefined) editing.onCommitCell(rowIndex, columnName, text)
+                  }
                   return (
-                    <Cell key={ci} data-cell style={{ display: 'flex', alignItems: 'center' }}>
+                    <Cell
+                      key={ci}
+                      data-cell
+                      $modified={staged !== undefined}
+                      style={{ display: 'flex', alignItems: 'center' }}
+                    >
                       <CellInput
                         autoFocus
-                        defaultValue={rawCellText(value)}
+                        defaultValue={initialText}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            const column = columns[ci]
-                            if (column !== undefined) {
-                              editing.onCommitCell(rowIndex, column.name, e.currentTarget.value)
-                            }
+                            commit(e.currentTarget.value)
                             setEditingCell(null)
                           } else if (e.key === 'Escape') {
                             setEditingCell(null)
                           }
                         }}
-                        onBlur={() => setEditingCell(null)}
+                        // Tab이나 옆 셀 클릭은 취소 제스처가 아니다(취소는 Escape) — 입력을
+                        // 버리지 않고 커밋한다. 단 값이 그대로면 커밋하지 않는다: editCell은
+                        // 무조건 {t:'str'}로 스테이징하므로, 들여다보기만 한 셀까지
+                        // `SET id = '7'` 같은 무의미한 UPDATE가 되어 저장 대상에 섞인다.
+                        // NULL 버튼은 아래 preventDefault로 포커스를 뺏지 않아 여기로 오지 않는다.
+                        onBlur={(e) => {
+                          if (e.currentTarget.value !== initialText) commit(e.currentTarget.value)
+                          setEditingCell(null)
+                        }}
                       />
                       <NullButton
                         type="button"
-                        aria-label={`행 ${rowIndex} ${columns[ci]?.name ?? ''} NULL`}
+                        aria-label={`행 ${rowIndex} ${columnName ?? ''} NULL`}
                         // 인풋 blur가 먼저 나 편집이 닫히면 클릭이 사라진다 — 막는다.
+                        // (blur가 입력을 커밋하게 된 뒤로는 NULL 대신 입력 문자열이 들어가는 문제도 겸한다.)
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => {
-                          const column = columns[ci]
-                          if (column !== undefined) editing.onSetNull(rowIndex, column.name)
+                          if (columnName !== undefined) editing.onSetNull(rowIndex, columnName)
                           setEditingCell(null)
                         }}
                       >
@@ -202,11 +231,13 @@ export function DataGrid({
                   <Cell
                     key={ci}
                     data-cell
+                    data-modified={staged !== undefined ? '' : undefined}
+                    $modified={staged !== undefined}
                     onDoubleClick={
                       editing !== undefined ? () => setEditingCell({ row: rowIndex, col: ci }) : undefined
                     }
                   >
-                    {renderCell(value)}
+                    {renderCell(shown)}
                   </Cell>
                 )
               })}
@@ -224,7 +255,7 @@ export function DataGrid({
                 const isNull = staged?.t === 'null'
                 const text = staged !== undefined && staged.t === 'str' ? staged.v : ''
                 return (
-                  <Cell key={ci} data-cell style={{ display: 'flex', alignItems: 'center' }}>
+                  <Cell key={ci} data-cell $modified={false} style={{ display: 'flex', alignItems: 'center' }}>
                     <CellInput
                       aria-label={`새 행 ${i} ${c.name}`}
                       value={text}

@@ -41,7 +41,7 @@ function liveCfg(): ConnectionConfig {
     tlsMode: 'disable', aiReadOnlyUsername: null, maskedColumnPatterns: [],
   }
 }
-const ctx = (): ExecutionContext => ({ requestId: 'r1', signal: new AbortController().signal })
+const ctx = (): ExecutionContext => ({ requestId: 'r1', signal: new AbortController().signal, resolveColumnOrigins: false })
 const page = { cursor: null, maxRows: 1000, maxBytes: 8 * 1024 * 1024 }
 
 /** sink가 count개 메시지를 받을 때까지(또는 timeout) 기다린다. */

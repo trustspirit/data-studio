@@ -14,7 +14,7 @@ function config(): ConnectionConfig {
   }
 }
 const PASSWORD = decodeURIComponent(new URL(TEST_DB_URL).password)
-function ctx(): ExecutionContext { return { requestId: 'r', signal: new AbortController().signal } }
+function ctx(): ExecutionContext { return { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false } }
 
 async function browseAll(
   driver: ReturnType<typeof createPostgresDriver>,

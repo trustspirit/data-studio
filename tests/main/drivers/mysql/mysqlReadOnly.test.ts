@@ -5,7 +5,7 @@ import { MYSQL_AVAILABLE, MYSQL_URL, MARIADB_AVAILABLE, MARIADB_URL } from '../.
 import type { MysqlClientLike } from '@main/drivers/mysql/MysqlDriver'
 import type { EngineId } from '@shared/types/connection'
 
-const ctx = () => ({ requestId: 'ro', signal: new AbortController().signal })
+const ctx = () => ({ requestId: 'ro', signal: new AbortController().signal, resolveColumnOrigins: false })
 const PAGE = { cursor: null, maxRows: 1000, maxBytes: 8_000_000 }
 
 function readOnlySuite(name: string, available: boolean, url: string, engine: EngineId): void {

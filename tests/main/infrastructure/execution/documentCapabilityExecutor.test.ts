@@ -46,7 +46,7 @@ function makeInput(
   } as unknown as Driver
 
   return {
-    ctx: { requestId: 'r', signal: new AbortController().signal },
+    ctx: { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false },
     driver,
     operation,
     page,
@@ -181,7 +181,7 @@ describe('DocumentCapabilityExecutor', () => {
 
     await expect(
       new DocumentCapabilityExecutor().execute({
-        ctx: { requestId: 'r', signal: new AbortController().signal },
+        ctx: { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false },
         driver,
         operation: { kind: 'document', op: 'listCollections' },
         page,

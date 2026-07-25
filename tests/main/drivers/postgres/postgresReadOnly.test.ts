@@ -14,7 +14,7 @@ function config(): ConnectionConfig {
   }
 }
 const PASSWORD = decodeURIComponent(new URL(TEST_DB_URL).password)
-function ctx(): ExecutionContext { return { requestId: 'r', signal: new AbortController().signal } }
+function ctx(): ExecutionContext { return { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false } }
 const PAGE = { cursor: null, maxRows: 1000, maxBytes: 8 * 1024 * 1024 }
 
 describe.skipIf(!PG_AVAILABLE)('PostgresDriver beginReadOnly (실제 pg 필요)', () => {

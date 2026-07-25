@@ -16,7 +16,7 @@ function driverWith(kv: KeyValueCapability): Driver {
   return { id: 'c', engine: 'redis', connect: () => Promise.resolve(), disconnect: () => Promise.resolve(), ping: () => Promise.resolve(0), keyValue: kv }
 }
 
-const ctx = { requestId: 'r1', signal: new AbortController().signal }
+const ctx = { requestId: 'r1', signal: new AbortController().signal, resolveColumnOrigins: false }
 const page = { cursor: null, maxRows: 100, maxBytes: 1000 }
 
 function inputFor(driver: Driver, operation: Operation): CapabilityExecuteInput {

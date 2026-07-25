@@ -7,15 +7,53 @@ import type {
 } from '../../core/driver/capabilities/DataCapability'
 import type { ExecutionContext } from '../../core/driver/ExecutionContext'
 import type { PgClientLike } from './PostgresDriver'
+import { assertRowTouched } from '../../core/driver/capabilities/rowChangeGuard'
 
 /** PostgreSQL 식별자 인용. 내부 큰따옴표는 이중화한다 — 인젝션 방지의 핵심. */
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`
 }
 
-/** WireValue를 파라미터 바인딩 값으로 — null은 SQL NULL, 그 외는 내부 v. */
+/** 표준 base64(패딩 포함). `wire.bytes`가 내보내는 형태와 정확히 같다. */
+const BASE64_RE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+
+/**
+ * bytes WireValue를 실제 바이트로 되돌린다.
+ *
+ * `wv.v`는 원본 바이트가 아니라 base64 **문자열**이다(`wire.bytes` 참고).
+ * 그대로 바인딩하면 bytea 컬럼에 base64 ASCII가 저장되고, 이진 PK를 WHERE에
+ * 쓰면 어느 행과도 매칭되지 않는다 — base64 알파벳에는 백슬래시가 없어서
+ * PostgreSQL이 그 문자열을 escape 형식 bytea로 조용히 재해석할 뿐 에러를 내지
+ * 않는다. 그래서 0행 삭제/수정이 성공으로 보고된다.
+ *
+ * `Buffer`/`Uint8Array`는 pg가 `prepareValue`에서 hex 리터럴로 직렬화한다.
+ */
+function bytesParam(wv: Extract<WireValue, { t: 'bytes' }>): Buffer {
+  if (wv.truncated) {
+    // 잘린 blob을 되쓰면 남은 바이트가 조용히 사라진다. 원본을 복원할 방법이
+    // 없으므로 실패가 유일하게 정직한 선택이다.
+    throw new Error('refusing to bind a truncated bytes value: the original bytes are lost')
+  }
+  if (!BASE64_RE.test(wv.v)) {
+    // Buffer.from(_, 'base64')은 알파벳 밖 문자를 조용히 버린다 — 검증 없이
+    // 통과시키면 "원본과 다른 바이트"가 그럴듯하게 저장된다.
+    throw new Error('bytes value is not valid base64')
+  }
+  return Buffer.from(wv.v, 'base64')
+}
+
+/**
+ * WireValue를 파라미터 바인딩 값으로 — null은 SQL NULL, bytes는 디코드한 바이트,
+ * 그 외는 내부 v.
+ *
+ * bigint/decimal/date를 문자열 그대로 두는 것은 의도다: number로 바꾸면
+ * int8·numeric의 정밀도가 뭉개지고, 문자열은 서버가 대상 컬럼 타입으로
+ * 캐스팅하므로 정밀도도 벽시계 값도 그대로 간다.
+ */
 function paramOf(wv: WireValue): unknown {
-  return wv.t === 'null' ? null : wv.v
+  if (wv.t === 'null') return null
+  if (wv.t === 'bytes') return bytesParam(wv)
+  return wv.v
 }
 
 /** 편집 한 건을 파라미터화 문장으로 조립한다. 값은 전부 $N 바인딩. */
@@ -77,10 +115,12 @@ export class PostgresDataCapability implements DataCapability {
     await conn.query({ text: 'BEGIN' })
     try {
       let affected = 0
-      for (const change of changes) {
+      for (const [index, change] of changes.entries()) {
         const { sql, params } = buildStatement(schema, table, change)
         const res = await conn.query({ text: sql, values: params })
-        affected += res.rowCount ?? 0
+        const touched = res.rowCount ?? 0
+        assertRowTouched(change, index, touched)
+        affected += touched
       }
       await conn.query({ text: 'COMMIT' })
       return { affected }

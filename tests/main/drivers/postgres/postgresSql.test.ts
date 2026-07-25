@@ -5,7 +5,7 @@ import { createPostgresDriver } from '@main/drivers/postgres'
 import { PG_AVAILABLE, TEST_DB_URL, withSchema } from '../../../contract/pgTestEnv'
 
 function ctx(): ExecutionContext {
-  return { requestId: 'r', signal: new AbortController().signal }
+  return { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false }
 }
 function configForSchema(): ConnectionConfig {
   const u = new URL(TEST_DB_URL)

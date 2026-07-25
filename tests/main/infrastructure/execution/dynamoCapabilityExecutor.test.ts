@@ -16,7 +16,7 @@ function inputFor(operation: Operation, cap: Partial<DynamoCapability>): Capabil
     isReadOnlyStatement: cap.isReadOnlyStatement ?? (() => true),
   }
   return {
-    ctx: { requestId: 'r', signal: new AbortController().signal },
+    ctx: { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false },
     driver: { id: 'c', engine: 'dynamodb', connect: () => Promise.resolve(), disconnect: () => Promise.resolve(), ping: () => Promise.resolve(0), dynamo } as unknown as Driver,
     operation, page: { cursor: null, maxRows: 100, maxBytes: 1000 },
     limits: { timeoutMs: 1000, maxRows: 100, maxBytes: 1000 }, readOnlyScope: false, connectionId: 'c',

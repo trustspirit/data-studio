@@ -151,4 +151,28 @@ describe('run_read_query — end-to-end gate (real OperationExecutor + MemoryDri
     const out = await runReadQueryTool.execute({ connectionId: CONFIG.id, sql: 'EXPLAIN ANALYZE SELECT 1' }, ctx)
     expect(out.ok).toBe(false)
   })
+
+  it('커넥션 설정을 못 찾으면 쿼리를 돌리지 않는다 (마스킹 fail-closed)', async () => {
+    // 예전에는 실행부터 하고 패턴을 빈 배열로 떨어뜨렸다. 그래서 설정을 찾을 수
+    // 없는 id를 넘기면 원본 행이 마스킹 없이 프로바이더로 나갔다. 실행 자체가
+    // 일어나지 않아야 한다 — 마스킹 규칙 없이 데이터를 꺼내는 경로를 없애는 것이
+    // 요점이므로, "실행했지만 가렸다"로는 부족하다.
+    const ctx = await buildCtx()
+    const runSpy = vi.spyOn(ctx.executor, 'run')
+    const out = await runReadQueryTool.execute({ connectionId: 'no-such-connection', sql: 'SELECT 1' }, ctx)
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.error).toBe('unknown connection')
+    expect(runSpy).not.toHaveBeenCalled()
+  })
+
+  it('파생 접미사가 붙은 connectionId는 tool 인자 스키마가 거부한다', () => {
+    // `{id}::ai`는 AI 읽기 전용 계정의 풀 엔트리를 가리키는 main 내부 규약이다.
+    // 그 id로는 저장된 설정을 찾을 수 없으므로, 통과시키면 위의 fail-open을
+    // 모델이 스스로 만들어 낼 수 있었다. IPC 경계와 같은 스키마로 막는다.
+    const parsed = runReadQueryTool.inputSchema.safeParse({
+      connectionId: `${CONFIG.id}::ai`,
+      sql: 'SELECT 1',
+    })
+    expect(parsed.success).toBe(false)
+  })
 })

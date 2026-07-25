@@ -1,10 +1,11 @@
 import { z } from 'zod'
+import { connectionIdSchema } from '@shared/types/connection'
 import { classifyStatement, splitStatements } from '../../core/execution/StatementClassifier'
 import { describeImpact } from '../proposalImpact'
 import type { AiTool } from '../AiTool'
 
 const input = z.object({
-  connectionId: z.string().min(1),
+  connectionId: connectionIdSchema,
   sql: z.string().min(1),
 })
 

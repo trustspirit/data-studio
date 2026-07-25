@@ -26,7 +26,7 @@ function makeClock() {
   }
 }
 
-const ctx: ExecutionContext = { requestId: 'r1', signal: new AbortController().signal }
+const ctx: ExecutionContext = { requestId: 'r1', signal: new AbortController().signal, resolveColumnOrigins: false }
 const req: StreamSubscribeReq = { topic: 't', from: 'latest' }
 const emptyRs = (): ResultSet => ({
   requestId: 'r', columns: [], rows: [],

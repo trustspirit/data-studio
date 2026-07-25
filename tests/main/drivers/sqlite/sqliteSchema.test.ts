@@ -10,7 +10,7 @@ import type { ExecutionContext } from '@main/core/driver/ExecutionContext'
 let dir: string
 let db: DatabaseInstance
 function ctx(): ExecutionContext {
-  return { requestId: 'r', signal: new AbortController().signal }
+  return { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false }
 }
 
 beforeAll(() => {

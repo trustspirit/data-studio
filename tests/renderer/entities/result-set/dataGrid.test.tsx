@@ -95,6 +95,7 @@ describe('DataGrid', () => {
         rows={[[{ t: 'int', v: 1 }, { t: 'str', v: 'a' }]]}
         editing={{
           onCommitCell,
+          edits: new Map(),
           deletedRows: new Set(),
           onToggleDelete: vi.fn(),
           newRows: [],
@@ -122,6 +123,7 @@ describe('DataGrid', () => {
   function editingProps(over: Partial<import('@renderer/entities/result-set/ui/DataGrid').EditingProps> = {}) {
     return {
       onCommitCell: vi.fn(),
+      edits: new Map<number, ReadonlyMap<string, WireValue>>(),
       deletedRows: new Set<number>(),
       onToggleDelete: vi.fn(),
       newRows: [] as ReadonlyMap<string, WireValue>[],
@@ -186,6 +188,120 @@ describe('DataGrid', () => {
     fireEvent.doubleClick(screen.getByText('a'))
     fireEvent.click(screen.getByLabelText('행 0 name NULL'))
     expect(onSetNull).toHaveBeenCalledWith(0, 'name')
+  })
+
+  function staged(rowIndex: number, column: string, v: string) {
+    return new Map<number, ReadonlyMap<string, WireValue>>([
+      [rowIndex, new Map<string, WireValue>([[column, { t: 'str', v }]])],
+    ])
+  }
+
+  it('스테이징된 편집 값을 서버 값 대신 보여준다', () => {
+    wrap(
+      <DataGrid
+        columns={[{ name: 'id', type: '23' }]}
+        rows={[[{ t: 'int', v: 7 }]]}
+        editing={editingProps({ edits: staged(0, 'id', '9') })}
+      />,
+    )
+    expect(screen.getByText('9')).toBeTruthy()
+    expect(screen.queryByText('7')).toBeNull() // 서버 값이 남아 있으면 편집이 먹힌 줄 모른다
+  })
+
+  it('편집된 셀만 변경 표식을 단다', () => {
+    const { container } = wrap(
+      <DataGrid
+        columns={[{ name: 'id', type: '23' }, { name: 'name', type: '25' }]}
+        rows={[[{ t: 'int', v: 7 }, { t: 'str', v: 'a' }]]}
+        editing={editingProps({ edits: staged(0, 'id', '9') })}
+      />,
+    )
+    const marked = container.querySelectorAll('[data-modified]')
+    expect(marked.length).toBe(1)
+    expect(marked[0]?.textContent).toBe('9')
+  })
+
+  it('편집한 셀을 다시 열면 스테이징 값이 초기값이고 그대로 Enter해도 서버 값으로 안 돌아간다', () => {
+    const onCommitCell = vi.fn()
+    wrap(
+      <DataGrid
+        columns={[{ name: 'id', type: '23' }]}
+        rows={[[{ t: 'int', v: 7 }]]}
+        editing={editingProps({ edits: staged(0, 'id', '9'), onCommitCell })}
+      />,
+    )
+    fireEvent.doubleClick(screen.getByText('9'))
+    const input = screen.getByDisplayValue('9') // 서버 값 '7'이 아니다
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onCommitCell).toHaveBeenCalledWith(0, 'id', '9')
+  })
+
+  it('blur가 입력을 버리지 않고 커밋한다', () => {
+    const onCommitCell = vi.fn()
+    wrap(
+      <DataGrid
+        columns={[{ name: 'name', type: '25' }]}
+        rows={[[{ t: 'str', v: 'a' }]]}
+        editing={editingProps({ onCommitCell })}
+      />,
+    )
+    fireEvent.doubleClick(screen.getByText('a'))
+    const input = screen.getByDisplayValue('a')
+    fireEvent.change(input, { target: { value: 'A' } })
+    fireEvent.blur(input) // Tab·옆 셀 클릭으로 빠져나가는 경우
+    expect(onCommitCell).toHaveBeenCalledWith(0, 'name', 'A')
+  })
+
+  it('값을 바꾸지 않고 빠져나가면 커밋하지 않는다', () => {
+    const onCommitCell = vi.fn()
+    wrap(
+      <DataGrid
+        columns={[{ name: 'name', type: '25' }]}
+        rows={[[{ t: 'str', v: 'a' }]]}
+        editing={editingProps({ onCommitCell })}
+      />,
+    )
+    fireEvent.doubleClick(screen.getByText('a'))
+    fireEvent.blur(screen.getByDisplayValue('a'))
+    expect(onCommitCell).not.toHaveBeenCalled() // 열어보기만 한 셀이 UPDATE가 되면 안 된다
+  })
+
+  it('Escape는 여전히 취소다(blur 커밋과 무관)', () => {
+    const onCommitCell = vi.fn()
+    wrap(
+      <DataGrid
+        columns={[{ name: 'name', type: '25' }]}
+        rows={[[{ t: 'str', v: 'a' }]]}
+        editing={editingProps({ onCommitCell })}
+      />,
+    )
+    fireEvent.doubleClick(screen.getByText('a'))
+    const input = screen.getByDisplayValue('a')
+    fireEvent.change(input, { target: { value: 'A' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onCommitCell).not.toHaveBeenCalled()
+    expect(screen.getByText('a')).toBeTruthy() // 편집이 닫히고 원래 값으로 돌아온다
+  })
+
+  it('NULL 버튼 mousedown이 포커스 이동을 막아 blur 커밋이 끼어들지 않는다', () => {
+    const onSetNull = vi.fn()
+    const onCommitCell = vi.fn()
+    wrap(
+      <DataGrid
+        columns={[{ name: 'name', type: '25' }]}
+        rows={[[{ t: 'str', v: 'a' }]]}
+        editing={editingProps({ onSetNull, onCommitCell })}
+      />,
+    )
+    fireEvent.doubleClick(screen.getByText('a'))
+    fireEvent.change(screen.getByDisplayValue('a'), { target: { value: 'A' } })
+    const nullButton = screen.getByLabelText('행 0 name NULL')
+    // mousedown이 취소돼야 인풋이 포커스를 유지한다 — 아니면 blur가 먼저 나 'A'가
+    // 커밋되고 편집 셀이 닫히면서 NULL 클릭 자체가 사라진다.
+    expect(fireEvent.mouseDown(nullButton)).toBe(false)
+    fireEvent.click(nullButton)
+    expect(onSetNull).toHaveBeenCalledWith(0, 'name')
+    expect(onCommitCell).not.toHaveBeenCalled()
   })
 
   it('editing 미전달이면 새-행 섹션·NULL 버튼이 없다(읽기 전용 무영향)', () => {

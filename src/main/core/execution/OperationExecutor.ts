@@ -195,7 +195,14 @@ export class OperationExecutor {
       if (lease.signal.aborted) controller.abort()
       else lease.signal.addEventListener('abort', onLeaseAbort, { once: true })
       const payload = await executor.execute({
-        ctx: { requestId: req.requestId, signal: controller.signal },
+        ctx: {
+          requestId: req.requestId,
+          signal: controller.signal,
+          // AI 읽기 결과만 PII 마스킹을 거치고, 마스킹은 별칭에 속지 않으려면
+          // 컬럼 출처가 필요하다. 사용자 실행에는 켜지 않는다 — 엔진에 따라
+          // 카탈로그 조회가 한 번 더 드는데 쓰이지 않을 정보다.
+          resolveColumnOrigins: actor.type === 'ai',
+        },
         driver: lease.driver,
         operation,
         page: this.pageFor(req, decision.limits),

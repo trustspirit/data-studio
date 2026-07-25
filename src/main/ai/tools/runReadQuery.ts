@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { connectionIdSchema } from '@shared/types/connection'
 import { runOp } from './getSchema'
 import type { AiTool, ToolResult } from '../AiTool'
 
@@ -6,7 +7,7 @@ import type { AiTool, ToolResult } from '../AiTool'
 export const AI_CONTEXT_MAX_BYTES = 100 * 1024
 
 const input = z.object({
-  connectionId: z.string().min(1),
+  connectionId: connectionIdSchema,
   sql: z.string().min(1),
 })
 
@@ -21,13 +22,26 @@ export const runReadQueryTool: AiTool<z.infer<typeof input>> = {
   description: 'Execute a single read-only SQL statement in a read-only session and return redacted, size-bounded rows.',
   inputSchema: input,
   execute: async (i, ctx): Promise<ToolResult> => {
+    // 마스킹 규칙을 **먼저** 확보한다. 설정을 못 찾으면 쿼리를 아예 돌리지 않는다.
+    //
+    // 예전에는 실행부터 하고 `conn?.maskedColumnPatterns ?? []`로 떨어졌다. 그건
+    // fail-open이고, 모델이 그 상태를 스스로 만들 수 있었다: 저장된 설정에는 있을
+    // 수 없는 id(파생 접미사가 붙은 풀 엔트리 등)를 넘기면 실행은 성공하는데
+    // `get`은 null을 돌려줘 패턴이 빈 배열이 되고, 원본 행이 그대로 프로바이더로
+    // 나갔다. 커넥션 설정이 세션 중간에 삭제된 경우도 같은 결과였다.
+    const conn = await ctx.connections.get(i.connectionId)
+    if (conn === null) return { ok: false, error: 'unknown connection' }
+
     const result = await runOp(ctx, i.connectionId, { kind: 'sql', sql: i.sql })
     if (!result.ok) return { ok: false, error: `query denied or failed: ${result.reason}` }
     if (result.payload.kind !== 'rows') return { ok: false, error: 'unexpected result shape' }
 
-    const conn = await ctx.connections.get(i.connectionId)
-    const patterns = conn?.maskedColumnPatterns ?? []
-    const redacted = ctx.redactor.redact(result.payload.rows, patterns, AI_CONTEXT_MAX_BYTES)
+    const redacted = ctx.redactor.redact({
+      resultSet: result.payload.rows,
+      patterns: conn.maskedColumnPatterns,
+      maxBytes: AI_CONTEXT_MAX_BYTES,
+      statement: i.sql,
+    })
     return { ok: true, data: { rows: redacted } }
   },
 }

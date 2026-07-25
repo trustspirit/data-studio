@@ -1,10 +1,54 @@
 import { estimateWireBytes, type WireValue } from './wire'
 
+/**
+ * 결과 컬럼이 **어느 원본 컬럼에서 왔는가.**
+ *
+ * `name`은 표시용 이름이라 별칭에 따라 얼마든지 달라진다 — `SELECT ssn AS s`의
+ * `name`은 `s`다. 이름만 보고 판정하는 규칙(대표적으로 AI에 넘길 값의 PII
+ * 마스킹)은 별칭 한 번으로 전부 빗나가므로, 엔진이 알고 있는 출처를 따로 실어
+ * 보낸다.
+ *
+ * 세 상태를 구분하는 것이 이 타입의 요점이다. "원본이 없다"(식·집계·리터럴),
+ * "원본은 있는데 이름을 못 알아냈다", "출처라는 개념이 없다"는 서로 다른 사실이고,
+ * 마스킹은 셋을 다르게 다뤄야 한다. 하나로 뭉개면 어느 쪽이든 틀린다 — 전부
+ * 보수적으로 보면 출처 개념이 없는 엔진에서 결과 전체가 가려지고, 전부 느슨하게
+ * 보면 이름을 못 알아낸 컬럼이 그대로 새어 나간다.
+ *
+ * `ColumnDescriptor.origin`이 **없는 것**이 세 번째 상태다.
+ */
+export type ColumnOrigin =
+  | {
+      readonly kind: 'column'
+      /** 엔진이 원본 테이블을 보고하지 않으면 null. 컬럼 이름은 항상 있다. */
+      readonly table: string | null
+      readonly column: string
+    }
+  /** 엔진이 "테이블 컬럼이 아니다"라고 보고했다. 식·집계·리터럴. */
+  | { readonly kind: 'computed' }
+  /**
+   * 엔진이 테이블 컬럼이라고는 했지만 이름을 알아내지 못했다.
+   *
+   * PostgreSQL이 이 경우다 — 와이어 프로토콜은 OID와 attnum만 주므로 이름은
+   * 카탈로그 조회로 얻는데, 그 조회가 실패할 수 있다. `computed`로 적으면
+   * "원본이 없다"는 거짓이 되고, 비워 두면 "출처 개념이 없다"는 다른 거짓이 된다.
+   * 둘 다 마스킹을 느슨한 쪽으로 틀리게 하므로 별도 상태로 둔다.
+   */
+  | { readonly kind: 'unresolved' }
+
 export interface ColumnDescriptor {
   /** 표시용 컬럼 이름 */
   readonly name: string
   /** 엔진이 보고한 타입 이름. 렌더러가 힌트로만 쓴다. */
   readonly type: string
+  /**
+   * 원본 컬럼 출처. **없으면 "엔진이 보고하지 않았다"**는 뜻이며, 판정하는 쪽은
+   * 이를 `computed`와 같게(즉 되짚을 수 없는 것으로) 보수적으로 다뤄야 한다.
+   *
+   * 선택 멤버인 이유는 아홉 엔진 중 출처 개념이 있는 것은 SQL 셋뿐이고, 나머지
+   * (문서·키값·스트림)는 합성한 컬럼 이름을 쓰기 때문이다. 그쪽에 의미 없는
+   * 값을 억지로 채우게 하면 "보고하지 않았다"와 "식이다"를 구분할 수 없다.
+   */
+  readonly origin?: ColumnOrigin
 }
 
 export interface PageInfo {

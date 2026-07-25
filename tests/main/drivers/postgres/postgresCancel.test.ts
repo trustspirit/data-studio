@@ -51,7 +51,7 @@ describe.skipIf(!PG_AVAILABLE)('PostgresDriver 취소 (실제 pg 필요)', () =>
     await d.connect(config())
     try {
       const controller = new AbortController()
-      const ctx: ExecutionContext = { requestId: 'slow', signal: controller.signal }
+      const ctx: ExecutionContext = { requestId: 'slow', signal: controller.signal, resolveColumnOrigins: false }
       const slow = d.sql.execute(ctx, 'SELECT pg_sleep(30)', PAGE)
       // 쿼리가 백엔드에서 돌기 시작할 시간을 준 뒤 취소.
       await new Promise((r) => setTimeout(r, 300))
@@ -60,7 +60,7 @@ describe.skipIf(!PG_AVAILABLE)('PostgresDriver 취소 (실제 pg 필요)', () =>
 
       // 커넥션이 quiescent — 곧바로 다른 쿼리가 정상 실행된다.
       const ok = await d.sql.execute(
-        { requestId: 'after', signal: new AbortController().signal },
+        { requestId: 'after', signal: new AbortController().signal, resolveColumnOrigins: false },
         'SELECT 1',
         PAGE,
       )
@@ -84,7 +84,7 @@ describe.skipIf(!PG_AVAILABLE)('PostgresDriver 취소 (실제 pg 필요)', () =>
     await d.connect(config())
     try {
       const controller = new AbortController()
-      const ctx: ExecutionContext = { requestId: 'slow-cancel-fails', signal: controller.signal }
+      const ctx: ExecutionContext = { requestId: 'slow-cancel-fails', signal: controller.signal, resolveColumnOrigins: false }
       // 짧은 sleep — 취소가 백엔드까지 닿지 않으므로(사이드 커넥션 실패) 메인 쿼리는
       // 그냥 끝까지 돈다. 30초를 기다리지 않도록 일부러 짧게 잡는다.
       const slow = d.sql.execute(ctx, 'SELECT pg_sleep(2)', PAGE)

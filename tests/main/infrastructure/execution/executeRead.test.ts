@@ -4,7 +4,7 @@ import type { SqlCapability, ReadOnlyScope } from '@main/core/driver/capabilitie
 import type { ExecutionContext } from '@main/core/driver/ExecutionContext'
 import type { PageRequest, ResultSet } from '@shared/types/resultSet'
 
-const ctx: ExecutionContext = { requestId: 'r', signal: new AbortController().signal }
+const ctx: ExecutionContext = { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false }
 const page: PageRequest = { cursor: null, maxRows: 10, maxBytes: 1000 }
 function emptyResult(): ResultSet {
   return {

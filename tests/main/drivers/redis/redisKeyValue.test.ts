@@ -14,7 +14,7 @@ function cfgFor(db: number): ConnectionConfig {
     tlsMode: 'disable', aiReadOnlyUsername: null, maskedColumnPatterns: [],
   }
 }
-const ctx = (): ExecutionContext => ({ requestId: 'r1', signal: new AbortController().signal })
+const ctx = (): ExecutionContext => ({ requestId: 'r1', signal: new AbortController().signal, resolveColumnOrigins: false })
 const jsonOf = (cell: WireValue | undefined): unknown =>
   cell !== undefined && cell.t === 'json' ? JSON.parse(cell.v) : undefined
 
@@ -123,7 +123,7 @@ describe.skipIf(!REDIS_AVAILABLE)('RedisKeyValueCapability (실서버)', () => {
         try {
           const ac = new AbortController(); ac.abort()
           await expect(
-            d.keyValue.scan({ requestId: 'r', signal: ac.signal }, {}, page),
+            d.keyValue.scan({ requestId: 'r', signal: ac.signal, resolveColumnOrigins: false }, {}, page),
           ).rejects.toThrow()
         } finally { await d.disconnect() }
       },

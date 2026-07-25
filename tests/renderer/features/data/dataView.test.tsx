@@ -90,6 +90,58 @@ describe('DataView', () => {
     })
   })
 
+  it('커밋한 편집 값이 그리드에 바로 보인다', async () => {
+    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" />)
+    await selectUsersTable()
+
+    fireEvent.doubleClick(screen.getByText('7'))
+    const input = screen.getByDisplayValue('7')
+    fireEvent.change(input, { target: { value: '9' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    // 저장 전이라도 무엇을 쓰려는지 보여야 한다 — 서버 값 7이 그대로면 편집이 사라진 것처럼 보인다.
+    await waitFor(() => expect(screen.getByText('9')).toBeTruthy())
+    expect(screen.queryByText('7')).toBeNull()
+  })
+
+  it('편집한 셀을 다시 열어 Enter해도 서버 값으로 되돌아가지 않는다', async () => {
+    const g = gateway({ pk: true })
+    wrap(<DataView gateway={g} connectionId="c1" />)
+    await selectUsersTable()
+
+    fireEvent.doubleClick(screen.getByText('7'))
+    fireEvent.change(screen.getByDisplayValue('7'), { target: { value: '9' } })
+    fireEvent.keyDown(screen.getByDisplayValue('9'), { key: 'Enter' })
+    await waitFor(() => expect(screen.getByText('9')).toBeTruthy())
+
+    // 값을 확인하려고 다시 연다 → 스테이징된 9가 보여야 하고, Enter가 7을 되쓰면 안 된다.
+    fireEvent.doubleClick(screen.getByText('9'))
+    const reopened = screen.getByDisplayValue('9')
+    fireEvent.keyDown(reopened, { key: 'Enter' })
+    fireEvent.click(screen.getByText('Save'))
+
+    await waitFor(() => {
+      const calls = (g.run as unknown as ReturnType<typeof vi.fn>).mock.calls as [{ operation: { op: string; changes?: unknown[] } }][]
+      const applyCall = calls.find((c) => c[0].operation.op === 'apply')
+      expect(applyCall?.[0].operation.changes).toEqual([
+        { op: 'update', pk: { id: { t: 'int', v: 7 } }, set: { id: { t: 'str', v: '9' } } },
+      ])
+    })
+  })
+
+  it('blur로 편집을 빠져나가도 입력이 커밋된다', async () => {
+    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" />)
+    await selectUsersTable()
+
+    fireEvent.doubleClick(screen.getByText('7'))
+    const input = screen.getByDisplayValue('7')
+    fireEvent.change(input, { target: { value: '9' } })
+    fireEvent.blur(input)
+
+    await waitFor(() => expect(screen.getByText(/1 changes/)).toBeTruthy())
+    expect(screen.getByText('9')).toBeTruthy()
+  })
+
   it('행 삭제 후 Save가 apply의 changes에 delete를 포함한다', async () => {
     const g = gateway({ pk: true })
     wrap(<DataView gateway={g} connectionId="c1" />)

@@ -19,7 +19,7 @@ const CONFIG: ConnectionConfig = {
 }
 
 function ctx(requestId = 'req-1'): ExecutionContext {
-  return { requestId, signal: new AbortController().signal }
+  return { requestId, signal: new AbortController().signal, resolveColumnOrigins: false }
 }
 
 const PAGE: PageRequest = { cursor: null, maxRows: 100, maxBytes: 1_000_000 }
@@ -518,7 +518,7 @@ describe('MemoryDriver 고유 동작', () => {
     const schema = must(driver.schema, 'memory driver must expose schema')
     const controller = new AbortController()
     controller.abort()
-    const aborted: ExecutionContext = { requestId: 'req-x', signal: controller.signal }
+    const aborted: ExecutionContext = { requestId: 'req-x', signal: controller.signal, resolveColumnOrigins: false }
 
     await expect(schema.listTables(aborted, 'public')).rejects.toThrow(/abort/i)
   })

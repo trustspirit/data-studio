@@ -13,7 +13,7 @@ function config(): ConnectionConfig {
   }
 }
 const PASSWORD = decodeURIComponent(new URL(TEST_DB_URL).password)
-function ctx(): ExecutionContext { return { requestId: 'r', signal: new AbortController().signal } }
+function ctx(): ExecutionContext { return { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false } }
 
 const SEED = `
   CREATE TABLE parent (a int, b int, PRIMARY KEY (a, b));

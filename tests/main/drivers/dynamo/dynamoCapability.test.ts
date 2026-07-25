@@ -13,7 +13,7 @@ function cfg(): ConnectionConfig {
     aiReadOnlyUsername: null, maskedColumnPatterns: [],
   }
 }
-const ctx = { requestId: 'r', signal: new AbortController().signal }
+const ctx = { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false }
 const page = { cursor: null, maxRows: 100, maxBytes: 8 * 1024 * 1024 }
 
 function itemValue(rs: { rows: readonly (readonly { t: string; v?: unknown }[])[] }): unknown[] {

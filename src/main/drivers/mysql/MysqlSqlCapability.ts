@@ -9,6 +9,7 @@ import { classifyStatement } from '@main/core/execution/StatementClassifier'
 import type { EngineId } from '@shared/types/connection'
 import type { MysqlClientLike } from './MysqlDriver'
 import { mapMysqlValue } from './mysqlTypeMap'
+import { reportedOrigin } from '@main/core/driver/columnOrigin'
 
 const CURSOR_PREFIX = 'mysql:1:'
 
@@ -18,6 +19,12 @@ const READ_ONLY_TIMEOUT_MS = 30_000
 interface MysqlFieldMeta {
   readonly name: string
   readonly type?: number
+  /**
+   * 원본 컬럼/테이블 이름. mysql2가 프로토콜에서 그대로 준다. 결과 컬럼이 식이면
+   * 빈 문자열이다 — 별칭에 속지 않는 판정(PII 마스킹)이 이 값을 쓴다.
+   */
+  readonly orgName?: string
+  readonly orgTable?: string
 }
 
 /** mysql2 ResultSetHeader의 우리가 쓰는 부분만. */
@@ -136,7 +143,12 @@ export class MysqlSqlCapability implements SqlCapability {
     }
 
     const cols = fields ?? []
-    const columns = cols.map((f) => ({ name: f.name, type: String(f.type ?? -1) }))
+    // 출처는 mysql2가 공짜로 주므로 ctx.resolveColumnOrigins와 무관하게 채운다.
+    const columns = cols.map((f) => ({
+      name: f.name,
+      type: String(f.type ?? -1),
+      origin: reportedOrigin(f.orgTable, f.orgName),
+    }))
     const rawRows = result.slice(offset)
     const rows = rawRows.map((row) => row.map((value, i) => mapMysqlValue(cols[i]?.type ?? -1, value)))
     const total = result.length

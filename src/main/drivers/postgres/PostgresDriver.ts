@@ -25,7 +25,13 @@ export interface PgClientLike {
   end(): Promise<void>
   query(config: { text: string; values?: readonly unknown[]; rowMode?: 'array' }): Promise<{
     rows: unknown[][] | unknown[]
-    fields: { name: string; dataTypeID: number }[]
+    /**
+     * `tableID`/`columnID`는 RowDescription의 원본 테이블 OID와 attnum이다.
+     * 서버가 컬럼이 테이블 컬럼이 아니라고 보고할 때(식·집계·리터럴) 0이 온다.
+     * 이름이 아니라 번호만 오므로, 원본 이름은 카탈로그를 봐야 안다
+     * (§ PostgresSqlCapability.resolveOrigins).
+     */
+    fields: { name: string; dataTypeID: number; tableID?: number; columnID?: number }[]
     rowCount: number | null
     command: string
   }>

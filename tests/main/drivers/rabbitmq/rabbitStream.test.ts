@@ -32,7 +32,7 @@ describe('toStreamMessage', () => {
 })
 
 function fakeCtx(): ExecutionContext {
-  return { requestId: 'r', signal: new AbortController().signal }
+  return { requestId: 'r', signal: new AbortController().signal, resolveColumnOrigins: false }
 }
 
 function fakeDeps(httpGetJson: (url: string, auth: string) => Promise<unknown>): RabbitStreamDeps {
@@ -110,7 +110,7 @@ function liveCfg(): ConnectionConfig {
   }
 }
 const deps = { getPassword: () => Promise.resolve('guest') }
-const ctx = (): ExecutionContext => ({ requestId: 'r1', signal: new AbortController().signal })
+const ctx = (): ExecutionContext => ({ requestId: 'r1', signal: new AbortController().signal, resolveColumnOrigins: false })
 const page = { cursor: null, maxRows: 1000, maxBytes: 8 * 1024 * 1024 }
 
 /** sink가 count개 받을 때까지(또는 timeout) 기다린다. */

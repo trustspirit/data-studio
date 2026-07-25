@@ -578,8 +578,16 @@ const WRITE_HEADS = new Set([
   'create', 'alter', 'drop', 'truncate', 'rename', 'comment',
   'grant', 'revoke',
   'begin', 'commit', 'rollback', 'savepoint', 'set', 'reset',
-  'copy', 'import', 'load', 'lock', 'refresh', 'reindex', 'cluster', 'analyze',
+  // `analyse`는 `analyze`의 영국식 철자다(PostgreSQL이 동등하게 받는다).
+  // 두 철자를 함께 적지 않으면 한쪽이 이 표를 비껴간다.
+  'copy', 'import', 'load', 'lock', 'refresh', 'reindex', 'cluster', 'analyze', 'analyse',
 ])
+
+/**
+ * `ANALYZE` 키워드. PostgreSQL 문법은 `ANALYZE`와 `ANALYSE`를 동등한 별칭으로
+ * 정의하므로(`analyze_keyword: ANALYZE | ANALYSE`) 양쪽 철자를 다 잡아야 한다.
+ */
+const ANALYZE_WORD = /\banaly[sz]e\b/i
 
 const READ_HEADS = new Set(['select', 'show', 'describe', 'desc', 'values', 'table'])
 
@@ -837,14 +845,17 @@ function classifySingleStatement(raw: string, d: DialectLexicon): StatementClass
 
   if (head === 'explain') {
     // EXPLAIN ANALYZE는 계획만 보는 게 아니라 쿼리를 실제로 실행한다.
+    // PostgreSQL은 영국식 철자 `ANALYSE`를 동등하게 받으므로 둘 다 봐야 한다 —
+    // 한쪽만 보면 철자 하나로 이 판정을 우회할 수 있다.
     const rest = masked.slice('explain'.length)
-    if (/\banalyze\b/i.test(rest)) return 'write'
-    return 'read'
+    if (ANALYZE_WORD.test(rest)) return 'write'
+    // ANALYZE가 아니어도 여기서 곧장 'read'를 돌려주지 않는다. 아래 공통 검사
+    // (부작용 구문·함수 호출)를 EXPLAIN도 똑같이 통과해야 한다.
   }
 
   if (WRITE_HEADS.has(head)) return 'write'
 
-  const isReadHead = READ_HEADS.has(head) || head === 'with'
+  const isReadHead = READ_HEADS.has(head) || head === 'with' || head === 'explain'
   if (!isReadHead) return 'unknown'
 
   // 머리가 읽기여도 부작용을 수행하는 구문이 있다 (§ READ_HEADED_SIDE_EFFECTS).
@@ -854,13 +865,17 @@ function classifySingleStatement(raw: string, d: DialectLexicon): StatementClass
   }
   if (verdict === 'write') return 'write'
 
-  if (head === 'with') {
-    // CTE 본문의 쓰기는 WRITE_ANYWHERE가 이미 잡았다. 여기까지 왔으면
-    // 읽기 전용 CTE다.
-    return verdict
-  }
-
   // SELECT drop_everything() — 함수의 부작용은 정적으로 알 수 없다.
+  //
+  // CTE와 EXPLAIN도 예외가 아니다. 한때 `head === 'with'`가 여기서 조기 반환하며
+  // "CTE 본문의 쓰기는 WRITE_ANYWHERE가 이미 잡았다"고 적혀 있었는데, 그 말은
+  // DML 키워드에만 참이고 함수 호출에는 거짓이다. 결과가 비대칭이었다:
+  //   SELECT pg_read_file(...)                      -> unknown (승인 필요)
+  //   WITH x AS (SELECT 1) SELECT pg_read_file(...) -> read    (AI가 자율 실행)
+  // 즉 감싸기 한 겹으로 함수 호출 가드 전체가 사라졌다. 2층(읽기 전용 트랜잭션)이
+  // 이걸 덮어 주지도 못한다 — PostgreSQL READ ONLY가 막는 것은 테이블 DML/DDL이고
+  // `setval`·`pg_read_file`·`pg_sleep`·`dblink`는 전부 허용되기 때문이다.
+  // 그래서 이 검사는 읽기 머리 전체가 공유한다.
   return hasCallLike(raw, masked) ? 'unknown' : verdict
 }
 

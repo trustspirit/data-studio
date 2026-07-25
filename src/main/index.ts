@@ -36,6 +36,18 @@ export function allowedRendererUrls(): readonly string[] {
   return isDev ? [DEV_SERVER_URL] : [pathToFileURL(rendererIndexPath()).href]
 }
 
+/**
+ * CSP 헤더 경로. **dev 전용이라고 봐야 한다.**
+ *
+ * 패키징된 앱은 renderer를 file://로 여는데 webRequest는 file:// 를 가로채지
+ * 않는다 — 즉 이 핸들러는 사용자가 실제로 돌리는 빌드에서 한 번도 불리지
+ * 않는다. 프로덕션 정책은 빌드 시 index.html에 주입되는 meta 태그가 나른다
+ * (vite.config.ts의 cspMetaPlugin → security/csp.ts의 injectCspMeta, 같은
+ * buildCspHeader에서 파생하므로 두 경로가 갈라지지 않는다).
+ *
+ * 그럼에도 헤더를 남겨 두는 이유: dev 서버 응답에는 헤더가 확실하고, 훗날
+ * http(s)를 타는 로드가 생기면 그 경로도 정책을 받게 하기 위해서다.
+ */
 function installCsp(): void {
   const header = buildCspHeader(isDev)
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {

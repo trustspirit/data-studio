@@ -1,9 +1,10 @@
 import { z } from 'zod'
+import { connectionIdSchema } from '@shared/types/connection'
 import { runOp } from './getSchema'
 import type { AiTool } from '../AiTool'
 
 const input = z.object({
-  connectionId: z.string().min(1),
+  connectionId: connectionIdSchema,
   schema: z.string(),
   table: z.string(),
 })

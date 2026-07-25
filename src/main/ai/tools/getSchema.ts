@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { connectionIdSchema } from '@shared/types/connection'
 import type { Operation } from '@shared/types/operation'
 import type { OperationResult } from '../../core/execution/OperationExecutor'
 import type { AiTool, ToolResult } from '../AiTool'
@@ -19,7 +20,7 @@ export function toToolResult(result: OperationResult): ToolResult {
 }
 
 const input = z.object({
-  connectionId: z.string().min(1),
+  connectionId: connectionIdSchema,
   schema: z.string().optional(),
   table: z.string().optional(),
 })

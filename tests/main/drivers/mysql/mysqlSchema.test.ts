@@ -10,7 +10,7 @@ import {
 } from '../../../contract/mysqlTestEnv'
 import type { MysqlClientLike } from '@main/drivers/mysql/MysqlDriver'
 
-const ctx = () => ({ requestId: 's', signal: new AbortController().signal })
+const ctx = () => ({ requestId: 's', signal: new AbortController().signal, resolveColumnOrigins: false })
 const SEED = `
   CREATE TABLE parent (id int primary key, name varchar(50) not null);
   CREATE TABLE child (
