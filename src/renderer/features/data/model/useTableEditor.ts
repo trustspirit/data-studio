@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import type { RowChange } from '../../../../shared/types/operation'
 import type { WireValue } from '../../../../shared/types/wire'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { failureText } from '../../../shared/lib'
 
 const NULL_VALUE: WireValue = { t: 'null' }
 
@@ -129,7 +130,7 @@ export function useTableEditor(
         setEdits(new Map()); setNewRows([]); setDeleted(new Set())
         return true
       }
-      setError(outcome.ok ? 'unexpected payload' : outcome.reason)
+      setError(outcome.ok ? 'unexpected payload' : failureText(outcome))
       return false
     } catch (e) {
       setError(messageOf(e)); return false

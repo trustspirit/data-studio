@@ -239,6 +239,24 @@ describe('StructureView 테이블 디자이너', () => {
     expect(screen.getByTestId('table-designer')).toBeTruthy()
   })
 
+  it('실행이 실패하면 엔진이 말한 이유를 보여준다', async () => {
+    // 예전에는 'error' 한 단어만 떴다. 무엇이 잘못됐는지 알 방법이 없었다.
+    const { gateway } = fakeGateway(() => ({
+      ok: false,
+      reason: 'error',
+      detail: 'relation "users" already exists',
+    }))
+    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('ddl-open-create'))
+    fireEvent.change(screen.getByTestId('ddl-table'), { target: { value: 'users' } })
+    fireEvent.click(screen.getByTestId('ddl-add-id'))
+    fireEvent.click(screen.getByTestId('ddl-run'))
+
+    expect(await screen.findByText('relation "users" already exists')).toBeTruthy()
+  })
+
   it('테이블을 선택하면 Add FK·Add Index가 나타나고, FK 폼이 ALTER TABLE을 만든다', async () => {
     const { gateway, run } = fakeGateway()
     wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)

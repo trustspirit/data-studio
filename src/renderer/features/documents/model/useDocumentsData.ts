@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ColumnDescriptor, ResultSet } from '../../../../shared/types/resultSet'
 import type { WireValue } from '../../../../shared/types/wire'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { failureText } from '../../../shared/lib'
 
 const MAX_ROWS = 1000
 const MAX_BYTES = 8 * 1024 * 1024
@@ -74,7 +75,7 @@ export function useDocumentsData(gateway: OperationGateway, connectionId: string
         })
         if (token !== latest.current || !mounted.current) return
         if (outcome.ok && outcome.payload.kind === 'rows') apply(outcome.payload.rows, append)
-        else if (!outcome.ok) setError(outcome.reason)
+        else if (!outcome.ok) setError(failureText(outcome))
       } catch (e) {
         if (token === latest.current && mounted.current) setError(messageOf(e))
       } finally {

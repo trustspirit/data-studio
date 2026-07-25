@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ColumnDescriptor } from '../../../../shared/types/resultSet'
 import type { WireValue } from '../../../../shared/types/wire'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { failureText } from '../../../shared/lib'
 
 /** 라이브 tail이 화면에 유지하는 최대 행 수(오래된 것부터 버린다). */
 const MAX_LIVE_ROWS = 2000
@@ -78,7 +79,7 @@ export function useStreamSubscription(gateway: OperationGateway, connectionId: s
           operation: { kind: 'stream', op: 'subscribe', topic, from },
         })
         if (!outcome.ok) {
-          if (token === startToken.current && mounted.current) setError(outcome.reason)
+          if (token === startToken.current && mounted.current) setError(failureText(outcome))
           return
         }
         if (outcome.payload.kind !== 'streamAck' || outcome.payload.subscriptionId === null) {

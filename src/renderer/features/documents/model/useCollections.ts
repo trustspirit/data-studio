@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { failureText } from '../../../shared/lib'
 
 export interface CollectionsState {
   readonly collections: readonly string[]
@@ -47,7 +48,7 @@ export function useCollections(gateway: OperationGateway, connectionId: string):
           })
           setCollections(names)
         } else if (!outcome.ok) {
-          setError(outcome.reason)
+          setError(failureText(outcome))
         }
       })
       .catch((e: unknown) => {

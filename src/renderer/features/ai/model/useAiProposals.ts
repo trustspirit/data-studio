@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AiGateway, AiProposal } from '../../../gateways/ports/AiGateway'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { failureText } from '../../../shared/lib'
 
 export interface AiProposalsState {
   readonly proposals: readonly AiProposal[]
@@ -77,7 +78,7 @@ export function useAiProposals(
               : '실행됨',
           )
         } else {
-          setError(outcome.reason)
+          setError(failureText(outcome))
         }
       } catch (e) {
         if (mounted.current) setError(messageOf(e))

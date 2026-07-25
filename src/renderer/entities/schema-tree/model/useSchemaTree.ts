@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SchemaInfo, TableInfo } from '../../../../shared/types/schema'
 import type { OperationRequestDto } from '../../../../shared/contracts/operationDto'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { failureText } from '../../../shared/lib'
 
 export interface SchemaTreeState {
   readonly schemas: readonly SchemaInfo[]
@@ -54,7 +55,7 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
         const outcome = await gateway.run(request)
         if (cancelled || !mounted.current) return
         if (outcome.ok && outcome.payload.kind === 'schemas') setSchemas(outcome.payload.schemas)
-        else if (!outcome.ok) setError(outcome.reason)
+        else if (!outcome.ok) setError(failureText(outcome))
       } catch (e) {
         if (!cancelled && mounted.current) setError(messageOf(e))
       }
@@ -88,7 +89,7 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
             setTablesBySchema((cur) => ({ ...cur, [schema]: tables }))
           } else if (!outcome.ok) {
             requested.current.delete(schema) // 실패 시 재요청 허용
-            setError(outcome.reason)
+            setError(failureText(outcome))
           }
         } catch (e) {
           requested.current.delete(schema) // 실패 시 재요청 허용

@@ -13,6 +13,8 @@ export const ErrorBanner = styled.div.attrs({ role: 'alert' })`
   color: ${({ theme }) => theme.color.red};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.md};
+  /* Postgres는 DETAIL·HINT를 여러 줄로 붙여 보낸다. 줄바꿈을 접으면 읽을 수 없다. */
+  white-space: pre-wrap;
   word-break: break-word;
 `
 ErrorBanner.displayName = 'ErrorBanner'

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { failureText } from '../../../shared/lib'
 import type { GraphColumn, GraphEdge, GraphNode } from './types'
 
 export interface SchemaGraphState {
@@ -55,7 +56,7 @@ export function useSchemaGraph(
         })
         if (token !== latest.current || !mounted.current) return
         if (!tablesOutcome.ok) {
-          setError(tablesOutcome.reason)
+          setError(failureText(tablesOutcome))
           setNodes([])
           setEdges([])
           setLoading(false)
@@ -80,11 +81,11 @@ export function useSchemaGraph(
 
         for (const { table, detail, fks } of perTable) {
           if (!detail.ok) {
-            firstError = firstError ?? detail.reason
+            firstError = firstError ?? failureText(detail)
             continue
           }
           if (!fks.ok) {
-            firstError = firstError ?? fks.reason
+            firstError = firstError ?? failureText(fks)
             continue
           }
           const columns = detail.payload.kind === 'tableDetail' ? detail.payload.detail.columns : []

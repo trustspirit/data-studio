@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { failureText } from '../../../shared/lib'
 
 const MAX_BYTES = 8 * 1024 * 1024
 
@@ -61,7 +62,7 @@ export function useKeyValue(gateway: OperationGateway, connectionId: string): Ke
               ttl: row[1]?.t === 'int' ? row[1].v : -2,
               value: row[2]?.t === 'json' ? row[2].v : '',
             })
-          } else if (!outcome.ok) setError(outcome.reason)
+          } else if (!outcome.ok) setError(failureText(outcome))
         })
         .catch((e: unknown) => {
           if (token === latest.current && mounted.current) setError(messageOf(e))

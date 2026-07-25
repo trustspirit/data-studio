@@ -6,6 +6,7 @@ import type {
 } from '../../../../shared/types/schema'
 import type { OperationGateway, OperationOutcome } from '../../../gateways/ports/OperationGateway'
 import type { TableSelection } from '../../../entities/schema-tree'
+import { failureText } from '../../../shared/lib'
 
 export interface TableStructureState {
   readonly columns: readonly ColumnInfo[]
@@ -19,7 +20,7 @@ function messageOf(e: unknown): string {
   return e instanceof Error ? e.message : 'unknown error'
 }
 function reasonOf(outcome: OperationOutcome): string | null {
-  return outcome.ok ? null : outcome.reason
+  return outcome.ok ? null : failureText(outcome)
 }
 
 export function useTableStructure(

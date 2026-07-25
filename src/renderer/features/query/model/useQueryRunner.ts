@@ -3,6 +3,7 @@ import type { ColumnDescriptor, ResultSet } from '../../../../shared/types/resul
 import type { WireValue } from '../../../../shared/types/wire'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
 import type { OperationRequestDto } from '../../../../shared/contracts/operationDto'
+import { failureText } from '../../../shared/lib'
 
 const MAX_ROWS = 1000
 const MAX_BYTES = 8 * 1024 * 1024
@@ -70,7 +71,7 @@ export function useQueryRunner(gateway: OperationGateway, connectionId: string):
         if (outcome.ok) {
           if (outcome.payload.kind === 'rows') apply(outcome.payload.rows, append)
         } else {
-          setError(outcome.reason)
+          setError(failureText(outcome))
         }
       } catch (e) {
         setError(messageOf(e))

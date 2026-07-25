@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ResultSet } from '../../../../shared/types/resultSet'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { failureText } from '../../../shared/lib'
 
 const MAX_ROWS = 1000
 const MAX_BYTES = 8 * 1024 * 1024
@@ -80,7 +81,7 @@ export function useKeys(gateway: OperationGateway, connectionId: string): KeysSt
           setKeys((prev) => (append ? [...prev, ...toKeyRows(rs)] : toKeyRows(rs)))
           setCursor(rs.page.cursor)
           setHasMore(rs.page.hasMore)
-        } else if (!outcome.ok) setError(outcome.reason)
+        } else if (!outcome.ok) setError(failureText(outcome))
       } catch (e) {
         if (token === latest.current && mounted.current) setError(messageOf(e))
       } finally {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
+import { failureText } from '../../../shared/lib'
 
 export interface StreamTopicsState {
   readonly topics: readonly string[]
@@ -36,7 +37,7 @@ export function useStreamTopics(gateway: OperationGateway, connectionId: string)
         if (token !== latest.current || !mounted.current) return
         if (outcome.ok && outcome.payload.kind === 'rows') {
           setTopics(outcome.payload.rows.rows.map((row) => (row[0]?.t === 'str' ? row[0].v : '')))
-        } else if (!outcome.ok) setError(outcome.reason)
+        } else if (!outcome.ok) setError(failureText(outcome))
       })
       .catch((e: unknown) => { if (token === latest.current && mounted.current) setError(messageOf(e)) })
       .finally(() => { if (token === latest.current && mounted.current) setLoading(false) })

@@ -28,7 +28,15 @@ export type OperationPayload =
 
 export type OperationOutcome =
   | { readonly ok: true; readonly payload: OperationPayload }
-  | { readonly ok: false; readonly reason: string }
+  | {
+      readonly ok: false
+      readonly reason: string
+      /**
+       * 엔진이 말한 원문. main이 사용자 실행 + `reason === 'error'`일 때만
+       * 채운다. 화면에 쓸 때는 `failureText`로 코드와 함께 다룬다.
+       */
+      readonly detail?: string
+    }
 
 /**
  * 감사 로그 항목의 renderer 뷰. main의 `OperationLogEntry`가 IPC로 넘어온 형태를

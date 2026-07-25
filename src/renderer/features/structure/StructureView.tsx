@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
 import { SchemaNavigator, useSchemaTree, type TableSelection } from '../../entities/schema-tree'
 import { SQL_ENGINE_IDS, type EngineId, type SqlEngineId } from '../../../shared/types/connection'
+import { failureText } from '../../shared/lib'
 import { Button, ErrorBanner } from '../../shared/ui'
 import { useTableStructure } from './model/useTableStructure'
 import { supportsAddForeignKey } from './model/ddlBuilder'
@@ -77,7 +78,7 @@ export function StructureView({
           connectionId,
           operation: { kind: 'sql', sql },
         })
-        if (!outcome.ok) return outcome.reason
+        if (!outcome.ok) return failureText(outcome)
         // DDL이 통과했으니 트리와 현재 테이블 구조를 서버 기준으로 다시 읽는다.
         treeReload()
         setStructureToken((t) => t + 1)

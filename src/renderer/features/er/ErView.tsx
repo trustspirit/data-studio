@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
+import { failureText } from '../../shared/lib'
 import { EmptyState, ErrorBanner, Toolbar } from '../../shared/ui'
 import { useSchemaGraph } from './model/useSchemaGraph'
 import { layoutGraph } from './model/layoutGraph'
@@ -56,7 +57,7 @@ export function ErView({ gateway, connectionId, onOpenTable }: Props) {
         })
         if (cancelled) return
         if (out.ok && out.payload.kind === 'schemas') setSchemas(out.payload.schemas.map((s) => s.name))
-        else if (!out.ok) setSchemasError(out.reason)
+        else if (!out.ok) setSchemasError(failureText(out))
       } catch (e) {
         if (!cancelled) setSchemasError(messageOf(e))
       }

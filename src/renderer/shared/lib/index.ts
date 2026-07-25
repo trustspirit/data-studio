@@ -1,0 +1,1 @@
+export { failureText } from './failureText'

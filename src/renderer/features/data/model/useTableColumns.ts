@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ColumnInfo } from '../../../../shared/types/schema'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
 import type { TableSelection } from '../../../entities/schema-tree'
+import { failureText } from '../../../shared/lib'
 
 export interface TableColumnsState {
   readonly columns: readonly ColumnInfo[]
@@ -56,7 +57,7 @@ export function useTableColumns(
               .map((c) => c.name),
           )
         } else if (!outcome.ok) {
-          setError(outcome.reason)
+          setError(failureText(outcome))
         }
       } catch (e) {
         if (token === latest.current && mounted.current) setError(messageOf(e))
