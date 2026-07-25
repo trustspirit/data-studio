@@ -38,10 +38,44 @@ describe('useTableEditor', () => {
   it('행 삭제가 원본 PK로 delete를 조립한다', async () => {
     const run = vi.fn().mockResolvedValue({ ok: true, payload: { kind: 'applied', affected: 1 } }) as OperationGateway['run']
     const { result } = editor(run)
-    act(() => result.current.deleteRow(1))
+    act(() => result.current.toggleDelete(1))
     await act(async () => { await result.current.save() })
     const changes = ((run as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [AppliedRequest])[0].operation.changes
     expect(changes).toContainEqual({ op: 'delete', pk: { id: { t: 'int', v: 2 } } })
+  })
+
+  it('삭제 표시를 다시 누르면 해제된다', () => {
+    // 체크박스는 checked={deleted}인 제어 컴포넌트라, 해제가 안 되면 실수로 누른
+    // 행을 되돌릴 길이 Discard뿐이고 그건 다른 편집까지 전부 버린다.
+    const run = vi.fn() as OperationGateway['run']
+    const { result } = editor(run)
+    act(() => result.current.toggleDelete(1))
+    expect(result.current.deleted.has(1)).toBe(true)
+    act(() => result.current.toggleDelete(1))
+    expect(result.current.deleted.has(1)).toBe(false)
+    expect(result.current.dirty).toBe(false)
+  })
+
+  it('삭제 표시 해제가 다른 행의 표시를 건드리지 않는다', () => {
+    const run = vi.fn() as OperationGateway['run']
+    const { result } = editor(run)
+    act(() => result.current.toggleDelete(0))
+    act(() => result.current.toggleDelete(1))
+    act(() => result.current.toggleDelete(0))
+    expect(result.current.deleted.has(0)).toBe(false)
+    expect(result.current.deleted.has(1)).toBe(true)
+    expect(result.current.changeCount).toBe(1)
+  })
+
+  it('해제한 행은 save의 변경 목록에 들어가지 않는다', async () => {
+    const run = vi.fn().mockResolvedValue({ ok: true, payload: { kind: 'applied', affected: 1 } }) as OperationGateway['run']
+    const { result } = editor(run)
+    act(() => result.current.toggleDelete(0))
+    act(() => result.current.toggleDelete(1))
+    act(() => result.current.toggleDelete(0))
+    await act(async () => { await result.current.save() })
+    const changes = ((run as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [AppliedRequest])[0].operation.changes
+    expect(changes).toEqual([{ op: 'delete', pk: { id: { t: 'int', v: 2 } } }])
   })
 
   it('새 행이 insert를 조립한다', async () => {

@@ -17,7 +17,7 @@ export interface TableEditorState {
   addRow: () => void
   editNewCell: (newRowIndex: number, column: string, text: string) => void
   setNewCellNull: (newRowIndex: number, column: string) => void
-  deleteRow: (rowIndex: number) => void
+  toggleDelete: (rowIndex: number) => void
   discard: () => void
   save: () => Promise<boolean>
   readonly saving: boolean
@@ -73,8 +73,14 @@ export function useTableEditor(
       return next
     })
   }, [])
-  const deleteRow = useCallback((rowIndex: number) => {
-    setDeleted((prev) => new Set(prev).add(rowIndex))
+  const toggleDelete = useCallback((rowIndex: number) => {
+    setDeleted((prev) => {
+      const next = new Set(prev)
+      // 체크박스가 checked={deleted}인 제어 컴포넌트라 켜기만 하면 해제가 막힌다 —
+      // 실수로 누른 행을 되돌릴 길이 Discard뿐이고 그건 다른 편집까지 버린다.
+      if (!next.delete(rowIndex)) next.add(rowIndex)
+      return next
+    })
   }, [])
 
   const discard = useCallback(() => {
@@ -140,7 +146,7 @@ export function useTableEditor(
   }, [gateway, connectionId, schema, table, buildChanges])
 
   return useMemo(
-    () => ({ dirty, changeCount, edits, newRows, deleted, editCell, setNull, addRow, editNewCell, setNewCellNull, deleteRow, discard, save, saving, error }),
-    [dirty, changeCount, edits, newRows, deleted, editCell, setNull, addRow, editNewCell, setNewCellNull, deleteRow, discard, save, saving, error],
+    () => ({ dirty, changeCount, edits, newRows, deleted, editCell, setNull, addRow, editNewCell, setNewCellNull, toggleDelete, discard, save, saving, error }),
+    [dirty, changeCount, edits, newRows, deleted, editCell, setNull, addRow, editNewCell, setNewCellNull, toggleDelete, discard, save, saving, error],
   )
 }
