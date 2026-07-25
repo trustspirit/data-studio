@@ -10,7 +10,9 @@ const VITE_DEV_WS = 'ws://localhost:5173'
  */
 export function buildCspHeader(isDev: boolean): string {
   const connectSrc = isDev ? `'self' ${VITE_DEV_ORIGIN} ${VITE_DEV_WS}` : "'self'"
-  const scriptSrc = isDev ? `'self' ${VITE_DEV_ORIGIN}` : "'self'"
+  // dev에서 'unsafe-inline'이 필요한 이유: @vitejs/plugin-react가 react-refresh
+  // 프리앰블을 인라인 스크립트로 주입한다. 프로덕션 script-src는 'self'로 잠긴다.
+  const scriptSrc = isDev ? `'self' 'unsafe-inline' ${VITE_DEV_ORIGIN}` : "'self'"
 
   return [
     "default-src 'self'",
