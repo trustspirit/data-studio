@@ -96,7 +96,7 @@ describe('sqlite의 조용한 NULL 함정', () => {
         { name: 'id', type: 'int', notNull: false, primaryKey: true, autoIncrement: true },
       ],
     })
-    expect(issues.length).toBeGreaterThan(0)
+    expect(issues.some((issue) => issue.includes('정확히 integer'))).toBe(true)
   })
 })
 

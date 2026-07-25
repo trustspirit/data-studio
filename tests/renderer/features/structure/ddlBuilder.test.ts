@@ -328,7 +328,10 @@ describe('validateCreateTable', () => {
         table: 't',
         columns: [{ name: 'id', type, notNull: false, primaryKey: true, autoIncrement: true }],
       })
-      expect(issues.length, `${type}은 거부되어야 한다`).toBeGreaterThan(0)
+      expect(
+        issues.some((issue) => issue.includes('정확히 integer')),
+        `${type}은 거부되어야 한다`,
+      ).toBe(true)
     }
   })
 
