@@ -47,13 +47,23 @@ function withEntry(prev: OpenSet, id: string, entry: OpenConnection, activate: b
   }
 }
 
+function readyFallback(open: Readonly<Record<string, OpenConnection>>, exclude: string): string | null {
+  return Object.keys(open).find((k) => k !== exclude && open[k]?.state === 'ready') ?? null
+}
+
 function without(prev: OpenSet, id: string): OpenSet {
   if (!(id in prev.open)) return prev
   const open = { ...prev.open }
   delete open[id]
   if (prev.activeId !== id) return { open, activeId: prev.activeId }
-  const fallback = Object.keys(open).find((k) => open[k]?.state === 'ready') ?? null
-  return { open, activeId: fallback }
+  return { open, activeId: readyFallback(open, id) }
+}
+
+function omit<T>(cur: Readonly<Record<string, T>>, id: string): Readonly<Record<string, T>> {
+  if (!(id in cur)) return cur
+  const rest = { ...cur }
+  delete rest[id]
+  return rest
 }
 
 /**
@@ -112,10 +122,28 @@ export function useOpenConnections(gateway: ConnectionGateway): OpenConnectionsS
 
   const closeConnection = useCallback(
     async (id: string) => {
-      // 풀을 실제로 닫는다. 이 호출이 없으면 연결이 앱이 죽을 때까지 살아 있다.
-      await gateway.close(id)
+      try {
+        // 풀을 실제로 닫는다. 이 호출이 없으면 연결이 앱이 죽을 때까지 살아 있다.
+        await gateway.close(id)
+      } catch (e) {
+        // 실패를 삼키면 풀은 살아 있는데 UI만 닫힌 것처럼 보인다. 사유를 행에
+        // 남겨 두고 엔트리는 지우지 않는다.
+        const error = e instanceof Error ? e.message : 'unknown error'
+        opening.current.delete(id)
+        setSet((prev) =>
+          id in prev.open
+            ? {
+                open: { ...prev.open, [id]: { state: 'error', capabilities: [], aiAccount: 'none', error } },
+                activeId: prev.activeId === id ? readyFallback(prev.open, id) : prev.activeId,
+              }
+            : prev,
+        )
+        return
+      }
       opening.current.delete(id)
       setSet((prev) => without(prev, id))
+      // 닫힌 연결의 선택이 남으면 다시 열었을 때 사라진 테이블을 가리킬 수 있다.
+      setSelectionState((cur) => omit(cur, id))
     },
     [gateway],
   )
@@ -123,18 +151,8 @@ export function useOpenConnections(gateway: ConnectionGateway): OpenConnectionsS
   const forget = useCallback((id: string) => {
     opening.current.delete(id)
     setSet((prev) => without(prev, id))
-    setExpanded((cur) => {
-      if (!(id in cur)) return cur
-      const rest = { ...cur }
-      delete rest[id]
-      return rest
-    })
-    setSelectionState((cur) => {
-      if (!(id in cur)) return cur
-      const rest = { ...cur }
-      delete rest[id]
-      return rest
-    })
+    setExpanded((cur) => omit(cur, id))
+    setSelectionState((cur) => omit(cur, id))
   }, [])
 
   const setActive = useCallback((id: string) => {

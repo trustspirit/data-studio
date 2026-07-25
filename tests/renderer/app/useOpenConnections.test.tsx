@@ -153,6 +153,36 @@ describe('useOpenConnections', () => {
     expect(result.current.selection['b']).toEqual({ schema: 'sales', table: 'orders' })
   })
 
+  it('닫으면 그 연결의 테이블 선택도 사라진다', async () => {
+    const gw = gateway()
+    const { result } = renderHook(() => useOpenConnections(gw))
+    await act(async () => {
+      await result.current.openConnection('a')
+    })
+    act(() => result.current.setSelection('a', { schema: 'public', table: 'users' }))
+    await act(async () => {
+      await result.current.closeConnection('a')
+    })
+    // 닫힌 연결의 선택이 남아 있으면 다시 열었을 때 없어진 테이블을 가리킬 수 있다.
+    expect(result.current.selection['a']).toBeUndefined()
+  })
+
+  it('닫기가 실패하면 사유를 남기고 엔트리를 지우지 않는다', async () => {
+    const gw = gateway()
+    const { result } = renderHook(() => useOpenConnections(gw))
+    await act(async () => {
+      await result.current.openConnection('a')
+    })
+    gw.close = vi.fn(() => Promise.reject(new Error('ipc connection:close failed')))
+    await act(async () => {
+      await result.current.closeConnection('a')
+    })
+    // 조용히 지우면 풀이 살아 있는데 UI만 닫힌 것처럼 보인다.
+    expect(result.current.open['a']?.state).toBe('error')
+    expect(result.current.open['a']?.error).toMatch(/connection:close/)
+    expect(result.current.activeId).toBeNull()
+  })
+
   it('forget이 셸 상태를 통째로 버린다', async () => {
     const gw = gateway()
     const { result } = renderHook(() => useOpenConnections(gw))
