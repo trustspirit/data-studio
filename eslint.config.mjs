@@ -17,7 +17,7 @@ export default tseslint.config(
         projectService: {
           // scripts/*.cjs는 tsconfig 프로젝트에 속하지 않지만 린트는 받아야 한다 —
           // Electron 보안 fuse를 설정하는 코드가 검사 밖에 있으면 안 된다.
-          allowDefaultProject: ['eslint.config.js', 'scripts/*.cjs'],
+          allowDefaultProject: ['eslint.config.mjs', 'scripts/*.cjs'],
         },
         tsconfigRootDir: import.meta.dirname,
       },
