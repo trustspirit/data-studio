@@ -20,6 +20,9 @@
     "verify:sqlite-native": "node scripts/verify-sqlite-native.cjs"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1095.0",
+    "@aws-sdk/credential-providers": "^3.1095.0",
+    "@aws-sdk/util-dynamodb": "^3.996.7",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-sql": "^6.10.0",
     "@codemirror/state": "^6.7.1",
