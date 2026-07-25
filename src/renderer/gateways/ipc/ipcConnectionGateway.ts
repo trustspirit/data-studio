@@ -15,12 +15,17 @@ export function createIpcConnectionGateway(bridge: DataconBridge): ConnectionGat
     delete: async (id) => {
       await invokeUnwrapped<null>(bridge, 'connection:delete', { id })
     },
-    setSecret: async (connectionId, value) => {
-      await invokeUnwrapped<null>(bridge, 'secrets:set', { connectionId, value })
+    setSecret: async (connectionId, value, forAi) => {
+      await invokeUnwrapped<null>(bridge, 'secrets:set', {
+        connectionId,
+        value,
+        ...(forAi === undefined ? {} : { forAi }),
+      })
     },
-    hasSecret: async (connectionId) => {
+    hasSecret: async (connectionId, forAi) => {
       const result = await invokeUnwrapped<{ exists: boolean }>(bridge, 'secrets:has', {
         connectionId,
+        ...(forAi === undefined ? {} : { forAi }),
       })
       return result.exists
     },

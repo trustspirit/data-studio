@@ -23,6 +23,9 @@ const noop = {
   onBrowseFile: () => {},
   password: '',
   hasSavedSecret: false,
+  aiPassword: '',
+  onAiPasswordChange: () => {},
+  hasSavedAiSecret: false,
   secretsPersistent: true,
 }
 

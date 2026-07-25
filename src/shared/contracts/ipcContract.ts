@@ -25,9 +25,16 @@ export const IPC_CONTRACT = {
   'connection:status': { input: z.object({ connectionId: z.string().min(1) }) },
   'secrets:status': { input: z.undefined() },
   'secrets:set': {
-    input: z.object({ connectionId: z.string().min(1), value: z.string().min(1).max(4096) }),
+    input: z.object({
+      connectionId: z.string().min(1),
+      value: z.string().min(1).max(4096),
+      // true면 AI 읽기 전용 계정(aiReadOnlyUsername)의 비밀번호를 저장한다.
+      forAi: z.boolean().optional(),
+    }),
   },
-  'secrets:has': { input: z.object({ connectionId: z.string().min(1) }) },
+  'secrets:has': {
+    input: z.object({ connectionId: z.string().min(1), forAi: z.boolean().optional() }),
+  },
   'operation:run': { input: operationRequestSchema },
   'operation:cancel': { input: z.object({ requestId: z.string().min(1) }) },
   'audit:recent': { input: z.object({ limit: z.number().int() }) },

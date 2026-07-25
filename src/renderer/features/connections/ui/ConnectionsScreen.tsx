@@ -32,6 +32,8 @@ export function ConnectionsScreen() {
   const [mode, setMode] = useState<'new' | 'edit' | 'none'>('none')
   const [password, setPassword] = useState('')
   const [hasSavedSecret, setHasSavedSecret] = useState(false)
+  const [aiPassword, setAiPassword] = useState('')
+  const [hasSavedAiSecret, setHasSavedAiSecret] = useState(false)
   const [secretsPersistent, setSecretsPersistent] = useState(true)
 
   useEffect(() => {
@@ -46,7 +48,9 @@ export function ConnectionsScreen() {
       setErrors({})
       setMode('edit')
       setPassword('')
+      setAiPassword('')
       void gateways.connection.hasSecret(found.id).then(setHasSavedSecret)
+      void gateways.connection.hasSecret(found.id, true).then(setHasSavedAiSecret)
     }
   }, [state.selectedId, state.connections, gateways.connection])
 
@@ -56,6 +60,8 @@ export function ConnectionsScreen() {
     setMode('new')
     setPassword('')
     setHasSavedSecret(false)
+    setAiPassword('')
+    setHasSavedAiSecret(false)
     state.clearSelection()
   }
 
@@ -71,6 +77,11 @@ export function ConnectionsScreen() {
       await gateways.connection.setSecret(draft.id, password)
       setHasSavedSecret(true)
       setPassword('')
+    }
+    if (aiPassword !== '') {
+      await gateways.connection.setSecret(draft.id, aiPassword, true)
+      setHasSavedAiSecret(true)
+      setAiPassword('')
     }
     setMode('edit')
   }
@@ -108,6 +119,9 @@ export function ConnectionsScreen() {
             password={password}
             onPasswordChange={setPassword}
             hasSavedSecret={hasSavedSecret}
+            aiPassword={aiPassword}
+            onAiPasswordChange={setAiPassword}
+            hasSavedAiSecret={hasSavedAiSecret}
             secretsPersistent={secretsPersistent}
             onBrowseFile={() => {
               void gateways.connection.openFileDialog().then((path) => {

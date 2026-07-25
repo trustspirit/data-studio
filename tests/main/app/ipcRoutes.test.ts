@@ -257,6 +257,14 @@ describe('registerIpcRoutes', () => {
     ])
   })
 
+  it('secrets:set은 forAi=true면 db-password-ai-readonly ref로 저장한다', async () => {
+    const h = createHarness()
+    await h.invoke('secrets:set', { connectionId: 'c1', value: 'ai-pw', forAi: true })
+    expect(h.calls.secretSet).toEqual([
+      { ref: { kind: 'db-password-ai-readonly', ownerId: 'c1' }, value: 'ai-pw' },
+    ])
+  })
+
   it('secrets:has는 존재 여부 boolean만 반환한다 (값 아님)', async () => {
     const h = createHarness()
     h.calls.secretHasReturns = 'super-secret'
@@ -269,12 +277,15 @@ describe('registerIpcRoutes', () => {
     expect(absent).toEqual({ exists: false })
   })
 
-  it('connection:delete는 config와 db-password 비밀을 함께 지운다', async () => {
+  it('connection:delete는 config와 두 계정(user·AI)의 비밀을 함께 지운다', async () => {
     const h = createHarness()
     await h.invoke('connection:delete', { id: 'c1' })
     expect(h.calls.delete).toEqual(['c1'])
     // 비밀 삭제를 빠뜨리면 고아 비밀이 남는다.
-    expect(h.calls.secretDelete).toEqual([{ kind: 'db-password', ownerId: 'c1' }])
+    expect(h.calls.secretDelete).toEqual([
+      { kind: 'db-password', ownerId: 'c1' },
+      { kind: 'db-password-ai-readonly', ownerId: 'c1' },
+    ])
   })
 
   it('connection:open은 repository config로 매니저를 열고 opened:true + capabilities', async () => {
@@ -303,10 +314,11 @@ describe('registerIpcRoutes', () => {
     })
   })
 
-  it('connection:close는 매니저를 부른다', async () => {
+  it('connection:close는 매니저를 부르고 AI 파생 커넥션도 닫는다', async () => {
     const h = createHarness()
     await h.invoke('connection:close', { connectionId: 'c1' })
-    expect(h.calls.closeConn).toEqual(['c1'])
+    // 파생 id의 close는 없으면 무시되므로 항상 함께 부른다.
+    expect(h.calls.closeConn).toEqual(['c1', 'c1::ai'])
   })
 
   it('connection:close는 커넥션을 닫기 전에 streamHub의 구독을 정리한다', async () => {

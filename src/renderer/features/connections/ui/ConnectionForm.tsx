@@ -72,6 +72,9 @@ interface Props {
   password: string
   onPasswordChange: (value: string) => void
   hasSavedSecret: boolean
+  aiPassword: string
+  onAiPasswordChange: (value: string) => void
+  hasSavedAiSecret: boolean
   secretsPersistent: boolean
   onBrowseFile: () => void
 }
@@ -111,6 +114,9 @@ export function ConnectionForm({
   password,
   onPasswordChange,
   hasSavedSecret,
+  aiPassword,
+  onAiPasswordChange,
+  hasSavedAiSecret,
   secretsPersistent,
   onBrowseFile,
 }: Props) {
@@ -209,8 +215,25 @@ export function ConnectionForm({
         value={draft.aiReadOnlyUsername ?? ''}
         onValueChange={(v) => onChange({ aiReadOnlyUsername: v === '' ? null : v })}
       />
-      {draft.aiReadOnlyUsername === null && (
+      {draft.aiReadOnlyUsername === null ? (
         <Warn>AI 읽기 전용 계정 없음 — AI가 사용자 계정을 공유합니다.</Warn>
+      ) : (
+        !fileEngine && (
+          <>
+            <TextField
+              label="AI account password"
+              type="password"
+              value={aiPassword}
+              onValueChange={onAiPasswordChange}
+              placeholder={hasSavedAiSecret ? '●●●●●●' : ''}
+            />
+            {hasSavedAiSecret ? (
+              <Hint>저장됨 — 비우면 유지, 입력하면 교체됩니다.</Hint>
+            ) : (
+              <Hint>연결을 열 때 AI가 이 계정으로 별도 접속합니다.</Hint>
+            )}
+          </>
+        )
       )}
       <Actions>
         <Button onClick={onSave}>Save</Button>

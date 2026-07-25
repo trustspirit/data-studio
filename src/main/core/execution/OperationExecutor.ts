@@ -5,6 +5,7 @@ import type {
 } from '../../../shared/types/operation'
 import type { PageRequest } from '../../../shared/types/resultSet'
 import type { ConnectionManager, LeasedConnection } from '../connection/ConnectionManager'
+import { aiConnectionIdOf } from '../connection/aiConnectionId'
 import type { Driver } from '../driver/Driver'
 import type { Actor } from './Actor'
 import type { CapabilityExecutor, OperationPayload } from './CapabilityExecutor'
@@ -74,7 +75,7 @@ export class OperationExecutor {
     try {
       let lease: LeasedConnection
       try {
-        lease = await this.connections.acquire(req.connectionId)
+        lease = await this.connections.acquire(this.poolIdFor(req.connectionId, actor))
       } catch (error) {
         return this.failed(req, actor, req.operation, 'error', summarize(error))
       }
@@ -89,6 +90,23 @@ export class OperationExecutor {
     } finally {
       this.inFlight.delete(req.requestId)
     }
+  }
+
+  /**
+   * 실제로 임차할 풀 엔트리를 고른다.
+   *
+   * AI actor는 AI 읽기 전용 계정의 파생 커넥션(`{id}::ai`)이 열려 있으면 그쪽을
+   * 쓴다 — DB 계정 수준의 권한 분리(스펙 §4.2 1층). 파생 커넥션이 없으면 사용자
+   * 커넥션으로 내려간다. 그 경우에도 읽기 전용 트랜잭션(`beginReadOnly`)과 정책
+   * 게이트(2·3층)는 그대로 걸리므로 기존 보장이 약해지지 않는다.
+   *
+   * 감사 로그·제안서 대조는 계속 `req.connectionId`(원 id)를 쓴다 — 파생 id는
+   * 풀 내부 규약이지 사용자에게 보이는 커넥션 정체성이 아니다.
+   */
+  private poolIdFor(connectionId: string, actor: Actor): string {
+    if (actor.type !== 'ai') return connectionId
+    const aiId = aiConnectionIdOf(connectionId)
+    return this.connections.status(aiId) === 'ready' ? aiId : connectionId
   }
 
   private async runWithLease(

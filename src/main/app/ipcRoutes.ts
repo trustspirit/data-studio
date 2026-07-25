@@ -1,4 +1,5 @@
 import type { AppServices } from './compositionRoot'
+import { aiConnectionIdOf } from '../core/connection/aiConnectionId'
 import type { ContractChannel, ContractInput } from '../../shared/contracts/ipcContract'
 import type { CallerContext } from '../ipc/CallerContext'
 import type { Actor } from '../core/execution/Actor'
@@ -37,8 +38,9 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
 
   register('connection:delete', async ({ id }) => {
     await services.repository.delete(id)
-    // 연결이 사라지면 그 비밀도 지운다 — 고아 비밀 방지.
+    // 연결이 사라지면 그 비밀도 지운다 — 고아 비밀 방지. AI 계정 비밀도 함께.
     await services.secrets.delete({ kind: 'db-password', ownerId: id })
+    await services.secrets.delete({ kind: 'db-password-ai-readonly', ownerId: id })
     return null
   })
 
@@ -47,16 +49,36 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
     if (config === null) return { opened: false as const, reason: `unknown connection: ${connectionId}` }
     try {
       await services.connections.open(config)
-      return { opened: true as const, capabilities: services.connections.capabilities(config.id) }
     } catch (error) {
       return { opened: false as const, reason: error instanceof Error ? error.message : String(error) }
     }
+    // AI 읽기 전용 계정이 설정돼 있으면 파생 커넥션도 연다. 실패해도 사용자
+    // 연결은 성공이다 — AI는 사용자 커넥션 + 읽기 전용 트랜잭션으로 내려간다
+    // (executor.poolIdFor). 조용히 사라지지 않게 로그는 남긴다.
+    if (typeof config.aiReadOnlyUsername === 'string' && config.aiReadOnlyUsername !== '') {
+      const aiConfig = {
+        ...config,
+        id: aiConnectionIdOf(config.id),
+        username: config.aiReadOnlyUsername,
+      }
+      try {
+        await services.connections.open(aiConfig)
+      } catch (error) {
+        services.logger.warn('connection.ai_readonly_open_failed', {
+          connectionId: config.id,
+          message: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+    return { opened: true as const, capabilities: services.connections.capabilities(config.id) }
   })
 
   register('connection:close', async ({ connectionId }) => {
     // 커넥션을 닫기 전에 그 커넥션의 라이브 구독을 정리한다(브로커 연결 해제).
     await services.streamHub.closeConnection(connectionId)
     await services.connections.close(connectionId)
+    // AI 파생 커넥션도 함께 닫는다. 없으면 close는 무시한다(중복 호출 안전).
+    await services.connections.close(aiConnectionIdOf(connectionId))
     return null
   })
 
@@ -68,13 +90,15 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
     Promise.resolve({ persistent: services.secrets.isPersistent() }),
   )
 
-  register('secrets:set', async ({ connectionId, value }) => {
-    await services.secrets.set({ kind: 'db-password', ownerId: connectionId }, value)
+  register('secrets:set', async ({ connectionId, value, forAi }) => {
+    const kind = forAi === true ? 'db-password-ai-readonly' : 'db-password'
+    await services.secrets.set({ kind, ownerId: connectionId }, value)
     return null
   })
 
-  register('secrets:has', async ({ connectionId }) => {
-    const stored = await services.secrets.get({ kind: 'db-password', ownerId: connectionId })
+  register('secrets:has', async ({ connectionId, forAi }) => {
+    const kind = forAi === true ? 'db-password-ai-readonly' : 'db-password'
+    const stored = await services.secrets.get({ kind, ownerId: connectionId })
     return { exists: stored !== null }
   })
 

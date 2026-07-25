@@ -25,6 +25,73 @@ describe('connection:open capabilities', () => {
     expect(result).toMatchObject({ opened: true, capabilities: ['sql', 'schema', 'data'] })
   })
 
+  it('aiReadOnlyUsername이 있으면 파생 커넥션(::ai)도 AI 계정으로 연다', async () => {
+    const handlers = new Map<string, (input: unknown, ctx: CallerContext) => Promise<unknown>>()
+    const register = ((channel, handler) => {
+      handlers.set(channel, handler as (input: unknown, ctx: CallerContext) => Promise<unknown>)
+    }) as ContractRegister
+    const opened: { id: string; username: string }[] = []
+    const services = {
+      repository: {
+        get: () =>
+          Promise.resolve({
+            id: 'c1',
+            engine: 'postgres',
+            username: 'human',
+            aiReadOnlyUsername: 'ai_reader',
+          }),
+      },
+      connections: {
+        open: (config: { id: string; username: string }) => {
+          opened.push({ id: config.id, username: config.username })
+          return Promise.resolve()
+        },
+        capabilities: () => ['sql'],
+      },
+    } as unknown as AppServices
+
+    registerIpcRoutes(register, services)
+    const result = await handlers.get('connection:open')!({ connectionId: 'c1' }, CONTEXT)
+
+    expect(result).toMatchObject({ opened: true })
+    expect(opened).toEqual([
+      { id: 'c1', username: 'human' },
+      { id: 'c1::ai', username: 'ai_reader' },
+    ])
+  })
+
+  it('AI 파생 커넥션 open 실패는 로그만 남기고 사용자 연결은 성공이다', async () => {
+    const handlers = new Map<string, (input: unknown, ctx: CallerContext) => Promise<unknown>>()
+    const register = ((channel, handler) => {
+      handlers.set(channel, handler as (input: unknown, ctx: CallerContext) => Promise<unknown>)
+    }) as ContractRegister
+    const warns: string[] = []
+    const services = {
+      repository: {
+        get: () =>
+          Promise.resolve({ id: 'c1', engine: 'postgres', aiReadOnlyUsername: 'ai_reader' }),
+      },
+      connections: {
+        open: (config: { id: string }) =>
+          config.id.endsWith('::ai')
+            ? Promise.reject(new Error('auth failed for ai_reader'))
+            : Promise.resolve(),
+        capabilities: () => ['sql'],
+      },
+      logger: {
+        warn: (event: string) => {
+          warns.push(event)
+        },
+      },
+    } as unknown as AppServices
+
+    registerIpcRoutes(register, services)
+    const result = await handlers.get('connection:open')!({ connectionId: 'c1' }, CONTEXT)
+
+    expect(result).toMatchObject({ opened: true })
+    expect(warns).toEqual(['connection.ai_readonly_open_failed'])
+  })
+
   it('없는 커넥션은 opened:false를 반환한다', async () => {
     const handlers = new Map<string, (input: unknown, ctx: CallerContext) => Promise<unknown>>()
     const register = ((channel, handler) => {

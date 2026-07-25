@@ -38,6 +38,7 @@ export interface AppServices {
   readonly proposals: WriteProposalStore
   readonly streamHub: StreamHub
   readonly ai: AiSessionManager
+  readonly logger: Logger
   /** 만료된 제안서를 버린다. index.ts가 이걸 주기적으로 부른다. */
   readonly sweepProposals: () => void
   readonly fileDialog: FileDialog
@@ -131,6 +132,7 @@ export function buildAppServices(deps: AppDeps): AppServices {
     proposals,
     streamHub,
     ai,
+    logger: deps.logger,
     // 순수 팩토리는 타이머를 걸지 않는다. 인터벌 설정은 index.ts의 몫이다.
     sweepProposals: () => proposals.sweep(),
     fileDialog: deps.fileDialog,
