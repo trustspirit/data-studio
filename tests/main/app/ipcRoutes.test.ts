@@ -38,6 +38,8 @@ function createHarness() {
     aiNewSession: [] as string[],
     aiSend: [] as { sessionId: string; text: string }[],
     aiCancel: [] as string[],
+    proposalsListed: [] as string[],
+    proposalsRejected: [] as { proposalId: string; connectionId: string }[],
   }
 
   const register = ((channel, handler) => {
@@ -115,6 +117,16 @@ function createHarness() {
       },
       cancel: (requestId: string) => {
         calls.cancel.push(requestId)
+      },
+    },
+    proposals: {
+      listPending: (connectionId: string) => {
+        calls.proposalsListed.push(connectionId)
+        return [{ proposalId: 'p1', connectionId }]
+      },
+      reject: (proposalId: string, connectionId: string) => {
+        calls.proposalsRejected.push({ proposalId, connectionId })
+        return true
       },
     },
     ai: {
@@ -355,5 +367,19 @@ describe('registerIpcRoutes', () => {
     const h = createHarness()
     await h.invoke('ai:deleteKey', { provider: 'anthropic' })
     expect(h.calls.secretDelete).toEqual([{ kind: 'llm-api-key', ownerId: 'anthropic' }])
+  })
+
+  it('ai:proposals는 그 커넥션의 살아 있는 제안서 목록을 준다', async () => {
+    const h = createHarness()
+    const r = await h.invoke('ai:proposals', { connectionId: 'c1' })
+    expect(h.calls.proposalsListed).toEqual(['c1'])
+    expect(r).toEqual([{ proposalId: 'p1', connectionId: 'c1' }])
+  })
+
+  it('ai:rejectProposal은 store.reject로 보낸다', async () => {
+    const h = createHarness()
+    const r = await h.invoke('ai:rejectProposal', { proposalId: 'p1', connectionId: 'c1' })
+    expect(h.calls.proposalsRejected).toEqual([{ proposalId: 'p1', connectionId: 'c1' }])
+    expect(r).toEqual({ rejected: true })
   })
 })

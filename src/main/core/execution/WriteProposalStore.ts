@@ -155,6 +155,19 @@ export class WriteProposalStore {
   }
 
   /**
+   * 한 커넥션의 살아 있는 제안서 전부. 승인 UI가 목록을 그릴 때 쓴다.
+   * `pending`과 같은 기준(미소비·미만료)만 살아 있는 것으로 친다.
+   */
+  listPending(connectionId: string): ProposalView[] {
+    const views: ProposalView[] = []
+    for (const id of this.proposals.keys()) {
+      const view = this.pending(id)
+      if (view !== null && view.connectionId === connectionId) views.push(view)
+    }
+    return views
+  }
+
+  /**
    * 제안서를 버린다. `consume`과 같은 기준으로 커넥션을 확인한다 — 한쪽만
    * 검사하면 id를 쥔 아무 호출자나 남의 커넥션 제안서를 지울 수 있다.
    *

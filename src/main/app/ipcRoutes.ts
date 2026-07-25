@@ -139,6 +139,15 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
     await services.secrets.delete({ kind: 'llm-api-key', ownerId: provider })
     return null
   })
+
+  // 승인 UI용. 승인 자체는 operation:run + proposalId(위) 경로 하나뿐이다.
+  register('ai:proposals', ({ connectionId }) =>
+    Promise.resolve(services.proposals.listPending(connectionId)),
+  )
+
+  register('ai:rejectProposal', ({ proposalId, connectionId }) =>
+    Promise.resolve({ rejected: services.proposals.reject(proposalId, connectionId) }),
+  )
 }
 
 /**

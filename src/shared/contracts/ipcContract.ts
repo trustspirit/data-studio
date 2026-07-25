@@ -43,6 +43,10 @@ export const IPC_CONTRACT = {
     input: z.object({ provider: llmProviderIdSchema, value: z.string().min(1).max(4096) }),
   },
   'ai:deleteKey': { input: z.object({ provider: llmProviderIdSchema }) },
+  'ai:proposals': { input: z.object({ connectionId: z.string().min(1) }) },
+  'ai:rejectProposal': {
+    input: z.object({ proposalId: z.string().min(1), connectionId: z.string().min(1) }),
+  },
 } as const satisfies Record<string, { readonly input: ZodType }>
 
 export type ContractChannel = keyof typeof IPC_CONTRACT

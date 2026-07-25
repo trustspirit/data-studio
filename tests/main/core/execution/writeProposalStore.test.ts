@@ -42,6 +42,21 @@ describe('WriteProposalStore', () => {
     expect(store.consume(view.proposalId, 'conn-1')).toEqual({ ok: false, reason: 'expired' })
   })
 
+  it('listPending은 그 커넥션의 살아 있는 제안서만 준다', () => {
+    const { store, advance } = createStore()
+    const a = proposeDelete(store, 'conn-1')
+    const b = proposeDelete(store, 'conn-1')
+    proposeDelete(store, 'conn-2')
+
+    // 소비된 것은 빠진다.
+    store.consume(a.proposalId, 'conn-1')
+    expect(store.listPending('conn-1').map((v) => v.proposalId)).toEqual([b.proposalId])
+
+    // 만료되면 전부 빠진다.
+    advance(PROPOSAL_TTL_MS)
+    expect(store.listPending('conn-1')).toEqual([])
+  })
+
   it('제안서를 저장하고 표시용 정보를 돌려준다', () => {
     const { store } = createStore()
 

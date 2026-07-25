@@ -27,6 +27,8 @@ describe('IPC_CONTRACT', () => {
         'ai:deleteKey',
         'ai:keyStatus',
         'ai:newSession',
+        'ai:proposals',
+        'ai:rejectProposal',
         'ai:send',
         'ai:setKey',
         'audit:recent',
