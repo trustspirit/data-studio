@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
-import { Button, ErrorBanner, ListItem, Notice, Sidebar, Toolbar } from '../../shared/ui'
+import { Button, EmptyState, ErrorBanner, ListItem, Notice, Sidebar, Toolbar } from '../../shared/ui'
 import { useCollections } from './model/useCollections'
 import { useDocumentsData } from './model/useDocumentsData'
 
@@ -108,11 +108,11 @@ export function DocumentsView({ gateway, connectionId }: DocumentsViewProps) {
         {collections.error !== null && <ErrorBanner>{collections.error}</ErrorBanner>}
         {data.error !== null && <ErrorBanner>{data.error}</ErrorBanner>}
         {selected === null ? (
-          <Notice>컬렉션을 선택하세요.</Notice>
+          <EmptyState title="컬렉션을 선택하세요." hint="필터(EJSON)를 입력하고 Run으로 조회합니다" />
         ) : data.loading && data.rows.length === 0 ? (
           <Notice>불러오는 중…</Notice>
         ) : data.rows.length === 0 ? (
-          <Notice>결과 없음</Notice>
+          <EmptyState title="결과 없음" />
         ) : (
           <Results>
             {data.rows.map((row, i) => {

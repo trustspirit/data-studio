@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import type { BrowseSort } from '../../../shared/types/operation'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
 import { SchemaNavigator, useSchemaTree, type TableSelection } from '../../entities/schema-tree'
-import { Button, ErrorBanner, Notice, Toolbar } from '../../shared/ui'
+import { Button, EmptyState, ErrorBanner, Notice, Toolbar } from '../../shared/ui'
 import { DataGrid } from '../../entities/result-set/ui/DataGrid'
 import { useTableData } from './model/useTableData'
 import { useTableColumns } from './model/useTableColumns'
@@ -79,7 +79,7 @@ export function DataView({ gateway, connectionId }: DataViewProps) {
         {data.error !== null && <ErrorBanner>{data.error}</ErrorBanner>}
         {selected !== null && editor.error !== null && <ErrorBanner>{editor.error}</ErrorBanner>}
         {selected === null ? (
-          <Notice>테이블을 선택하세요.</Notice>
+          <EmptyState title="테이블을 선택하세요." hint="왼쪽 트리에서 스키마를 펼쳐 테이블을 고르세요" />
         ) : (
           <>
             {canEdit ? (

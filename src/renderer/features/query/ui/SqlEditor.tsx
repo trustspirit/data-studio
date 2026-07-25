@@ -6,14 +6,20 @@ import { defaultKeymap } from '@codemirror/commands'
 import { sql } from '@codemirror/lang-sql'
 
 const Host = styled.div`
+  flex: 1;
+  min-height: 0;
   border: 1px solid ${({ theme }) => theme.color.border};
-  border-radius: 6px;
+  border-radius: ${({ theme }) => theme.radius.md};
   overflow: hidden;
   & .cm-editor {
+    height: 100%;
     background: ${({ theme }) => theme.color.gridBg};
     color: ${({ theme }) => theme.color.text};
     font-family: ${({ theme }) => theme.font.mono};
-    font-size: 13px;
+    font-size: ${({ theme }) => theme.fontSize.md};
+  }
+  & .cm-scroller {
+    overflow: auto;
   }
   & .cm-content {
     caret-color: ${({ theme }) => theme.color.accent};

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
-import { ErrorBanner, Toolbar } from '../../shared/ui'
+import { EmptyState, ErrorBanner, Toolbar } from '../../shared/ui'
 import { useSchemaGraph } from './model/useSchemaGraph'
 import { layoutGraph } from './model/layoutGraph'
 import { ErCanvas } from './ui/ErCanvas'
@@ -23,15 +23,8 @@ const Dim = styled.span`
 const Body = styled.div`
   flex: 1;
   min-height: 0;
-`
-const Empty = styled.div`
   display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: ${({ theme }) => theme.color.textDim};
-  font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.md};
+  flex-direction: column;
 `
 
 function messageOf(e: unknown): string {
@@ -86,9 +79,9 @@ export function ErView({ gateway, connectionId, onOpenTable }: Props) {
       {graph.error !== null && <ErrorBanner>{graph.error}</ErrorBanner>}
       <Body>
         {schema === null ? (
-          <Empty>스키마를 선택하세요</Empty>
+          <EmptyState title="스키마를 선택하세요" hint="테이블 관계가 다이어그램으로 표시됩니다" />
         ) : graph.nodes.length === 0 && !graph.loading ? (
-          <Empty>테이블 없음</Empty>
+          <EmptyState title="테이블 없음" />
         ) : (
           <ErCanvas graph={positioned} onOpenTable={(table) => onOpenTable(schema, table)} />
         )}

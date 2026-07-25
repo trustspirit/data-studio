@@ -4,7 +4,7 @@ import { useGateways } from './GatewayProvider'
 import { useConnections } from '../features/connections/model/useConnections'
 import { ConnectionsScreen } from '../features/connections'
 import { ConnectionWorkspace } from './ConnectionWorkspace'
-import { Button, ErrorBanner } from '../shared/ui'
+import { Button, EmptyState, ErrorBanner } from '../shared/ui'
 import type { Capability } from '../../shared/types/capability'
 
 const Layout = styled.div`
@@ -86,7 +86,9 @@ const Picker = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.space.sm};
-  max-width: 560px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
   font-family: ${({ theme }) => theme.font.ui};
   overflow: auto;
   height: 100%;
@@ -118,6 +120,13 @@ const Dot = styled.span<{ $status: string }>`
 `
 const Name = styled.span`
   flex: 1;
+`
+const EngineBadge = styled.span`
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid ${({ theme }) => theme.color.border};
+  color: ${({ theme }) => theme.color.textFaint};
+  font-size: ${({ theme }) => theme.fontSize.xs};
 `
 
 function QueryTab() {
@@ -164,12 +173,15 @@ function QueryTab() {
         <Row key={c.id}>
           <Dot $status={statuses[c.id] ?? 'closed'} />
           <Name>{c.name}</Name>
+          <EngineBadge>{c.engine}</EngineBadge>
           <Button size="sm" data-testid={`open-${c.id}`} onClick={() => void open(c.id)}>
             Open
           </Button>
         </Row>
       ))}
-      {conns.connections.length === 0 && <span>연결이 없습니다. Connections 탭에서 추가하세요.</span>}
+      {conns.connections.length === 0 && (
+        <EmptyState title="연결이 없습니다. Connections 탭에서 추가하세요." />
+      )}
     </Picker>
   )
 }

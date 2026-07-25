@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import type { ConnectionConfig, EngineId } from '@shared/types/connection'
+import { IMPLEMENTED_ENGINE_IDS, type ConnectionConfig, type EngineId } from '@shared/types/connection'
 import { useGateways } from '../../../app/GatewayProvider'
 import { useConnections } from '../model/useConnections'
 import { applyEngine, emptyDraft, validateDraft } from '../model/connectionForm'
-import { ErrorBanner } from '../../../shared/ui'
+import { EmptyState, ErrorBanner } from '../../../shared/ui'
 import { ConnectionList } from './ConnectionList'
 import { ConnectionForm } from './ConnectionForm'
 
@@ -18,12 +18,10 @@ const Layout = styled.div`
 `
 const Detail = styled.div`
   min-width: 0;
+  min-height: 0;
   overflow: auto;
-`
-const Empty = styled.div`
-  padding: ${({ theme }) => theme.space.xl};
-  color: ${({ theme }) => theme.color.textDim};
-  font-family: ${({ theme }) => theme.font.ui};
+  display: flex;
+  flex-direction: column;
 `
 
 export function ConnectionsScreen() {
@@ -93,7 +91,10 @@ export function ConnectionsScreen() {
       <Detail>
         {state.error !== null && <ErrorBanner>{state.error}</ErrorBanner>}
         {mode === 'none' ? (
-          <Empty>왼쪽에서 연결을 고르거나 사이드바의 추가 버튼으로 새로 만드세요.</Empty>
+          <EmptyState
+            title="왼쪽에서 연결을 고르거나 사이드바의 추가 버튼으로 새로 만드세요."
+            hint={IMPLEMENTED_ENGINE_IDS.join(' · ')}
+          />
         ) : (
           <ConnectionForm
             key={draft.id}

@@ -43,6 +43,29 @@ const Body = styled.div`
   min-width: 0;
   overflow: hidden;
 `
+const StatusBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.md};
+  padding: 0 ${({ theme }) => theme.space.md};
+  height: 24px;
+  border-top: 1px solid ${({ theme }) => theme.color.border};
+  background: ${({ theme }) => theme.color.titlebar};
+  color: ${({ theme }) => theme.color.textDim};
+  font-family: ${({ theme }) => theme.font.ui};
+  font-size: ${({ theme }) => theme.fontSize.xs};
+`
+const StatusDot = styled.span`
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: ${({ theme }) => theme.color.green};
+`
+const StatusRight = styled.span`
+  margin-left: auto;
+  color: ${({ theme }) => theme.color.textFaint};
+`
 const EmptyState = styled.div`
   flex: 1;
   display: flex;
@@ -134,6 +157,12 @@ export function ConnectionWorkspace({
           />
         )}
       </Body>
+      <StatusBar>
+        <StatusDot aria-hidden />
+        <span>{connectionName}</span>
+        {activeView !== null && <span>{VIEW_LABEL[activeView]}</span>}
+        <StatusRight>{capabilities.join(' · ')}</StatusRight>
+      </StatusBar>
     </Layout>
   )
 }

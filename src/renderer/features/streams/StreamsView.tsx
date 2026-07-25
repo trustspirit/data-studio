@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
-import { Button, ErrorBanner, ListItem, NativeSelect, Notice, Sidebar, Toolbar } from '../../shared/ui'
+import { Button, EmptyState, ErrorBanner, ListItem, NativeSelect, Notice, Sidebar, Toolbar } from '../../shared/ui'
 import { useStreamTopics } from './model/useStreamTopics'
 import { useStreamSubscription } from './model/useStreamSubscription'
 
@@ -96,9 +96,9 @@ export function StreamsView({ gateway, connectionId }: StreamsViewProps) {
         {topics.error !== null && <ErrorBanner>{topics.error}</ErrorBanner>}
         {sub.error !== null && <ErrorBanner>{sub.error}</ErrorBanner>}
         {selected === null ? (
-          <Notice>토픽을 선택하세요.</Notice>
+          <EmptyState title="토픽을 선택하세요." hint="왼쪽 목록에서 토픽을 고르고 Start로 tail을 시작합니다" />
         ) : sub.rows.length === 0 ? (
-          <Notice>{sub.running ? '메시지 대기 중…' : 'Start로 tail을 시작하세요.'}</Notice>
+          <EmptyState title={sub.running ? '메시지 대기 중…' : 'Start로 tail을 시작하세요.'} />
         ) : (
           <Rows>
             {sub.rows.map((row, i) => (

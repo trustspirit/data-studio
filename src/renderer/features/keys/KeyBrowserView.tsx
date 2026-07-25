@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
-import { Button, ErrorBanner, Input, ListItem, Notice, Sidebar, Toolbar } from '../../shared/ui'
+import { Button, EmptyState, ErrorBanner, Input, ListItem, Notice, Sidebar, Toolbar } from '../../shared/ui'
 import { useKeys } from './model/useKeys'
 import { useKeyValue } from './model/useKeyValue'
 
@@ -127,7 +127,7 @@ export function KeyBrowserView({ gateway, connectionId }: KeyBrowserViewProps) {
       <Right>
         {value.error !== null && <ErrorBanner>{value.error}</ErrorBanner>}
         {selected === null ? (
-          <Notice>키를 선택하세요.</Notice>
+          <EmptyState title="키를 선택하세요." hint="왼쪽에서 패턴으로 스캔한 뒤 키를 고르세요" />
         ) : value.entry === null ? (
           <Notice>{value.loading ? '불러오는 중…' : '값 없음'}</Notice>
         ) : (

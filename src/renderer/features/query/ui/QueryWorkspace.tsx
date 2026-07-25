@@ -17,12 +17,13 @@ const Title = styled.div`
   flex: 1;
   color: ${({ theme }) => theme.color.textDim};
 `
-// 에디터가 결과 영역을 밀어내지 못하게 높이를 제한한다 — 긴 SQL은
-// 에디터 내부에서 스크롤되고, 결과 그리드가 항상 화면에 남는다.
+// 에디터/결과를 고정 비율로 분할한다 — 에디터는 항상 작업 가능한 높이를
+// 갖고, 긴 SQL은 에디터 내부에서 스크롤되며, 결과 그리드가 화면에 남는다.
 const EditorPane = styled.div`
-  flex: 0 0 auto;
-  max-height: 40%;
-  overflow: auto;
+  flex: 0 0 38%;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
   padding: ${({ theme }) => theme.space.sm};
 `
 

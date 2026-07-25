@@ -25,3 +25,37 @@ export const Notice = styled.div`
   font-size: ${({ theme }) => theme.fontSize.md};
 `
 Notice.displayName = 'Notice'
+
+const EmptyWrap = styled.div`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: ${({ theme }) => theme.space.xs};
+  padding: ${({ theme }) => theme.space.xl};
+  font-family: ${({ theme }) => theme.font.ui};
+  text-align: center;
+`
+const EmptyTitle = styled.div`
+  color: ${({ theme }) => theme.color.textDim};
+  font-size: ${({ theme }) => theme.fontSize.md};
+`
+const EmptyHint = styled.div`
+  color: ${({ theme }) => theme.color.textFaint};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+`
+
+/**
+ * 콘텐츠 영역 전체를 차지하는 중앙 정렬 빈 상태. 좌상단에 문구만 덜렁
+ * 놓이는 것을 막는다 — 남는 공간이 "의도된 여백"으로 읽히게 한다.
+ */
+export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <EmptyWrap>
+      <EmptyTitle>{title}</EmptyTitle>
+      {hint !== undefined && <EmptyHint>{hint}</EmptyHint>}
+    </EmptyWrap>
+  )
+}

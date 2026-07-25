@@ -4,7 +4,7 @@ import type {
   ForeignKeyInfo,
   IndexInfo,
 } from '../../../../shared/types/schema'
-import { ErrorBanner, Notice } from '../../../shared/ui'
+import { EmptyState, ErrorBanner, Notice } from '../../../shared/ui'
 import { ColumnsTable } from './ColumnsTable'
 import { IndexList } from './IndexList'
 import { ForeignKeyList } from './ForeignKeyList'
@@ -40,7 +40,8 @@ export function StructurePanel({
   indexes,
   foreignKeys,
 }: StructurePanelProps) {
-  if (!hasSelection) return <Notice>테이블을 선택하세요.</Notice>
+  if (!hasSelection)
+    return <EmptyState title="테이블을 선택하세요." hint="컬럼·인덱스·외래키 구조가 표시됩니다" />
   if (error !== null) return <ErrorBanner>{error}</ErrorBanner>
   if (loading) return <Notice>불러오는 중…</Notice>
   return (
