@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
 import { GatewayProvider } from '@renderer/app/GatewayProvider'
@@ -48,29 +48,117 @@ function wrap(bridge: DataconBridge) {
     </ThemeProvider>,
   )
 }
+function channelsOf(bridge: DataconBridge): string[] {
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
+  return vi.mocked(bridge.invoke).mock.calls.map((c) => c[0])
+}
+async function goToWorkspace(bridge: DataconBridge): Promise<void> {
+  fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+  await waitFor(() => expect(screen.getByTestId('connection-tree')).toBeTruthy())
+  await waitFor(() => expect(channelsOf(bridge)).toContain('connection:list'))
+}
 
 describe('AppShell', () => {
-  it('내비 레일에 Connections/Workspace 탭이 있고 기본은 Connections(관리 화면)', async () => {
-    wrap(bridgeWith([conn('a', 'prod')]))
-    expect(screen.getByRole('button', { name: 'Connections' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Workspace' })).toBeTruthy()
-    // Connections 탭 = 기존 관리 화면. 연결 관리(추가/편집)가 유지된다.
-    await waitFor(() => expect(screen.getByText('prod')).toBeTruthy())
+  it('워크스페이스 사이드바가 저장된 연결을 모두 트리에 보여 준다', async () => {
+    const bridge = bridgeWith([conn('a', 'prod'), conn('b', 'staging')])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('conn-a')).toBeTruthy())
+    expect(screen.getByTestId('conn-b')).toBeTruthy()
+    expect(within(screen.getByTestId('connection-tree')).getByText('prod')).toBeTruthy()
+    expect(within(screen.getByTestId('connection-tree')).getByText('staging')).toBeTruthy()
   })
 
-  it('Workspace 탭에서 연결을 열면 뷰 서브탭이 있는 워크스페이스가 뜬다', async () => {
+  it('미개통 연결의 행을 눌러도 접속하지 않고 펼치기만 한다', async () => {
     const bridge = bridgeWith([conn('a', 'prod')])
     wrap(bridge)
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
-    await waitFor(() => expect(screen.getByTestId('open-a')).toBeTruthy())
-    fireEvent.click(screen.getByTestId('open-a'))
-    await waitFor(() => {
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
-      const calls = vi.mocked(bridge.invoke).mock.calls.map((c) => c[0])
-      expect(calls).toContain('connection:open')
-    })
-    // 서브탭(Query|Structure)이 나타난다.
-    await waitFor(() => expect(screen.getByTestId('subtab-structure')).toBeTruthy())
-    expect(screen.getByText(/Query — prod/)).toBeTruthy()
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('conn-a')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('conn-a'))
+
+    // 사이드바에서 스치듯 누른 클릭이 프로덕션 접속이 되면 안 된다.
+    expect(channelsOf(bridge)).not.toContain('connection:open')
+    expect(screen.getByTestId('chevron-a').getAttribute('aria-expanded')).toBe('true')
+    expect(screen.queryByTestId('subtab-query')).toBeNull()
+  })
+
+  it('연결 버튼을 눌러야 실제로 접속하고 워크스페이스가 뜬다', async () => {
+    const bridge = bridgeWith([conn('a', 'prod')])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('connect-a'))
+
+    await waitFor(() => expect(channelsOf(bridge)).toContain('connection:open'))
+    await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
+    expect(within(screen.getByTestId('workspace-a')).getByTestId('subtab-structure')).toBeTruthy()
+    expect(within(screen.getByTestId('workspace-a')).getByText(/Query — prod/)).toBeTruthy()
+  })
+
+  it('두 연결을 열고 행 클릭으로 전환할 수 있다', async () => {
+    const bridge = bridgeWith([conn('a', 'prod'), conn('b', 'staging')])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('connect-b'))
+    await waitFor(() => expect(screen.getByTestId('workspace-b')).toBeTruthy())
+
+    // 나중에 연 쪽이 활성이고, 먼저 연 쪽은 마운트된 채 숨는다.
+    expect(screen.getByTestId('workspace-b').hasAttribute('hidden')).toBe(false)
+    expect(screen.getByTestId('workspace-a').hasAttribute('hidden')).toBe(true)
+
+    fireEvent.click(screen.getByTestId('conn-a'))
+    await waitFor(() => expect(screen.getByTestId('workspace-a').hasAttribute('hidden')).toBe(false))
+    expect(screen.getByTestId('workspace-b').hasAttribute('hidden')).toBe(true)
+  })
+
+  it('열린 연결의 닫기가 connection:close를 부르고 워크스페이스를 언마운트한다', async () => {
+    const bridge = bridgeWith([conn('a', 'prod')])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('close-a'))
+
+    await waitFor(() => expect(channelsOf(bridge)).toContain('connection:close'))
+    await waitFor(() => expect(screen.queryByTestId('workspace-a')).toBeNull())
+    // 다시 접속할 수 있는 상태로 돌아간다.
+    expect(screen.getByTestId('connect-a')).toBeTruthy()
+  })
+
+  it('열기에 실패하면 행 아래에 사유가 뜨고 재시도할 수 있다', async () => {
+    const bridge: DataconBridge = {
+      invoke: vi.fn((channel: string) => {
+        if (channel === 'connection:list') return Promise.resolve({ ok: true, value: [conn('a', 'prod')] })
+        if (channel === 'secrets:status') return Promise.resolve({ ok: true, value: { persistent: true } })
+        if (channel === 'connection:open')
+          return Promise.resolve({ ok: true, value: { opened: false, reason: 'password required' } })
+        return Promise.resolve({ ok: true, value: null })
+      }),
+      on: () => () => {},
+    }
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('connect-a'))
+
+    await waitFor(() => expect(screen.getByTestId('row-error-a').textContent).toContain('password required'))
+    expect(screen.getByTestId('connect-a').textContent).toBe('재시도')
+  })
+
+  it('연결이 없으면 트리와 메인이 모두 추가를 안내한다', async () => {
+    const bridge = bridgeWith([])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    expect(within(screen.getByTestId('connection-tree')).getByText(/\+로 추가하세요/)).toBeTruthy()
+    expect(screen.getByText(/사이드바의 \+ 로 추가하세요/)).toBeTruthy()
   })
 })

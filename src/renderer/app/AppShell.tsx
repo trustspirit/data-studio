@@ -4,21 +4,15 @@ import { useGateways } from './GatewayProvider'
 import { useConnections } from '../features/connections/model/useConnections'
 import { ConnectionsScreen } from '../features/connections'
 import { AuditView } from '../features/audit'
+import { ConnectionRow, ConnectionTree, type ConnectionRowState } from '../entities/connection-tree'
 import { WorkspaceHost } from './WorkspaceHost'
-import { useOpenConnections, type OpenConnection } from './model/useOpenConnections'
-import { Button, EmptyState, ErrorBanner } from '../shared/ui'
+import { useOpenConnections } from './model/useOpenConnections'
+import { EmptyState } from '../shared/ui'
 
-/** 아직 아무 것도 열리지 않았을 때 피커가 보여 줄 실패 사유. */
-function firstOpenError(open: Readonly<Record<string, OpenConnection>>): string | null {
-  for (const entry of Object.values(open)) {
-    if (entry.state === 'error' && entry.error !== null) return entry.error
-  }
-  return null
-}
-
-const Layout = styled.div`
+const Layout = styled.div<{ $sidebar: boolean }>`
   display: grid;
-  grid-template-columns: ${({ theme }) => theme.size.rail} 1fr;
+  grid-template-columns: ${({ theme, $sidebar }) =>
+    $sidebar ? `${theme.size.rail} ${theme.size.sidebar} 1fr` : `${theme.size.rail} 1fr`};
   height: 100%;
   min-height: 0;
   background: ${({ theme }) => theme.color.winBg};
@@ -99,70 +93,58 @@ const Content = styled.div`
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-`
-const Picker = styled.div`
-  padding: ${({ theme }) => theme.space.xl};
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.space.sm};
-  width: 100%;
-  max-width: 640px;
-  margin: 0 auto;
-  font-family: ${({ theme }) => theme.font.ui};
-  overflow: auto;
-  height: 100%;
-`
-const PickerTitle = styled.h2`
-  margin: 0 0 ${({ theme }) => theme.space.xs};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: ${({ theme }) => theme.color.textDim};
-`
-const Row = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.md};
-  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  border: 1px solid ${({ theme }) => theme.color.borderSoft};
-  border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.panel};
-`
-const Dot = styled.span<{ $status: string }>`
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: ${({ theme, $status }) =>
-    $status === 'ready' ? theme.color.green : $status === 'error' ? theme.color.red : theme.color.textFaint};
-`
-const Name = styled.span`
-  flex: 1;
-`
-const EngineBadge = styled.span`
-  padding: 1px 8px;
-  border-radius: 999px;
-  border: 1px solid ${({ theme }) => theme.color.border};
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: ${({ theme }) => theme.fontSize.xs};
 `
 
-function QueryTab() {
+export function AppShell() {
+  const [tab, setTab] = useState<'connections' | 'workspace' | 'audit'>('connections')
   const gateways = useGateways()
   const conns = useConnections(gateways.connection)
   const shell = useOpenConnections(gateways.connection)
   const { forget } = shell
-  const openError = shell.activeId === null ? firstOpenError(shell.open) : null
 
   useEffect(() => {
+    // 목록에서 사라진 연결(다른 곳에서 삭제됨)의 셸 상태를 버린다.
     for (const id of Object.keys(shell.open)) {
       if (!conns.connections.some((c) => c.id === id)) forget(id)
     }
   }, [conns.connections, shell.open, forget])
 
-  if (shell.activeId !== null) {
-    return (
+  const rowState = (id: string): ConnectionRowState => shell.open[id]?.state ?? 'closed'
+
+  const sidebar = (
+    <ConnectionTree isEmpty={conns.connections.length === 0} onNew={() => setTab('connections')}>
+      {conns.connections.map((c) => {
+        const state = rowState(c.id)
+        return (
+          <ConnectionRow
+            key={c.id}
+            id={c.id}
+            name={c.name}
+            engine={c.engine}
+            state={state}
+            expanded={shell.expanded[c.id] === true}
+            active={shell.activeId === c.id}
+            error={shell.open[c.id]?.error}
+            onToggle={() => shell.toggleExpanded(c.id)}
+            // 행 클릭은 접속하지 않는다 — 사이드바에서 스치듯 누른 클릭이
+            // 프로덕션 접속이 되면 안 된다. 접속은 '연결' 버튼만 한다.
+            onRowClick={() => {
+              if (state === 'ready') shell.setActive(c.id)
+              else shell.toggleExpanded(c.id)
+            }}
+            onConnect={() => void shell.openConnection(c.id)}
+            onClose={() => void shell.closeConnection(c.id)}
+            onSettings={() => setTab('connections')}
+          />
+        )
+      })}
+    </ConnectionTree>
+  )
+
+  const workspace =
+    shell.activeId !== null ? (
       <WorkspaceHost
         connections={conns.connections}
         open={shell.open}
@@ -170,38 +152,19 @@ function QueryTab() {
         gateway={gateways.operation}
         ai={gateways.ai}
       />
+    ) : (
+      <EmptyState
+        title={
+          conns.connections.length === 0
+            ? '연결이 없습니다 — 사이드바의 + 로 추가하세요.'
+            : '사이드바에서 연결을 골라 접속하세요.'
+        }
+      />
     )
-  }
-  return (
-    <Picker>
-      <PickerTitle>Workspace — 연결 선택</PickerTitle>
-      {openError !== null && <ErrorBanner>{openError}</ErrorBanner>}
-      {conns.connections.map((c) => (
-        <Row key={c.id}>
-          <Dot $status={shell.open[c.id]?.state ?? 'closed'} />
-          <Name>{c.name}</Name>
-          <EngineBadge>{c.engine}</EngineBadge>
-          <Button size="sm" data-testid={`open-${c.id}`} onClick={() => void shell.openConnection(c.id)}>
-            Open
-          </Button>
-        </Row>
-      ))}
-      {conns.connections.length === 0 && (
-        <EmptyState title="연결이 없습니다. Connections 탭에서 추가하세요." />
-      )}
-    </Picker>
-  )
-}
 
-function AuditTab() {
-  const gateways = useGateways()
-  return <AuditView gateway={gateways.operation} />
-}
-
-export function AppShell() {
-  const [tab, setTab] = useState<'connections' | 'workspace' | 'audit'>('connections')
+  const showSidebar = tab === 'workspace'
   return (
-    <Layout>
+    <Layout $sidebar={showSidebar}>
       <Rail>
         <RailButton
           type="button"
@@ -231,8 +194,15 @@ export function AppShell() {
           <AuditIcon />
         </RailButton>
       </Rail>
+      {showSidebar && sidebar}
       <Content>
-        {tab === 'connections' ? <ConnectionsScreen /> : tab === 'workspace' ? <QueryTab /> : <AuditTab />}
+        {tab === 'connections' ? (
+          <ConnectionsScreen />
+        ) : tab === 'workspace' ? (
+          workspace
+        ) : (
+          <AuditView gateway={gateways.operation} />
+        )}
       </Content>
     </Layout>
   )
