@@ -74,4 +74,36 @@ describe('SchemaNavigator', () => {
     fireEvent.click(screen.getByText('users'))
     expect(onSelect).toHaveBeenCalledWith({ schema: 'public', table: 'users' })
   })
+
+  it('중첩 렌더에서는 자기 폭·보더를 갖지 않고 depth만큼 들여쓴다', () => {
+    const props = {
+      schemas: [{ name: 'public' }],
+      tablesBySchema: { public: [table('public', 'users')] },
+      expanded: { public: true },
+      selected: null,
+      onToggle: vi.fn(),
+      onSelect: vi.fn(),
+    }
+    const top = render(
+      <ThemeProvider theme={darkTheme}>
+        <SchemaNavigator {...props} />
+      </ThemeProvider>,
+    )
+    const topTree = top.container.firstElementChild as HTMLElement
+    const topSchemaPad = getComputedStyle(screen.getByText(/public/)).paddingLeft
+    expect(getComputedStyle(topTree).borderRightWidth).toBe('1px')
+    top.unmount()
+
+    const nested = render(
+      <ThemeProvider theme={darkTheme}>
+        <SchemaNavigator {...props} inline depth={1} />
+      </ThemeProvider>,
+    )
+    const nestedTree = nested.container.firstElementChild as HTMLElement
+    // 바깥 사이드바가 이미 폭과 보더를 갖고 있다 — 안쪽 트리가 또 그으면 안 된다.
+    expect(getComputedStyle(nestedTree).borderRightWidth).not.toBe('1px')
+    expect(getComputedStyle(nestedTree).width).toBe('')
+    // 한 단계 더 들어갔으니 스키마 행이 더 들여써진다.
+    expect(getComputedStyle(screen.getByText(/public/)).paddingLeft).not.toBe(topSchemaPad)
+  })
 })
