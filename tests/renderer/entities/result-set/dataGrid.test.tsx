@@ -113,10 +113,49 @@ describe('DataGrid', () => {
     expect(onCommitCell).toHaveBeenCalledWith(0, 'name', 'A')
   })
 
-  it('editing 미전달이면 셀 편집 불가(읽기 전용)', () => {
+  it('포커스된 편집 가능 셀에서 Enter를 누르면 편집기를 연다', () => {
+    const { container } = wrap(
+      <DataGrid
+        columns={[{ name: 'name', type: '25' }]}
+        rows={[[{ t: 'str', v: 'a' }]]}
+        editing={editingProps()}
+      />,
+    )
+    const cell = screen.getByText('a').closest('[data-cell]') as HTMLElement
+
+    expect(cell.tabIndex).toBe(0)
+    expect(cell.hasAttribute('data-editable')).toBe(true)
+    expect(container.querySelector('[data-editable]')).toBe(cell)
+    cell.focus()
+    expect(document.activeElement).toBe(cell)
+    fireEvent.keyDown(cell, { key: 'Enter' })
+
+    expect(screen.getByDisplayValue('a')).toBeTruthy()
+  })
+
+  it('포커스된 편집 가능 셀에서 F2를 누르면 편집기를 연다', () => {
+    wrap(
+      <DataGrid
+        columns={[{ name: 'name', type: '25' }]}
+        rows={[[{ t: 'str', v: 'a' }]]}
+        editing={editingProps()}
+      />,
+    )
+    const cell = screen.getByText('a').closest('[data-cell]') as HTMLElement
+    cell.focus()
+    expect(document.activeElement).toBe(cell)
+    fireEvent.keyDown(cell, { key: 'F2' })
+
+    expect(screen.getByDisplayValue('a')).toBeTruthy()
+  })
+
+  it('editing 미전달이면 셀은 포커스·키보드 편집 불가(읽기 전용)', () => {
     wrap(<DataGrid columns={[{ name: 'name', type: '25' }]} rows={[[{ t: 'str', v: 'a' }]]} />)
-    fireEvent.doubleClick(screen.getByText('a'))
-    // 인풋이 생기지 않는다.
+    const cell = screen.getByText('a').closest('[data-cell]') as HTMLElement
+
+    expect(cell.tabIndex).toBe(-1)
+    expect(cell.hasAttribute('data-editable')).toBe(false)
+    fireEvent.keyDown(cell, { key: 'Enter' })
     expect(screen.queryByDisplayValue('a')).toBeNull()
   })
 

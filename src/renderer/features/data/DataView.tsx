@@ -26,6 +26,11 @@ const Right = styled.div`
 const Spacer = styled.span`
   flex: 1;
 `
+const EditHint = styled.span`
+  color: ${({ theme }) => theme.color.textFaint};
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  white-space: nowrap;
+`
 
 interface DataViewProps {
   gateway: OperationGateway
@@ -85,6 +90,7 @@ export function DataView({ gateway, connectionId }: DataViewProps) {
             {canEdit ? (
               <Toolbar>
                 <Spacer />
+                <EditHint>셀을 두 번 누르거나 Enter로 편집</EditHint>
                 <span>{editor.changeCount} changes</span>
                 <Button variant="secondary" size="sm" onClick={editor.addRow}>Add row</Button>
                 <Button variant="secondary" size="sm" disabled={!editor.dirty} onClick={editor.discard}>Discard</Button>

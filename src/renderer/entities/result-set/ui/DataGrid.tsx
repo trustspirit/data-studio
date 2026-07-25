@@ -31,7 +31,7 @@ const HeaderCell = styled.div`
 // $modified: 아직 적용되지 않은 스테이징 값을 보여주는 셀. 서버 값과 구분되지 않으면
 // 사용자는 무엇을 쓰려는지 검토할 수 없다(= 명시적 apply의 의미가 사라진다).
 // box-shadow(레이아웃에 영향 없음)로 표시해 가상화 행 높이를 흔들지 않는다.
-const Cell = styled.div<{ $modified: boolean }>`
+const Cell = styled.div<{ $modified: boolean; $editable: boolean }>`
   flex: 1 0 120px;
   padding: ${({ theme }) => theme.density.rowPad};
   overflow: hidden;
@@ -39,6 +39,16 @@ const Cell = styled.div<{ $modified: boolean }>`
   text-overflow: ellipsis;
   background: ${({ theme, $modified }) => ($modified ? theme.color.rowAlt : 'transparent')};
   box-shadow: ${({ theme, $modified }) => ($modified ? `inset 2px 0 0 ${theme.color.accent}` : 'none')};
+  cursor: ${({ $editable }) => ($editable ? 'text' : 'inherit')};
+
+  &[data-editable]:hover {
+    background: ${({ theme }) => theme.color.rowHover};
+  }
+
+  &[data-editable]:focus-visible {
+    outline: 1px solid ${({ theme }) => theme.color.accent};
+    outline-offset: -1px;
+  }
 `
 const CellInput = styled.input`
   width: 100%;
@@ -188,6 +198,7 @@ export function DataGrid({
                       key={ci}
                       data-cell
                       $modified={staged !== undefined}
+                      $editable={false}
                       style={{ display: 'flex', alignItems: 'center' }}
                     >
                       <CellInput
@@ -231,10 +242,23 @@ export function DataGrid({
                   <Cell
                     key={ci}
                     data-cell
+                    data-editable={editing !== undefined ? '' : undefined}
                     data-modified={staged !== undefined ? '' : undefined}
                     $modified={staged !== undefined}
+                    $editable={editing !== undefined}
+                    tabIndex={editing !== undefined ? 0 : undefined}
                     onDoubleClick={
                       editing !== undefined ? () => setEditingCell({ row: rowIndex, col: ci }) : undefined
+                    }
+                    onKeyDown={
+                      editing !== undefined
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === 'F2') {
+                              e.preventDefault()
+                              setEditingCell({ row: rowIndex, col: ci })
+                            }
+                          }
+                        : undefined
                     }
                   >
                     {renderCell(shown)}
@@ -255,7 +279,13 @@ export function DataGrid({
                 const isNull = staged?.t === 'null'
                 const text = staged !== undefined && staged.t === 'str' ? staged.v : ''
                 return (
-                  <Cell key={ci} data-cell $modified={false} style={{ display: 'flex', alignItems: 'center' }}>
+                  <Cell
+                    key={ci}
+                    data-cell
+                    $modified={false}
+                    $editable={false}
+                    style={{ display: 'flex', alignItems: 'center' }}
+                  >
                     <CellInput
                       aria-label={`새 행 ${i} ${c.name}`}
                       value={text}

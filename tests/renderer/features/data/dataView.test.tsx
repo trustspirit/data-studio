@@ -65,6 +65,13 @@ describe('DataView', () => {
     expect(screen.getByText(/테이블을 선택/)).toBeTruthy()
   })
 
+  it('PK가 있는 테이블의 편집 툴바에 셀 편집 방법을 안내한다', async () => {
+    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" />)
+    await selectUsersTable()
+
+    expect(screen.getByText('셀을 두 번 누르거나 Enter로 편집')).toBeTruthy()
+  })
+
   it('편집 후 Save가 apply를 보내고 재조회한다', async () => {
     const g = gateway({ pk: true })
     wrap(<DataView gateway={g} connectionId="c1" />)
@@ -184,6 +191,7 @@ describe('DataView', () => {
     await selectUsersTable()
 
     await waitFor(() => expect(screen.getByText(/PK 없음/)).toBeTruthy())
+    expect(screen.queryByText('셀을 두 번 누르거나 Enter로 편집')).toBeNull()
     expect(screen.queryByText('Save')).toBeNull()
     expect(screen.queryByLabelText('행 0 삭제')).toBeNull()
   })
