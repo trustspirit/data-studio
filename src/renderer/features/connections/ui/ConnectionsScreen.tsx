@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { IMPLEMENTED_ENGINE_IDS, type ConnectionConfig, type EngineId } from '@shared/types/connection'
+import { IMPLEMENTED_ENGINE_IDS } from '@shared/types/connection'
 import { useGateways } from '../../../app/GatewayProvider'
 import { useConnections } from '../model/useConnections'
-import { applyEngine, emptyDraft, validateDraft } from '../model/connectionForm'
+import { useConnectionEditor } from '../model/useConnectionEditor'
 import { EmptyState, ErrorBanner } from '../../../shared/ui'
 import { ConnectionList } from './ConnectionList'
 import { ConnectionForm } from './ConnectionForm'
@@ -27,74 +26,7 @@ const Detail = styled.div`
 export function ConnectionsScreen() {
   const gateways = useGateways()
   const state = useConnections(gateways.connection)
-  const [draft, setDraft] = useState<ConnectionConfig>(emptyDraft)
-  const [errors, setErrors] = useState<Readonly<Record<string, string>>>({})
-  const [mode, setMode] = useState<'new' | 'edit' | 'none'>('none')
-  const [password, setPassword] = useState('')
-  const [hasSavedSecret, setHasSavedSecret] = useState(false)
-  const [aiPassword, setAiPassword] = useState('')
-  const [hasSavedAiSecret, setHasSavedAiSecret] = useState(false)
-  const [secretsPersistent, setSecretsPersistent] = useState(true)
-
-  useEffect(() => {
-    void gateways.connection.secretsPersistent().then(setSecretsPersistent)
-  }, [gateways.connection])
-
-  useEffect(() => {
-    if (state.selectedId === null) return
-    const found = state.connections.find((c) => c.id === state.selectedId)
-    if (found !== undefined) {
-      setDraft(found)
-      setErrors({})
-      setMode('edit')
-      setPassword('')
-      setAiPassword('')
-      void gateways.connection.hasSecret(found.id).then(setHasSavedSecret)
-      void gateways.connection.hasSecret(found.id, true).then(setHasSavedAiSecret)
-    }
-  }, [state.selectedId, state.connections, gateways.connection])
-
-  const startNew = () => {
-    setDraft(emptyDraft())
-    setErrors({})
-    setMode('new')
-    setPassword('')
-    setHasSavedSecret(false)
-    setAiPassword('')
-    setHasSavedAiSecret(false)
-    state.clearSelection()
-  }
-
-  const onSave = async () => {
-    const result = validateDraft(draft)
-    if (!result.ok) {
-      setErrors(result.errors)
-      return
-    }
-    setErrors({})
-    await state.save(draft)
-    if (password !== '') {
-      await gateways.connection.setSecret(draft.id, password)
-      setHasSavedSecret(true)
-      setPassword('')
-    }
-    // AI 계정이 없는 저장이면 비밀번호를 쓰지 않는다. 필드는 계정명을 비우는
-    // 순간 사라지지만 입력값은 이 화면 상태에 남아 있어서, 그대로 보내면 main이
-    // 방금 지운 비밀(connection:save)을 다시 만들어 고아로 남긴다.
-    const keepsAiAccount = draft.aiReadOnlyUsername !== null && draft.aiReadOnlyUsername !== ''
-    if (keepsAiAccount && aiPassword !== '') {
-      await gateways.connection.setSecret(draft.id, aiPassword, true)
-      setHasSavedAiSecret(true)
-    }
-    if (!keepsAiAccount) setHasSavedAiSecret(false)
-    setAiPassword('')
-    setMode('edit')
-  }
-
-  const onDelete = async () => {
-    await state.remove(draft.id)
-    startNew()
-  }
+  const editor = useConnectionEditor(gateways.connection, state)
 
   return (
     <Layout>
@@ -102,37 +34,33 @@ export function ConnectionsScreen() {
         connections={state.connections}
         selectedId={state.selectedId}
         onSelect={state.select}
-        onNew={startNew}
+        onNew={editor.startNew}
       />
       <Detail>
         {state.error !== null && <ErrorBanner>{state.error}</ErrorBanner>}
-        {mode === 'none' ? (
+        {editor.mode === 'none' ? (
           <EmptyState
             title="왼쪽에서 연결을 고르거나 사이드바의 추가 버튼으로 새로 만드세요."
             hint={IMPLEMENTED_ENGINE_IDS.join(' · ')}
           />
         ) : (
           <ConnectionForm
-            key={draft.id}
-            draft={draft}
-            errors={errors}
-            isNew={mode === 'new'}
-            onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
-            onEngineChange={(engine: EngineId) => setDraft((d) => applyEngine(d, engine))}
-            onSave={() => void onSave()}
-            onDelete={() => void onDelete()}
-            password={password}
-            onPasswordChange={setPassword}
-            hasSavedSecret={hasSavedSecret}
-            aiPassword={aiPassword}
-            onAiPasswordChange={setAiPassword}
-            hasSavedAiSecret={hasSavedAiSecret}
-            secretsPersistent={secretsPersistent}
-            onBrowseFile={() => {
-              void gateways.connection.openFileDialog().then((path) => {
-                if (path !== null) setDraft((d) => ({ ...d, database: path }))
-              })
-            }}
+            key={editor.draft.id}
+            draft={editor.draft}
+            errors={editor.errors}
+            isNew={editor.mode === 'new'}
+            onChange={editor.change}
+            onEngineChange={editor.changeEngine}
+            onSave={() => void editor.save()}
+            onDelete={() => void editor.remove()}
+            password={editor.password}
+            onPasswordChange={editor.setPassword}
+            hasSavedSecret={editor.hasSavedSecret}
+            aiPassword={editor.aiPassword}
+            onAiPasswordChange={editor.setAiPassword}
+            hasSavedAiSecret={editor.hasSavedAiSecret}
+            secretsPersistent={editor.secretsPersistent}
+            onBrowseFile={editor.browseFile}
           />
         )}
       </Detail>
