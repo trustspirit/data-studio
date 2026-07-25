@@ -36,6 +36,9 @@ export const darkTheme = {
     keyword: '#ff7ab2',
     fn: '#82aaff',
     string: '#c3e88d',
+    // 인용 식별자. 문법이 문자열 리터럴과 구분하므로 색도 구분한다 — DDL은
+    // 모든 식별자를 인용하기 때문에 묶어 두면 화면이 한 색이 된다.
+    ident: '#c8d3f5',
     number: '#f78c6c',
     type: '#ffcb6b',
     comment: '#6b7089',

@@ -12,7 +12,8 @@ import {
 } from '@codemirror/autocomplete'
 import { syntaxHighlighting } from '@codemirror/language'
 import type { EngineId } from '@shared/types/connection'
-import { dialectFor, SQL_SNIPPETS, sqlHighlight } from '../model/sqlLang'
+import { dialectFor, sqlHighlight } from '@renderer/entities/sql-lang'
+import { SQL_SNIPPETS } from '../model/sqlLang'
 
 const Host = styled.div`
   flex: 1;
