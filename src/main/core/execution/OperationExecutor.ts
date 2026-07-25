@@ -23,7 +23,27 @@ export type FailureReason =
 
 export type OperationResult =
   | { readonly ok: true; readonly payload: OperationPayload }
-  | { readonly ok: false; readonly reason: FailureReason }
+  | {
+      readonly ok: false
+      readonly reason: FailureReason
+      /**
+       * 엔진이 말한 실패 이유의 원문.
+       *
+       * `actor.type === 'user'`이고 `reason === 'error'`일 때만 채운다.
+       * 두 조건이 각각 다른 것을 지킨다.
+       *
+       * AI를 제외하는 것은 마스킹 때문이다. 엔진은 제약 위반 메시지에 위반한
+       * 행의 값을 실어 보낸다. 그게 AI에게 가면 PII 마스킹이 무력해진다 —
+       * 마스킹은 결과 행을 가리는 것이고 오류 문구는 그 경로가 아니다. AI
+       * 경로(`toToolResult`, `runReadQuery`)가 `.reason`만 읽는 것은 지금도
+       * 사실이지만, 그건 한 줄로 무너지므로 채우는 쪽에서도 막는다.
+       *
+       * `'error'`로 한정하는 것은 나머지 코드에 채울 것이 없기 때문이다.
+       * `cancelled`·`timeout`·`capability_missing` 등은 코드가 이유를 다 말한다.
+       * `'error'`만 "무언가 실패했다" 외에 아무 정보가 없는 불투명한 코드다.
+       */
+      readonly detail?: string
+    }
 
 export interface ExecutorClock {
   readonly now: () => number
@@ -77,7 +97,14 @@ export class OperationExecutor {
       try {
         lease = await this.connections.acquire(this.poolIdFor(req.connectionId, actor))
       } catch (error) {
-        return this.failed(req, actor, req.operation, 'error', summarize(error))
+        return this.failed(
+          req,
+          actor,
+          req.operation,
+          'error',
+          summarize(error),
+          userDetail(error, actor),
+        )
       }
 
       try {
@@ -224,15 +251,18 @@ export class OperationExecutor {
           ? 'cancelled'
           : 'error'
 
-      // 드라이버 원문 메시지는 main 로그에만 남긴다. 결과에 실어 보내면
-      // 엔진이 오류에 담아 보내는 행 값·스키마 정보가 renderer로 샌다.
+      // 드라이버 원문은 감사 로그에 남기지 않는다 — 디스크에 남는 기록에
+      // 행 값이 들어가면 안 된다. 화면용 원문은 별개다(userDetail).
       this.record(req, actor, operation, 'failed', {
         statementHash,
         durationMs: this.clock.now() - startedAt,
         errorMessage: summarize(error),
       })
 
-      return { ok: false, reason }
+      // detail은 'error'에만 붙인다. 취소·타임아웃은 코드가 이유를 다 말하고
+      // abort 예외의 문구가 보탤 것이 없다.
+      const detail = reason === 'error' ? userDetail(error, actor) : undefined
+      return { ok: false, reason, ...(detail === undefined ? {} : { detail }) }
     } finally {
       // 타이머를 지우지 않으면 실행이 끝난 뒤에도 핸들이 살아 있다.
       this.clock.clearTimeout(timer)
@@ -355,10 +385,13 @@ export class OperationExecutor {
     operation: Operation,
     reason: FailureReason,
     errorMessage?: string,
+    detail?: string,
   ): OperationResult {
     this.record(req, actor, operation, 'failed', { errorMessage: errorMessage ?? reason })
 
-    return { ok: false, reason }
+    // exactOptionalPropertyTypes가 켜져 있어 `{ detail: undefined }`는
+    // `detail?: string`에 대입할 수 없다. 조건부 스프레드로 넣는다.
+    return { ok: false, reason, ...(detail === undefined ? {} : { detail }) }
   }
 
   private record(
@@ -464,6 +497,27 @@ function describeOperation(operation: Operation): string {
     case 'listForeignKeys':
       return `schema:listForeignKeys ${operation.schema}.${operation.table}`
   }
+}
+
+/** `detail`의 길이 상한. pg는 DETAIL·HINT를 여러 줄로 붙여 보낸다. */
+const DETAIL_MAX_CHARS = 1000
+
+/**
+ * 사용자에게 보여줄 실패 원문.
+ *
+ * `summarize`와 나란히 두지만 하는 일이 반대다. `summarize`는 감사 로그용이라
+ * 이름만 남기고 값을 버린다(디스크에 남으므로). 이쪽은 화면용이라 원문을
+ * 남긴다 — 자기 DB의 오류를 자기 화면에서 보는 것은 유출이 아니고, 이것이
+ * 없으면 사용자는 `error` 한 단어만 보게 된다.
+ *
+ * `stack`은 쓰지 않는다. 파일 경로가 섞이고 사용자에게 쓸모가 없다.
+ */
+function userDetail(error: unknown, actor: Actor): string | undefined {
+  if (actor.type !== 'user') return undefined
+  if (!(error instanceof Error)) return undefined
+  const message = error.message.trim()
+  if (message === '') return undefined
+  return message.length > DETAIL_MAX_CHARS ? `${message.slice(0, DETAIL_MAX_CHARS)}…` : message
 }
 
 /**

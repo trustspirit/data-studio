@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { listConnectionsTool } from '@main/ai/tools/listConnections'
-import { getSchemaTool } from '@main/ai/tools/getSchema'
+import { getSchemaTool, toToolResult } from '@main/ai/tools/getSchema'
 import { getTableStatsTool } from '@main/ai/tools/getTableStats'
 import { explainQueryTool } from '@main/ai/tools/explainQuery'
 import type { AiToolContext } from '@main/ai/AiToolContext'
@@ -78,5 +78,19 @@ describe('metadata tools', () => {
     const ctx = ctxWith({ run: () => Promise.resolve<OperationResult>({ ok: false, reason: 'capability_missing' }) })
     const out = await getSchemaTool.execute({ connectionId: 'c1' }, ctx)
     expect(out.ok).toBe(false)
+  })
+
+  it('실패 결과에 원문이 실려 있어도 도구 출력에는 넣지 않는다', () => {
+    // detail은 사용자 화면 전용이다. 지금은 AI actor에게 채워지지 않지만,
+    // 그 조건은 OperationExecutor의 한 줄이다. 읽는 쪽에도 가드를 둬서
+    // 두 곳이 동시에 틀려야 유출이 되게 만든다.
+    const out = toToolResult({
+      ok: false,
+      reason: 'error',
+      detail: "duplicate key: email='alice@example.com'",
+    })
+
+    expect(JSON.stringify(out)).not.toContain('alice@example.com')
+    expect(out).toEqual({ ok: false, error: 'operation denied or failed: error' })
   })
 })

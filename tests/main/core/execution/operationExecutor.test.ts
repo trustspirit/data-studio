@@ -569,16 +569,22 @@ describe('OperationExecutor — 실패 처리', () => {
 
     const result = await h.executor.run(request(), USER)
 
-    expect(result).toEqual({ ok: false, reason: 'error' })
+    expect(result).toEqual({ ok: false, reason: 'error', detail: 'boom' })
     expect(h.log.recent(1)[0]).toMatchObject({ outcome: 'failed' })
   })
 
-  it('드라이버 예외 메시지를 결과에 그대로 싣지 않는다', async () => {
-    // 엔진에 따라 오류 메시지에 위반한 행 값이 실려 온다.
+  it('드라이버 예외 메시지를 AI에게는 그대로 싣지 않는다', async () => {
+    // 엔진에 따라 오류 메시지에 위반한 행 값이 실려 온다. 그게 AI에게 가면
+    // PII 마스킹을 통째로 우회한다 — 마스킹은 결과 행을 가리는 것이고 오류
+    // 문구는 그 경로가 아니다.
+    //
+    // 예전에는 사용자에게도 싣지 않았다. 그래서 사용자는 'error' 한 단어만
+    // 보았고 무엇이 잘못됐는지 알 방법이 없었다. 지금은 경계가 렌더러가 아니라
+    // AI다 — 자기 DB의 오류를 자기 화면에서 보는 것은 유출이 아니다.
     const secret = new Error("duplicate key: email='alice@example.com'")
     const h = createHarness({ failWith: secret, gate: Promise.resolve() })
 
-    const result = await h.executor.run(request(), USER)
+    const result = await h.executor.run(request(), AI)
 
     expect(JSON.stringify(result)).not.toContain('alice@example.com')
   })
@@ -602,7 +608,7 @@ describe('OperationExecutor — 실패 처리', () => {
 
     const result = await h.executor.run(request(), USER)
 
-    expect(result).toEqual({ ok: false, reason: 'error' })
+    expect(result).toEqual({ ok: false, reason: 'error', detail: 'not open' })
     expect(h.calls.execute).toHaveLength(0)
   })
 
@@ -627,6 +633,72 @@ describe('OperationExecutor — 실패 처리', () => {
     const entry = h.log.recent(1)[0]
     expect(entry?.outcome).toBe('denied')
     expect(entry?.denialReason).toBe('ai_write_requires_proposal')
+  })
+})
+
+describe('OperationExecutor — 실패 원문(detail)', () => {
+  function detailOf(result: Awaited<ReturnType<OperationExecutor['run']>>): string | undefined {
+    return result.ok ? undefined : result.detail
+  }
+
+  it('사용자 실행이 엔진 오류로 깨지면 원문을 실어 보낸다', async () => {
+    const h = createHarness({
+      failWith: new Error('relation "nope" does not exist'),
+      gate: Promise.resolve(),
+    })
+
+    const result = await h.executor.run(request(), USER)
+
+    expect(detailOf(result)).toBe('relation "nope" does not exist')
+  })
+
+  it('AI 실행에는 원문을 붙이지 않는다', async () => {
+    const h = createHarness({ failWith: new Error('boom'), gate: Promise.resolve() })
+
+    const result = await h.executor.run(request(), AI)
+
+    expect(result).toEqual({ ok: false, reason: 'error' })
+  })
+
+  it('정책 거부에는 원문을 붙이지 않는다', async () => {
+    // 손에 든 예외가 아예 없다.
+    const h = createHarness({ classify: 'write' })
+
+    const result = await h.executor.run(request(), AI)
+
+    expect(detailOf(result)).toBeUndefined()
+  })
+
+  it('아주 긴 원문은 자른다', async () => {
+    // pg는 DETAIL·HINT를 여러 줄로 붙여 보낸다. 배너가 화면을 삼키면 안 된다.
+    const h = createHarness({ failWith: new Error('x'.repeat(5_000)), gate: Promise.resolve() })
+
+    const result = await h.executor.run(request(), USER)
+
+    const detail = detailOf(result) ?? ''
+    expect(detail.length).toBeLessThanOrEqual(1_001)
+    expect(detail.endsWith('…')).toBe(true)
+  })
+
+  it('Error가 아닌 것이 던져지면 원문을 붙이지 않는다', async () => {
+    // 드라이버가 문자열을 throw할 수도 있다. message를 읽으려다 깨지면
+    // 실패 처리 자체가 깨진다.
+    const h = createHarness({
+      failWith: 'just a string' as unknown as Error,
+      gate: Promise.resolve(),
+    })
+
+    const result = await h.executor.run(request(), USER)
+
+    expect(result).toEqual({ ok: false, reason: 'error' })
+  })
+
+  it('빈 메시지는 없는 것으로 본다', async () => {
+    const h = createHarness({ failWith: new Error('   '), gate: Promise.resolve() })
+
+    const result = await h.executor.run(request(), USER)
+
+    expect(detailOf(result)).toBeUndefined()
   })
 })
 
