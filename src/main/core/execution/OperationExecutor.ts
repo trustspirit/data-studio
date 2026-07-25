@@ -517,7 +517,14 @@ function userDetail(error: unknown, actor: Actor): string | undefined {
   if (!(error instanceof Error)) return undefined
   const message = error.message.trim()
   if (message === '') return undefined
-  return message.length > DETAIL_MAX_CHARS ? `${message.slice(0, DETAIL_MAX_CHARS)}…` : message
+  if (message.length <= DETAIL_MAX_CHARS) return message
+
+  // slice는 UTF-16 코드 유닛을 센다. 상한이 서로게이트 쌍 가운데 떨어지면
+  // 짝 없는 서로게이트가 남아 화면에 U+FFFD로 보인다. 한 유닛 더 걷어낸다.
+  const cut = message.slice(0, DETAIL_MAX_CHARS)
+  const last = cut.charCodeAt(cut.length - 1)
+  const isHighSurrogate = last >= 0xd800 && last <= 0xdbff
+  return `${isHighSurrogate ? cut.slice(0, -1) : cut}…`
 }
 
 /**

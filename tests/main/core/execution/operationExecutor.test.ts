@@ -680,6 +680,22 @@ describe('OperationExecutor — 실패 원문(detail)', () => {
     expect(detail.endsWith('…')).toBe(true)
   })
 
+  it('상한이 서로게이트 쌍 가운데 떨어져도 짝 없는 서로게이트를 남기지 않는다', async () => {
+    // 999번째까지 x를 채우면 상한(1000)이 이모지의 두 코드 유닛 사이에 떨어진다.
+    // 그대로 자르면 짝 없는 서로게이트가 남아 화면에 U+FFFD로 보인다.
+    const h = createHarness({
+      failWith: new Error(`${'x'.repeat(999)}${'😀'.repeat(10)}`),
+      gate: Promise.resolve(),
+    })
+
+    const result = await h.executor.run(request(), USER)
+
+    const detail = detailOf(result) ?? ''
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(detail)).toBe(false)
+    expect(detail.length).toBeLessThanOrEqual(1_001)
+    expect(detail.endsWith('…')).toBe(true)
+  })
+
   it('Error가 아닌 것이 던져지면 원문을 붙이지 않는다', async () => {
     // 드라이버가 문자열을 throw할 수도 있다. message를 읽으려다 깨지면
     // 실패 처리 자체가 깨진다.
