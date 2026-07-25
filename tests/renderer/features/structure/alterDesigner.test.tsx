@@ -77,18 +77,18 @@ function sqlCalls(run: ReturnType<typeof vi.fn>): string[] {
     .map((op) => op.sql ?? '')
 }
 
-/** 트리에서 public.users를 고른 상태까지 진행한다. */
+/** 트리는 셸이 갖는다 — 이 뷰에는 선택이 prop으로 들어온다. */
+const SCHEMAS = ['public']
+const USERS = { schema: 'public', table: 'users' }
+
+/** public.users가 선택된 상태로 마운트한다. */
 async function mounted(engine: EngineId = 'postgres') {
   const { gateway, run } = fakeGateway()
   render(
     <ThemeProvider theme={darkTheme}>
-      <StructureView gateway={gateway} connectionId="c1" engine={engine} />
+      <StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine={engine} />
     </ThemeProvider>,
   )
-  await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
-  fireEvent.click(screen.getByText(/public/))
-  await waitFor(() => expect(screen.getByText('users')).toBeTruthy())
-  fireEvent.click(screen.getByText('users'))
   await waitFor(() => expect(screen.getByTestId('col-rename-email')).toBeTruthy())
   return { run }
 }
@@ -100,7 +100,7 @@ describe('테이블 이름 변경', () => {
     const { gateway } = fakeGateway()
     render(
       <ThemeProvider theme={darkTheme}>
-        <StructureView gateway={gateway} connectionId="c1" engine="postgres" />
+        <StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />
       </ThemeProvider>,
     )
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
@@ -255,13 +255,15 @@ describe('이름에 공백이 있는 대상', () => {
     const { gateway, run } = paddedGateway()
     render(
       <ThemeProvider theme={darkTheme}>
-        <StructureView gateway={gateway} connectionId="c1" engine="postgres" />
+        <StructureView
+          gateway={gateway}
+          connectionId="c1"
+          selection={{ schema: 'public', table: PADDED }}
+          schemas={SCHEMAS}
+          engine="postgres"
+        />
       </ThemeProvider>,
     )
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
-    fireEvent.click(screen.getByText(/public/))
-    await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
-    fireEvent.click(screen.getByText(PADDED.trim()))
     await waitFor(() => expect(screen.getByTestId('ddl-open-drop-table')).toBeTruthy())
     return { run }
   }
@@ -336,13 +338,9 @@ describe('이름에 공백이 있는 대상', () => {
     }
     render(
       <ThemeProvider theme={darkTheme}>
-        <StructureView gateway={gateway} connectionId="c1" engine="postgres" />
+        <StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine="postgres" />
       </ThemeProvider>,
     )
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
-    fireEvent.click(screen.getByText(/public/))
-    await waitFor(() => expect(screen.getByText('users')).toBeTruthy())
-    fireEvent.click(screen.getByText('users'))
     await waitFor(() => expect(screen.getByText('pad')).toBeTruthy())
     return { run }
   }
@@ -399,13 +397,9 @@ describe('SQL 엔진이 아니면 행별 DDL 버튼이 없다', () => {
     const { gateway } = fakeGateway()
     render(
       <ThemeProvider theme={darkTheme}>
-        <StructureView gateway={gateway} connectionId="c1" engine="mongodb" />
+        <StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine="mongodb" />
       </ThemeProvider>,
     )
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
-    fireEvent.click(screen.getByText(/public/))
-    await waitFor(() => expect(screen.getByText('users')).toBeTruthy())
-    fireEvent.click(screen.getByText('users'))
     await waitFor(() => expect(screen.getByText('email')).toBeTruthy())
     expect(screen.queryByTestId('col-rename-email')).toBeNull()
     expect(screen.queryByTestId('col-drop-email')).toBeNull()

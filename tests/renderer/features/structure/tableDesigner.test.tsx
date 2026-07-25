@@ -68,12 +68,9 @@ function wrap(ui: React.ReactElement) {
   return render(<ThemeProvider theme={darkTheme}>{ui}</ThemeProvider>)
 }
 
-async function selectUsersTable() {
-  await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
-  fireEvent.click(screen.getByText(/public/))
-  await waitFor(() => expect(screen.getByText('users')).toBeTruthy())
-  fireEvent.click(screen.getByText('users'))
-}
+/** 트리는 셸이 갖는다 — 이 뷰에는 선택이 prop으로 들어온다. */
+const SCHEMAS = ['public']
+const USERS = { schema: 'public', table: 'users' }
 
 function sqlCalls(run: ReturnType<typeof vi.fn>): string[] {
   return run.mock.calls
@@ -85,21 +82,31 @@ function sqlCalls(run: ReturnType<typeof vi.fn>): string[] {
 describe('StructureView 테이블 디자이너', () => {
   it('engine이 없으면 DDL 툴바가 표시되지 않는다', async () => {
     const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" />)
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} />)
+    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
     expect(screen.queryByTestId('ddl-open-create')).toBeNull()
   })
 
   it('SQL이 아닌 엔진(mongodb)이면 DDL 툴바가 표시되지 않는다', async () => {
     const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="mongodb" />)
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="mongodb" />)
+    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
     expect(screen.queryByTestId('ddl-open-create')).toBeNull()
   })
 
-  it('New Table: 폼 → SQL 미리보기 → 실행 → 트리 재조회 → 닫힘', async () => {
+  it('New Table: 폼 → SQL 미리보기 → 실행 → 트리 재조회 통지 → 닫힘', async () => {
     const { gateway, run } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    const onSchemaChanged = vi.fn()
+    wrap(
+      <StructureView
+        gateway={gateway}
+        connectionId="c1"
+        selection={null}
+        schemas={SCHEMAS}
+        onSchemaChanged={onSchemaChanged}
+        engine="postgres"
+      />,
+    )
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -117,24 +124,16 @@ describe('StructureView 테이블 디자이너', () => {
     expect(preview).toContain('"id" bigserial')
     expect(preview).toContain('PRIMARY KEY ("id")')
 
-    const schemasCallsBefore = run.mock.calls.filter(
-      (c) => (c as [{ operation: RanOperation }])[0].operation.op === 'listSchemas',
-    ).length
     fireEvent.click(screen.getByTestId('ddl-run'))
     await waitFor(() => expect(screen.queryByTestId('table-designer')).toBeNull())
     expect(sqlCalls(run)[0]).toContain('CREATE TABLE "public"."orders"')
-    // DDL 성공 후 스키마 트리를 다시 읽는다.
-    await waitFor(() => {
-      const after = run.mock.calls.filter(
-        (c) => (c as [{ operation: RanOperation }])[0].operation.op === 'listSchemas',
-      ).length
-      expect(after).toBe(schemasCallsBefore + 1)
-    })
+    // DDL 성공 후 셸에 알려야 사이드바 트리가 서버 기준으로 다시 읽힌다.
+    await waitFor(() => expect(onSchemaChanged).toHaveBeenCalled())
   })
 
   it('+ ID를 누르면 방언에 맞는 자동 증가 PK 컬럼이 생긴다', async () => {
     const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -150,7 +149,7 @@ describe('StructureView 테이블 디자이너', () => {
 
   it('+ ID를 한 번 누르면 다시 눌러 중복 id를 만들 수 없다', async () => {
     const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -167,7 +166,7 @@ describe('StructureView 테이블 디자이너', () => {
 
   it('직접 입력한 대문자 ID도 + ID 프리셋을 비활성화한다', async () => {
     const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -180,7 +179,7 @@ describe('StructureView 테이블 디자이너', () => {
     // bigint는 rowid 별칭이 아니라 id가 오류 없이 비어 저장된다 — 프리셋이
     // 그 함정을 만들면 안 된다.
     const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="sqlite" />)
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="sqlite" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -195,7 +194,7 @@ describe('StructureView 테이블 디자이너', () => {
   it('AUTO를 켜면 그 행의 DEFAULT 입력이 잠기고 값이 지워진다', async () => {
     // 엔진이 거부하는 조합(both default and identity)을 애초에 만들 수 없게 한다.
     const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -211,7 +210,7 @@ describe('StructureView 테이블 디자이너', () => {
 
   it('AUTO를 켠 채 타입이 맞지 않으면 이슈가 뜨고 Run이 잠긴다', async () => {
     const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -226,7 +225,7 @@ describe('StructureView 테이블 디자이너', () => {
 
   it('실행이 거부되면 이유를 보여주고 디자이너를 유지한다', async () => {
     const { gateway } = fakeGateway(() => ({ ok: false, reason: 'permission denied' }))
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -246,7 +245,7 @@ describe('StructureView 테이블 디자이너', () => {
       reason: 'error',
       detail: 'relation "users" already exists',
     }))
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -259,8 +258,7 @@ describe('StructureView 테이블 디자이너', () => {
 
   it('테이블을 선택하면 Add FK·Add Index가 나타나고, FK 폼이 ALTER TABLE을 만든다', async () => {
     const { gateway, run } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="postgres" />)
-    await selectUsersTable()
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine="postgres" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-fk')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-fk'))
@@ -279,16 +277,14 @@ describe('StructureView 테이블 디자이너', () => {
 
   it('sqlite에서는 Add FK 버튼이 없다(ALTER 미지원)', async () => {
     const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="sqlite" />)
-    await selectUsersTable()
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine="sqlite" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-index')).toBeTruthy())
     expect(screen.queryByTestId('ddl-open-fk')).toBeNull()
   })
 
   it('Add Index 폼이 CREATE INDEX를 만들어 실행한다', async () => {
     const { gateway, run } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" engine="mysql" />)
-    await selectUsersTable()
+    wrap(<StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine="mysql" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-index')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-index'))

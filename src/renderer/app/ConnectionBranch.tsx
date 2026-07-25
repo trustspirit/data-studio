@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import { SchemaNavigator, useSchemaTree, type TableSelection } from '../entities/schema-tree'
@@ -14,6 +15,10 @@ interface ConnectionBranchProps {
   connectionId: string
   selected: TableSelection | null
   onSelect: (selection: TableSelection) => void
+  /** 스키마 이름을 셸로 올린다 — 테이블 디자이너가 자동완성에 쓴다. */
+  onSchemasLoaded?: ((names: readonly string[]) => void) | undefined
+  /** 값이 바뀌면 서버 기준으로 다시 읽는다(DDL 실행 후). */
+  reloadToken?: number | undefined
 }
 
 /**
@@ -23,8 +28,29 @@ interface ConnectionBranchProps {
  * 연결마다 이 컴포넌트를 하나씩 렌더한다 — A의 확장 상태와 테이블 캐시는 B와
  * 물리적으로 다른 클로저에 있어서 맵을 손으로 관리할 필요가 없다.
  */
-export function ConnectionBranch({ gateway, connectionId, selected, onSelect }: ConnectionBranchProps) {
+export function ConnectionBranch({
+  gateway,
+  connectionId,
+  selected,
+  onSelect,
+  onSchemasLoaded,
+  reloadToken = 0,
+}: ConnectionBranchProps) {
   const tree = useSchemaTree(gateway, connectionId)
+  const schemas = tree.schemas
+  useEffect(() => {
+    onSchemasLoaded?.(schemas.map((s) => s.name))
+  }, [schemas, onSchemasLoaded])
+
+  const treeReload = tree.reload
+  const seenToken = useRef(reloadToken)
+  useEffect(() => {
+    // 마운트 시점의 조회는 훅이 이미 한다 — 토큰이 실제로 움직였을 때만 다시 읽는다.
+    if (seenToken.current === reloadToken) return
+    seenToken.current = reloadToken
+    treeReload()
+  }, [reloadToken, treeReload])
+
   return (
     <>
       {tree.error !== null && <BranchError data-testid={`branch-error-${connectionId}`}>{tree.error}</BranchError>}

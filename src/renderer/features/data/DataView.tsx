@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { BrowseSort } from '../../../shared/types/operation'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
-import { SchemaNavigator, useSchemaTree, type TableSelection } from '../../entities/schema-tree'
+import type { TableSelection } from '../../entities/schema-tree'
 import { Button, EmptyState, ErrorBanner, Notice, Toolbar } from '../../shared/ui'
 import { DataGrid } from '../../entities/result-set/ui/DataGrid'
 import { useTableData } from './model/useTableData'
@@ -35,34 +35,48 @@ const EditHint = styled.span`
 interface DataViewProps {
   gateway: OperationGateway
   connectionId: string
+  /** 셸의 사이드바 트리가 고른 테이블. 이 뷰는 자기 트리를 갖지 않는다. */
+  selection: TableSelection | null
 }
 
-export function DataView({ gateway, connectionId }: DataViewProps) {
-  const tree = useSchemaTree(gateway, connectionId)
-  const [selected, setSelected] = useState<TableSelection | null>(null)
-  const [sort, setSort] = useState<BrowseSort | undefined>(undefined)
-  const data = useTableData(gateway, connectionId, selected, sort)
+/**
+ * 정렬은 테이블에 딸린 상태다. 다른 테이블로 옮기면 버려야 하는데, effect로
+ * 되돌리면 한 렌더 동안 옛 정렬로 조회가 한 번 나간다 — 그래서 상태에 대상
+ * 테이블을 함께 담고 어긋나면 정렬이 없는 것으로 읽는다.
+ */
+interface SortState {
+  readonly key: string
+  readonly sort: BrowseSort | undefined
+}
 
-  const schema = selected?.schema ?? ''
-  const table = selected?.table ?? ''
-  const cols = useTableColumns(gateway, connectionId, selected)
+export function DataView({ gateway, connectionId, selection }: DataViewProps) {
+  const [sortState, setSortState] = useState<SortState>({ key: '', sort: undefined })
+
+  const schema = selection?.schema ?? ''
+  const table = selection?.table ?? ''
+  const sortKey = `${connectionId}\u0000${schema}\u0000${table}`
+  const sort = sortState.key === sortKey ? sortState.sort : undefined
+
+  const data = useTableData(gateway, connectionId, selection, sort)
+  const cols = useTableColumns(gateway, connectionId, selection)
   const columnNames = data.columns.map((c) => c.name)
   const editor = useTableEditor(gateway, connectionId, schema, table, columnNames, cols.pkColumns, data.rows)
   const canEdit = cols.pkColumns.length > 0
 
-  // 연결이 바뀌면 선택·정렬 초기화(useSchemaTree의 캐시 리셋과 일관).
-  useEffect(() => { setSelected(null); setSort(undefined) }, [connectionId])
-
   // 선택/정렬/연결이 바뀌면 스테이징된 편집을 버린다 — 다른 테이블로 편집이 새어나가면 안 된다.
   useEffect(() => { editor.discard() }, [connectionId, schema, table, sort?.column, sort?.direction])
 
-  const select = (s: TableSelection) => { setSelected(s); setSort(undefined) }
   const toggleSort = (column: string) => {
-    setSort((prev) =>
-      prev?.column === column
-        ? { column, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
-        : { column, direction: 'asc' },
-    )
+    setSortState((prev) => {
+      const current = prev.key === sortKey ? prev.sort : undefined
+      return {
+        key: sortKey,
+        sort:
+          current?.column === column
+            ? { column, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+            : { column, direction: 'asc' },
+      }
+    })
   }
 
   const handleSave = () => {
@@ -71,19 +85,10 @@ export function DataView({ gateway, connectionId }: DataViewProps) {
 
   return (
     <Layout>
-      <SchemaNavigator
-        schemas={tree.schemas}
-        tablesBySchema={tree.tablesBySchema}
-        expanded={tree.expanded}
-        selected={selected}
-        onToggle={tree.toggle}
-        onSelect={select}
-      />
       <Right>
-        {tree.error !== null && <ErrorBanner>{tree.error}</ErrorBanner>}
         {data.error !== null && <ErrorBanner>{data.error}</ErrorBanner>}
-        {selected !== null && editor.error !== null && <ErrorBanner>{editor.error}</ErrorBanner>}
-        {selected === null ? (
+        {selection !== null && editor.error !== null && <ErrorBanner>{editor.error}</ErrorBanner>}
+        {selection === null ? (
           <EmptyState title="테이블을 선택하세요." hint="왼쪽 트리에서 스키마를 펼쳐 테이블을 고르세요" />
         ) : (
           <>

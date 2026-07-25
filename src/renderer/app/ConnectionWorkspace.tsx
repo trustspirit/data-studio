@@ -143,6 +143,16 @@ interface ConnectionWorkspaceProps {
   engine?: EngineId | undefined
   /** AI 읽기 전용 계정의 연결 결과. 없으면(테스트·부분 조립) 표시하지 않는다. */
   aiAccount?: AiAccountStatus | undefined
+  /**
+   * 셸의 사이드바 트리가 고른 테이블. 미전달이면 워크스페이스가 자체 선택을
+   * 들고 동작한다(테스트·부분 조립) — 그래야 트리 없이도 ER→Structure 점프가 산다.
+   */
+  selection?: TableSelection | null | undefined
+  onSelectionChange?: ((selection: TableSelection | null) => void) | undefined
+  /** 테이블 디자이너의 스키마 자동완성 목록. */
+  schemas?: readonly string[] | undefined
+  /** DDL로 서버 스키마가 바뀌었다 — 셸이 트리를 다시 읽어야 한다. */
+  onSchemaChanged?: (() => void) | undefined
 }
 
 export function ConnectionWorkspace({
@@ -153,11 +163,22 @@ export function ConnectionWorkspace({
   capabilities,
   engine,
   aiAccount,
+  selection,
+  onSelectionChange,
+  schemas,
+  onSchemaChanged,
 }: ConnectionWorkspaceProps) {
   const availableViews = VIEW_ORDER.filter((v) => capabilities.includes(VIEW_CAPABILITY[v]))
   const [view, setView] = useState<View>(() => availableViews[0] ?? 'query')
-  const [erJump, setErJump] = useState<TableSelection | null>(null)
+  const [ownSelection, setOwnSelection] = useState<TableSelection | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
+
+  const controlled = selection !== undefined
+  const activeSelection = controlled ? selection : ownSelection
+  const selectTable = (sel: TableSelection | null) => {
+    if (onSelectionChange !== undefined) onSelectionChange(sel)
+    if (!controlled) setOwnSelection(sel)
+  }
 
   const activeView = availableViews.includes(view) ? view : (availableViews[0] ?? null)
 
@@ -202,11 +223,13 @@ export function ConnectionWorkspace({
             <StructureView
               gateway={gateway}
               connectionId={connectionId}
-              externalSelection={erJump}
+              selection={activeSelection}
+              schemas={schemas}
+              onSchemaChanged={onSchemaChanged}
               engine={engine}
             />
           ) : activeView === 'data' ? (
-            <DataView gateway={gateway} connectionId={connectionId} />
+            <DataView gateway={gateway} connectionId={connectionId} selection={activeSelection} />
           ) : activeView === 'documents' ? (
             <DocumentsView gateway={gateway} connectionId={connectionId} />
           ) : activeView === 'keys' ? (
@@ -220,7 +243,7 @@ export function ConnectionWorkspace({
               gateway={gateway}
               connectionId={connectionId}
               onOpenTable={(schema, table) => {
-                setErJump({ schema, table })
+                selectTable({ schema, table })
                 setView('structure')
               }}
             />

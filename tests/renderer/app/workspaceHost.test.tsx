@@ -124,7 +124,9 @@ describe('WorkspaceHost', () => {
     const { rerender } = render(host('a', gw))
 
     fireEvent.click(within(screen.getByTestId('workspace-a')).getByTestId('subtab-structure'))
-    await waitFor(() => expect(within(screen.getByTestId('workspace-a')).getByText(/public/)).toBeTruthy())
+    await waitFor(() =>
+      expect(within(screen.getByTestId('workspace-a')).getByText(/테이블을 선택/)).toBeTruthy(),
+    )
 
     rerender(host('b', gw))
     // B는 A의 서브탭 선택을 물려받지 않는다 — 기본값 Query여야 한다.
@@ -133,7 +135,7 @@ describe('WorkspaceHost', () => {
     rerender(host('a', gw))
     // A는 Structure에 그대로 있다.
     expect(within(screen.getByTestId('workspace-a')).queryByText(/Query — prod/)).toBeNull()
-    expect(within(screen.getByTestId('workspace-a')).getByText(/public/)).toBeTruthy()
+    expect(within(screen.getByTestId('workspace-a')).getByText(/테이블을 선택/)).toBeTruthy()
   })
 
   it('열리지 않은 연결은 판을 갖지 않는다', () => {

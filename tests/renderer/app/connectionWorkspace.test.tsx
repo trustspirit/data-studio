@@ -85,10 +85,10 @@ describe('ConnectionWorkspace', () => {
     expect(screen.getByText(/Query — prod/)).toBeTruthy()
   })
 
-  it('Structure 서브탭으로 전환하면 스키마 네비가 뜬다', async () => {
+  it('Structure 서브탭으로 전환하면 구조 뷰가 뜬다', async () => {
     wrap()
     fireEvent.click(screen.getByTestId('subtab-structure'))
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
     // Query 헤더는 더 이상 없다.
     expect(screen.queryByText(/Query — prod/)).toBeNull()
   })
@@ -96,7 +96,7 @@ describe('ConnectionWorkspace', () => {
   it('다시 Query 서브탭으로 돌아올 수 있다', async () => {
     wrap()
     fireEvent.click(screen.getByTestId('subtab-structure'))
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
     fireEvent.click(screen.getByTestId('subtab-query'))
     expect(screen.getByText(/Query — prod/)).toBeTruthy()
   })
@@ -104,7 +104,7 @@ describe('ConnectionWorkspace', () => {
   it('Data 서브탭으로 전환하면 데이터 뷰가 뜬다', async () => {
     wrap()
     fireEvent.click(screen.getByTestId('subtab-data'))
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/왼쪽 트리에서 스키마를 펼쳐/)).toBeTruthy())
     // Query 헤더는 더 이상 없다.
     expect(screen.queryByText(/Query — /)).toBeNull()
   })
@@ -234,7 +234,7 @@ describe('ConnectionWorkspace', () => {
   it('capability가 줄어드는 리렌더에서 사라진 뷰가 남아있지 않고 즉시 대체된다', async () => {
     const { rerender } = wrap(['sql', 'schema', 'data'])
     fireEvent.click(screen.getByTestId('subtab-data'))
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/왼쪽 트리에서 스키마를 펼쳐/)).toBeTruthy())
 
     // 같은 인스턴스를 data capability가 빠진 capabilities로 리렌더한다(마운트가 아니라 리렌더).
     rerender(

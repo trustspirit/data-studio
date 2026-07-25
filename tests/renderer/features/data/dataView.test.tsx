@@ -41,41 +41,41 @@ function gateway(opts: GatewayOpts = { pk: true }): OperationGateway {
 }
 function wrap(ui: React.ReactElement) { return render(<ThemeProvider theme={darkTheme}>{ui}</ThemeProvider>) }
 
-async function selectUsersTable(): Promise<void> {
-  await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
-  fireEvent.click(screen.getByText(/public/))
-  await waitFor(() => expect(screen.getByText('users')).toBeTruthy())
-  fireEvent.click(screen.getByText('users'))
+/** 트리는 셸이 갖는다 — 이 뷰에는 선택이 prop으로 들어온다. */
+const USERS = { schema: 'public', table: 'users' }
+
+async function usersTableLoaded(): Promise<void> {
   await waitFor(() => expect(screen.getByText('7')).toBeTruthy())
 }
 
 describe('DataView', () => {
-  it('스키마를 펼쳐 테이블을 고르면 행이 그리드에 뜬다', async () => {
-    wrap(<DataView gateway={gateway()} connectionId="c1" />)
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
-    fireEvent.click(screen.getByText(/public/))
-    await waitFor(() => expect(screen.getByText('users')).toBeTruthy())
-    fireEvent.click(screen.getByText('users'))
+  it('셸이 고른 테이블의 행이 그리드에 뜬다', async () => {
+    wrap(<DataView gateway={gateway()} connectionId="c1" selection={USERS} />)
     await waitFor(() => expect(screen.getByText('7')).toBeTruthy()) // 셀 값
   })
 
-  it('처음엔 안내 문구를 보여준다', async () => {
-    wrap(<DataView gateway={gateway()} connectionId="c1" />)
-    await waitFor(() => expect(screen.getByText(/public/)).toBeTruthy())
-    expect(screen.getByText(/테이블을 선택/)).toBeTruthy()
+  it('선택이 없으면 안내 문구를 보여준다', async () => {
+    wrap(<DataView gateway={gateway()} connectionId="c1" selection={null} />)
+    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
+  })
+
+  it('자기 트리를 그리지 않는다 — 사이드바 트리가 앱에 하나뿐이다', async () => {
+    wrap(<DataView gateway={gateway()} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
+    expect(screen.queryByText(/^▸ public$|^▾ public$/)).toBeNull()
   })
 
   it('PK가 있는 테이블의 편집 툴바에 셀 편집 방법을 안내한다', async () => {
-    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" />)
-    await selectUsersTable()
+    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
 
     expect(screen.getByText('셀을 두 번 누르거나 Enter로 편집')).toBeTruthy()
   })
 
   it('편집 후 Save가 apply를 보내고 재조회한다', async () => {
     const g = gateway({ pk: true })
-    wrap(<DataView gateway={g} connectionId="c1" />)
-    await selectUsersTable()
+    wrap(<DataView gateway={g} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
 
     fireEvent.doubleClick(screen.getByText('7'))
     const input = screen.getByDisplayValue('7')
@@ -98,8 +98,8 @@ describe('DataView', () => {
   })
 
   it('커밋한 편집 값이 그리드에 바로 보인다', async () => {
-    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" />)
-    await selectUsersTable()
+    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
 
     fireEvent.doubleClick(screen.getByText('7'))
     const input = screen.getByDisplayValue('7')
@@ -113,8 +113,8 @@ describe('DataView', () => {
 
   it('편집한 셀을 다시 열어 Enter해도 서버 값으로 되돌아가지 않는다', async () => {
     const g = gateway({ pk: true })
-    wrap(<DataView gateway={g} connectionId="c1" />)
-    await selectUsersTable()
+    wrap(<DataView gateway={g} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
 
     fireEvent.doubleClick(screen.getByText('7'))
     fireEvent.change(screen.getByDisplayValue('7'), { target: { value: '9' } })
@@ -137,8 +137,8 @@ describe('DataView', () => {
   })
 
   it('blur로 편집을 빠져나가도 입력이 커밋된다', async () => {
-    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" />)
-    await selectUsersTable()
+    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
 
     fireEvent.doubleClick(screen.getByText('7'))
     const input = screen.getByDisplayValue('7')
@@ -151,8 +151,8 @@ describe('DataView', () => {
 
   it('행 삭제 후 Save가 apply의 changes에 delete를 포함한다', async () => {
     const g = gateway({ pk: true })
-    wrap(<DataView gateway={g} connectionId="c1" />)
-    await selectUsersTable()
+    wrap(<DataView gateway={g} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
 
     fireEvent.click(screen.getByLabelText('행 0 삭제'))
     await waitFor(() => expect(screen.getByText(/1 changes/)).toBeTruthy())
@@ -168,8 +168,8 @@ describe('DataView', () => {
 
   it('Add row → 새 행 입력 → Save가 insert를 apply에 담아 보낸다', async () => {
     const g = gateway({ pk: true })
-    wrap(<DataView gateway={g} connectionId="c1" />)
-    await selectUsersTable()
+    wrap(<DataView gateway={g} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
 
     fireEvent.click(screen.getByText('Add row'))
     const input = screen.getByLabelText('새 행 0 id')
@@ -187,8 +187,8 @@ describe('DataView', () => {
   })
 
   it('PK가 없으면 편집이 비활성이다', async () => {
-    wrap(<DataView gateway={gateway({ pk: false })} connectionId="c1" />)
-    await selectUsersTable()
+    wrap(<DataView gateway={gateway({ pk: false })} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
 
     await waitFor(() => expect(screen.getByText(/PK 없음/)).toBeTruthy())
     expect(screen.queryByText('셀을 두 번 누르거나 Enter로 편집')).toBeNull()
@@ -198,8 +198,8 @@ describe('DataView', () => {
 
   it('정렬 변경 시 스테이징이 초기화된다', async () => {
     const g = gateway({ pk: true })
-    wrap(<DataView gateway={g} connectionId="c1" />)
-    await selectUsersTable()
+    wrap(<DataView gateway={g} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
 
     fireEvent.doubleClick(screen.getByText('7'))
     const input = screen.getByDisplayValue('7')

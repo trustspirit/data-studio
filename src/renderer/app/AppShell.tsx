@@ -102,6 +102,10 @@ const Layer = styled.div`
 
 export function AppShell() {
   const [tab, setTab] = useState<'workspace' | 'audit'>('workspace')
+  /** 연결별 스키마 이름. 가지가 접혀 언마운트돼도 디자이너가 쓸 수 있게 셸이 들고 있는다. */
+  const [schemaNames, setSchemaNames] = useState<Readonly<Record<string, readonly string[]>>>({})
+  /** DDL이 통과할 때마다 올라가는 연결별 카운터 — 가지가 이걸 보고 다시 읽는다. */
+  const [schemaTokens, setSchemaTokens] = useState<Readonly<Record<string, number>>>({})
   const gateways = useGateways()
   const conns = useConnections(gateways.connection)
   const editor = useConnectionEditor(gateways.connection, conns)
@@ -125,6 +129,18 @@ export function AppShell() {
   const openSettings = (id: string) => {
     setTab('workspace')
     conns.select(id)
+  }
+  const noteSchemas = (id: string, names: readonly string[]) => {
+    setSchemaNames((cur) => {
+      const prev = cur[id]
+      if (prev !== undefined && prev.length === names.length && prev.every((n, i) => n === names[i])) {
+        return cur
+      }
+      return { ...cur, [id]: names }
+    })
+  }
+  const noteSchemaChanged = (id: string) => {
+    setSchemaTokens((cur) => ({ ...cur, [id]: (cur[id] ?? 0) + 1 }))
   }
   const deleteConnection = async () => {
     const id = editor.draft.id
@@ -173,6 +189,8 @@ export function AppShell() {
                 gateway={gateways.operation}
                 connectionId={c.id}
                 selected={shell.selection[c.id] ?? null}
+                reloadToken={schemaTokens[c.id] ?? 0}
+                onSchemasLoaded={(names) => noteSchemas(c.id, names)}
                 onSelect={(sel) => {
                   shell.setSelection(c.id, sel)
                   setTab('workspace')
@@ -219,6 +237,10 @@ export function AppShell() {
               activeId={shell.activeId}
               gateway={gateways.operation}
               ai={gateways.ai}
+              selection={shell.selection}
+              onSelectionChange={shell.setSelection}
+              schemas={schemaNames}
+              onSchemaChanged={noteSchemaChanged}
             />
           ) : (
             <EmptyState

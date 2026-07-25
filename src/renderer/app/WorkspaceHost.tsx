@@ -2,6 +2,7 @@ import styled from 'styled-components'
 import type { ConnectionConfig } from '../../shared/types/connection'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import type { AiGateway } from '../gateways/ports/AiGateway'
+import type { TableSelection } from '../entities/schema-tree'
 import { ConnectionWorkspace } from './ConnectionWorkspace'
 import type { OpenConnection } from './model/useOpenConnections'
 
@@ -26,6 +27,12 @@ interface WorkspaceHostProps {
   activeId: string | null
   gateway: OperationGateway
   ai?: AiGateway | undefined
+  /** 연결별 선택 테이블. 사이드바 트리와 같은 출처를 읽는다. */
+  selection?: Readonly<Record<string, TableSelection | null>> | undefined
+  onSelectionChange?: ((connectionId: string, selection: TableSelection | null) => void) | undefined
+  /** 연결별 스키마 이름(테이블 디자이너 자동완성용). */
+  schemas?: Readonly<Record<string, readonly string[]>> | undefined
+  onSchemaChanged?: ((connectionId: string) => void) | undefined
 }
 
 /**
@@ -40,7 +47,17 @@ interface WorkspaceHostProps {
  * `hidden`과 `aria-hidden`을 함께 준다. `hidden`만으로는 접근성 트리에서
  * 사라지지 않아 보조 기술과 role 기반 조회가 숨은 워크스페이스까지 본다.
  */
-export function WorkspaceHost({ connections, open, activeId, gateway, ai }: WorkspaceHostProps) {
+export function WorkspaceHost({
+  connections,
+  open,
+  activeId,
+  gateway,
+  ai,
+  selection,
+  onSelectionChange,
+  schemas,
+  onSchemaChanged,
+}: WorkspaceHostProps) {
   const panes = connections.filter((c) => open[c.id]?.state === 'ready')
   return (
     <Host>
@@ -63,6 +80,14 @@ export function WorkspaceHost({ connections, open, activeId, gateway, ai }: Work
               capabilities={entry?.capabilities ?? []}
               engine={c.engine}
               aiAccount={entry?.aiAccount ?? 'none'}
+              {...(selection !== undefined ? { selection: selection[c.id] ?? null } : {})}
+              {...(onSelectionChange !== undefined
+                ? { onSelectionChange: (sel: TableSelection | null) => onSelectionChange(c.id, sel) }
+                : {})}
+              {...(schemas !== undefined ? { schemas: schemas[c.id] ?? [] } : {})}
+              {...(onSchemaChanged !== undefined
+                ? { onSchemaChanged: () => onSchemaChanged(c.id) }
+                : {})}
             />
           </Pane>
         )
