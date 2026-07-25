@@ -159,6 +159,7 @@ function QueryTab() {
     return (
       <ConnectionWorkspace
         gateway={gateways.operation}
+        ai={gateways.ai}
         connectionId={active.id}
         connectionName={active.name}
         capabilities={openCaps}
