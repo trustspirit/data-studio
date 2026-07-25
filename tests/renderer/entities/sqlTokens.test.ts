@@ -54,6 +54,8 @@ describe('tokenizeSql', () => {
 describe('sqlTokenCss', () => {
   it('모든 토큰에 테마 색을 낸다', () => {
     const css = sqlTokenCss(darkTheme)
+    // 선택자와 색을 **붙여서** 확인한다. 따로 보면 ident 색이 엉뚱한 선택자에
+    // 나가도 통과해 버리는데, 식별자에 자기 색을 주는 것이 이 작업의 요점이다.
     for (const token of [
       'keyword',
       'fn',
@@ -63,10 +65,9 @@ describe('sqlTokenCss', () => {
       'type',
       'comment',
       'punct',
-    ]) {
-      expect(css).toContain(`.tok-${token}`)
+    ] as const) {
+      expect(css).toContain(`.tok-${token} { color: ${darkTheme.syntax[token]}`)
     }
-    expect(css).toContain(darkTheme.syntax.ident)
     // 색만이 아니라 서식도 함께 낸다 — 편집기와 같은 모양이어야 한다.
     expect(css).toContain('font-weight: 600')
     expect(css).toContain('font-style: italic')

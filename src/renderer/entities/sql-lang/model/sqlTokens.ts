@@ -127,6 +127,9 @@ export function tokenizeSql(engine: EngineId | undefined, code: string): readonl
 
 /**
  * 정적 렌더링용 토큰 CSS. `SQL_TOKENS`에서 파생하므로 편집기와 어긋나지 않는다.
+ *
+ * `&` 중첩 선택자를 쓰므로 **styled-components 보간 안에서만** 유효하다.
+ * 일반 스타일시트에 넣으면 조용히 무시된다.
  */
 export function sqlTokenCss(theme: AppTheme): string {
   return SQL_TOKENS.map((rule) => {
