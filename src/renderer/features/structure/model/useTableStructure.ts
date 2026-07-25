@@ -26,6 +26,8 @@ export function useTableStructure(
   gateway: OperationGateway,
   connectionId: string,
   selection: TableSelection | null,
+  /** 증가시키면 같은 선택이라도 다시 읽는다 — DDL(FK·인덱스 추가) 직후 갱신용. */
+  refreshToken = 0,
 ): TableStructureState {
   const [columns, setColumns] = useState<readonly ColumnInfo[]>([])
   const [indexes, setIndexes] = useState<readonly IndexInfo[]>([])
@@ -89,7 +91,7 @@ export function useTableStructure(
         setLoading(false)
       }
     })()
-  }, [gateway, connectionId, schema, table])
+  }, [gateway, connectionId, schema, table, refreshToken])
 
   return { columns, indexes, foreignKeys, loading, error }
 }

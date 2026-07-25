@@ -8,6 +8,8 @@ export interface SchemaTreeState {
   readonly tablesBySchema: Readonly<Record<string, readonly TableInfo[]>>
   readonly expanded: Readonly<Record<string, boolean>>
   toggle: (schema: string) => void
+  /** DDL 실행 등으로 서버 쪽 스키마가 바뀐 뒤 트리 전체를 다시 읽는다. */
+  reload: () => void
   readonly error: string | null
 }
 
@@ -20,6 +22,7 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
   const [tablesBySchema, setTablesBySchema] = useState<Record<string, readonly TableInfo[]>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
+  const [version, setVersion] = useState(0)
   const mounted = useRef(true)
   // 요청한 스키마를 ref로 추적한다. setState 업데이터 안에서 fetch를 튕기면
   // StrictMode가 업데이터를 두 번 호출해 listTables가 중복 발사된다 — ref로
@@ -59,7 +62,13 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
     return () => {
       cancelled = true
     }
-  }, [gateway, connectionId])
+  }, [gateway, connectionId, version])
+
+  const reload = useCallback(() => {
+    // 위 effect의 deps에 version이 있으므로 증가만으로 캐시 리셋 + 재조회가 일어난다
+    // (연결 전환과 동일한 경로 — 별도 재조회 코드를 두 벌 유지하지 않는다).
+    setVersion((v) => v + 1)
+  }, [])
 
   const toggle = useCallback(
     (schema: string) => {
@@ -90,5 +99,5 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
     [gateway, connectionId],
   )
 
-  return { schemas, tablesBySchema, expanded, toggle, error }
+  return { schemas, tablesBySchema, expanded, toggle, reload, error }
 }

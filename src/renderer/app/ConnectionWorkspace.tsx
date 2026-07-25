@@ -192,7 +192,12 @@ export function ConnectionWorkspace({
               engine={engine}
             />
           ) : activeView === 'structure' ? (
-            <StructureView gateway={gateway} connectionId={connectionId} externalSelection={erJump} />
+            <StructureView
+              gateway={gateway}
+              connectionId={connectionId}
+              externalSelection={erJump}
+              engine={engine}
+            />
           ) : activeView === 'data' ? (
             <DataView gateway={gateway} connectionId={connectionId} />
           ) : activeView === 'documents' ? (
