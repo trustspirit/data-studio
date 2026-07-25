@@ -172,7 +172,6 @@ export function SqlEditor({ value, onChange, onRun, engine, namespace, defaultSc
       viewRef.current = null
     }
     // 마운트 시 한 번만 만든다. value/언어 동기화는 아래 effect가 한다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 방언/스키마 정보가 바뀌면 언어 번들만 교체한다.
