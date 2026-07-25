@@ -29,6 +29,11 @@ const Chevron = styled.button`
   font: inherit;
   cursor: pointer;
 `
+/** 셰브런이 없는 행의 자리. 이름이 위아래로 어긋나지 않게 폭만 채운다. */
+const ChevronSpace = styled.span`
+  flex: 0 0 auto;
+  width: 18px;
+`
 const Label = styled.button`
   flex: 1;
   display: flex;
@@ -69,34 +74,30 @@ const EngineBadge = styled.span`
   color: ${({ theme }) => theme.color.textFaint};
   font-size: ${({ theme }) => theme.fontSize.xs};
 `
-/**
- * 행 액션은 평소 흐릿하게 두고 hover·포커스에서 또렷해진다. 사이드바에 연결이
- * 여럿 쌓이면 버튼이 이름보다 시끄러워지기 때문인데, DOM에서 빼지는 않는다 —
- * 키보드 사용자가 Tab으로 닿을 수 있어야 한다.
- */
 const Actions = styled.span`
   display: flex;
   align-items: center;
   gap: 2px;
   flex: 0 0 auto;
-  opacity: 0.35;
-  ${Row}:hover &,
-  ${Row}:focus-within & {
-    opacity: 1;
-  }
 `
-const Action = styled.button`
-  padding: 2px 6px;
-  border: none;
+/**
+ * 접속은 닫힌 행에서 사용자가 하려는 단 하나의 일이다. 그래서 hover를 기다리지
+ * 않고 늘 버튼처럼 보인다 — 여기를 흐리게 두면 행에서 가장 중요한 것이 가장
+ * 안 보이는 상태가 된다.
+ */
+const Connect = styled.button`
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border: 1px solid ${({ theme }) => theme.color.border};
   border-radius: ${({ theme }) => theme.radius.sm};
-  background: transparent;
-  color: ${({ theme }) => theme.color.textDim};
+  background: ${({ theme }) => theme.color.panel};
+  color: ${({ theme }) => theme.color.text};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.xs};
   cursor: pointer;
   &:hover {
-    background: ${({ theme }) => theme.color.panel};
-    color: ${({ theme }) => theme.color.text};
+    border-color: ${({ theme }) => theme.color.accent};
+    background: ${({ theme }) => theme.color.rowHover};
   }
 `
 const RowError = styled.div`
@@ -145,6 +146,9 @@ export function ConnectionRow({
   children,
 }: ConnectionRowProps) {
   const opened = state === 'ready' || state === 'connecting'
+  // 펼칠 것이 있는 행은 접속된 행뿐이다. 닫힌 연결에 셰브런을 주면 눌러도 빈
+  // 것이 열려 막다른 길이 된다.
+  const expandable = state === 'ready'
   // 접속만 행에 남긴다. 나머지는 메뉴 안에서 글자 라벨을 받는다 — 사이드바에
   // 연결이 쌓이면 행마다 늘어선 버튼이 이름보다 시끄럽다.
   const menuItems: readonly RowMenuItem[] = [
@@ -163,15 +167,19 @@ export function ConnectionRow({
   return (
     <Wrap>
       <Row $active={active}>
-        <Chevron
-          type="button"
-          aria-label={`${name} ${expanded ? '접기' : '펼치기'}`}
-          aria-expanded={expanded}
-          data-testid={`chevron-${id}`}
-          onClick={onToggle}
-        >
-          {expanded ? '▾' : '▸'}
-        </Chevron>
+        {expandable ? (
+          <Chevron
+            type="button"
+            aria-label={`${name} ${expanded ? '접기' : '펼치기'}`}
+            aria-expanded={expanded}
+            data-testid={`chevron-${id}`}
+            onClick={onToggle}
+          >
+            {expanded ? '▾' : '▸'}
+          </Chevron>
+        ) : (
+          <ChevronSpace aria-hidden />
+        )}
         <Label type="button" data-testid={`conn-${id}`} onClick={onRowClick}>
           <Dot $state={state} aria-hidden />
           <Name>{name}</Name>
@@ -179,14 +187,14 @@ export function ConnectionRow({
         </Label>
         <Actions>
           {!opened && (
-            <Action
+            <Connect
               type="button"
               data-testid={`connect-${id}`}
               title={`${name} 연결`}
               onClick={onConnect}
             >
               {state === 'error' ? '재시도' : '연결'}
-            </Action>
+            </Connect>
           )}
           <RowMenu label={`${name} 더 보기`} items={menuItems} testId={`more-${id}`} />
         </Actions>

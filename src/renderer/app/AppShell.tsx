@@ -7,6 +7,7 @@ import { ConnectionRow, ConnectionTree, type ConnectionRowState } from '../entit
 import { ConnectionBranch } from './ConnectionBranch'
 import { WorkspaceHost } from './WorkspaceHost'
 import { ConnectionSettingsPane } from './ConnectionSettingsPane'
+import { ConnectionInvite } from './ConnectionInvite'
 import { useOpenConnections } from './model/useOpenConnections'
 import { EmptyState } from '../shared/ui'
 
@@ -119,8 +120,22 @@ export function AppShell() {
     }
   }, [conns.connections, shell.open, forget])
 
+  /** 사이드바에서 고른, 아직 접속하지 않은 연결. */
+  const [inviteId, setInviteId] = useState<string | null>(null)
+  const inviteConn = inviteId === null ? null : (conns.connections.find((c) => c.id === inviteId) ?? null)
+  // 접속에 성공하면 초대는 저절로 사라지고, 실패하면 사유를 안은 채 남는다 —
+  // 파생값이라 지우는 effect가 필요 없다. 목록에서 삭제된 연결도 같은 이유로
+  // 스스로 정리된다.
+  const showInvite = inviteConn !== null && shell.open[inviteConn.id]?.state !== 'ready'
+
   const editing = editor.mode !== 'none'
-  const mainView = tab === 'audit' ? 'audit' : editing ? 'settings' : 'workspace'
+  const mainView = tab === 'audit'
+    ? 'audit'
+    : editing
+      ? 'settings'
+      : showInvite
+        ? 'invite'
+        : 'workspace'
 
   const startNew = () => {
     setTab('workspace')
@@ -161,18 +176,24 @@ export function AppShell() {
             engine={c.engine}
             state={state}
             expanded={shell.expanded[c.id] === true}
-            active={shell.activeId === c.id && mainView === 'workspace'}
+            active={
+              (shell.activeId === c.id && mainView === 'workspace') ||
+              (mainView === 'invite' && inviteId === c.id)
+            }
             error={shell.open[c.id]?.error}
             onToggle={() => shell.toggleExpanded(c.id)}
             // 행 클릭은 접속하지 않는다 — 사이드바에서 스치듯 누른 클릭이
             // 프로덕션 접속이 되면 안 된다. 접속은 '연결' 버튼만 한다.
             onRowClick={() => {
+              setTab('workspace')
+              editor.close()
               if (state === 'ready') {
-                setTab('workspace')
-                editor.close()
+                setInviteId(null)
                 shell.setActive(c.id)
               } else {
-                shell.toggleExpanded(c.id)
+                // 펼칠 것이 없는 연결이다. 메인에 무엇을 골랐는지 띄우고 접속을
+                // 한 번 더 권한다.
+                setInviteId(c.id)
               }
             }}
             onConnect={() => {
@@ -195,6 +216,7 @@ export function AppShell() {
                   shell.setSelection(c.id, sel)
                   setTab('workspace')
                   editor.close()
+                  setInviteId(null)
                   shell.setActive(c.id)
                 }}
               />
@@ -252,6 +274,15 @@ export function AppShell() {
             />
           )}
         </Layer>
+        {mainView === 'invite' && inviteConn !== null && (
+          <ConnectionInvite
+            connection={inviteConn}
+            connecting={shell.open[inviteConn.id]?.state === 'connecting'}
+            error={shell.open[inviteConn.id]?.error ?? null}
+            onConnect={() => void shell.openConnection(inviteConn.id)}
+            onSettings={() => openSettings(inviteConn.id)}
+          />
+        )}
         {mainView === 'settings' && (
           <ConnectionSettingsPane
             editor={editor}

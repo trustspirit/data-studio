@@ -61,13 +61,25 @@ describe('ConnectionRow', () => {
   it('셰브런과 행 본문이 서로 다른 콜백을 부른다', () => {
     const onToggle = vi.fn()
     const onRowClick = vi.fn()
-    wrap(row({ onToggle, onRowClick }))
+    wrap(row({ onToggle, onRowClick }, { state: 'ready' }))
     fireEvent.click(screen.getByTestId('chevron-a'))
     expect(onToggle).toHaveBeenCalledOnce()
     expect(onRowClick).not.toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('conn-a'))
     expect(onRowClick).toHaveBeenCalledOnce()
     expect(onToggle).toHaveBeenCalledOnce()
+  })
+
+  it('접속되지 않은 행에는 셰브런이 없다', () => {
+    // 닫힌 연결에는 읽어 올 스키마가 없다. 셰브런을 주면 눌러도 빈 것이 열려
+    // 막다른 길이 된다.
+    for (const state of ['closed', 'connecting', 'error'] as const) {
+      const { unmount } = wrap(row({}, { state }))
+      expect(screen.queryByTestId('chevron-a')).toBeNull()
+      unmount()
+    }
+    wrap(row({}, { state: 'ready' }))
+    expect(screen.getByTestId('chevron-a')).toBeTruthy()
   })
 
   it('닫힌 연결은 연결 버튼을, 열린 연결은 메뉴 안의 연결 끊기를 갖는다', () => {

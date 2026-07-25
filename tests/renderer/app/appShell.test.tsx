@@ -69,7 +69,7 @@ describe('AppShell', () => {
     expect(within(screen.getByTestId('connection-tree')).getByText('staging')).toBeTruthy()
   })
 
-  it('미개통 연결의 행을 눌러도 접속하지 않고 펼치기만 한다', async () => {
+  it('미개통 연결의 행을 누르면 접속하지 않고 메인에 접속을 권한다', async () => {
     const bridge = bridgeWith([conn('a', 'prod')])
     wrap(bridge)
     await goToWorkspace(bridge)
@@ -79,8 +79,50 @@ describe('AppShell', () => {
 
     // 사이드바에서 스치듯 누른 클릭이 프로덕션 접속이 되면 안 된다.
     expect(channelsOf(bridge)).not.toContain('connection:open')
-    expect(screen.getByTestId('chevron-a').getAttribute('aria-expanded')).toBe('true')
     expect(screen.queryByTestId('subtab-query')).toBeNull()
+    // 그래도 클릭이 아무 데도 닿지 않으면 막다른 길이다 — 무엇을 골랐는지
+    // 보여 주고 접속 버튼을 준다.
+    const invite = screen.getByTestId('invite-a')
+    expect(within(invite).getByText('prod')).toBeTruthy()
+    expect(screen.getByTestId('invite-connect-a')).toBeTruthy()
+  })
+
+  it('메인의 접속 버튼이 실제로 접속하고 초대 화면을 대체한다', async () => {
+    const bridge = bridgeWith([conn('a', 'prod')])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('conn-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('conn-a'))
+
+    fireEvent.click(screen.getByTestId('invite-connect-a'))
+
+    await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
+    // 접속되면 초대는 사라진다.
+    expect(screen.queryByTestId('invite-a')).toBeNull()
+  })
+
+  it('접속에 실패하면 초대 화면이 사유를 안고 남는다', async () => {
+    const bridge: DataconBridge = {
+      invoke: vi.fn((channel: string) => {
+        if (channel === 'connection:list') return Promise.resolve({ ok: true, value: [conn('a', 'prod')] })
+        if (channel === 'secrets:status') return Promise.resolve({ ok: true, value: { persistent: true } })
+        if (channel === 'connection:open')
+          return Promise.resolve({ ok: true, value: { opened: false, reason: 'password required' } })
+        return Promise.resolve({ ok: true, value: null })
+      }),
+      on: () => () => {},
+    }
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('conn-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('conn-a'))
+
+    fireEvent.click(screen.getByTestId('invite-connect-a'))
+
+    await waitFor(() =>
+      expect(within(screen.getByTestId('invite-a')).getByText(/password required/)).toBeTruthy(),
+    )
+    expect(screen.getByTestId('invite-connect-a').textContent).toBe('다시 연결')
   })
 
   it('연결 버튼을 눌러야 실제로 접속하고 워크스페이스가 뜬다', async () => {
