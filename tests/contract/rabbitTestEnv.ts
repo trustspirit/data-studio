@@ -25,6 +25,7 @@ interface AmqpTestConn {
     bindQueue(q: string, x: string, p: string): Promise<unknown>
     get(q: string, o: { noAck: boolean }): Promise<false | { content: Buffer }>
     publish(x: string, rk: string, body: Buffer): boolean
+    deleteQueue(q: string): Promise<unknown>
     close(): Promise<void>
   }>
   close(): Promise<void>

@@ -47,9 +47,7 @@ async function defaultCreateConnection(params: RabbitAmqpParams): Promise<AmqpCo
     password: params.password,
     vhost: params.vhost,
   })
-  // amqplib ChannelModel은 우리 좁은 표면을 구조적으로 만족하지만 타입이 넓어
-  // 곧장 좁히지 못한다 — 좁은 계약으로 단언한다.
-  return conn as unknown as AmqpConnectionLike
+  return conn
 }
 
 async function defaultHttpGetJson(url: string, auth: string): Promise<unknown> {

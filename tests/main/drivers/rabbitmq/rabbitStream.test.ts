@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { toStreamMessage } from '@main/drivers/rabbitmq/RabbitStreamCapability'
-import type { AmqpMessageLike } from '@main/drivers/rabbitmq/RabbitDriver'
+import { toStreamMessage, RabbitStreamCapability, type RabbitStreamDeps } from '@main/drivers/rabbitmq/RabbitStreamCapability'
+import type { AmqpMessageLike, AmqpConnectionLike } from '@main/drivers/rabbitmq/RabbitDriver'
+import type { ExecutionContext } from '@main/core/driver/ExecutionContext'
+import type { PageRequest, ResultSet } from '@shared/types/resultSet'
 
 function msg(over: Partial<AmqpMessageLike> = {}): AmqpMessageLike {
   return {
@@ -29,10 +31,75 @@ describe('toStreamMessage', () => {
   })
 })
 
+function fakeCtx(): ExecutionContext {
+  return { requestId: 'r', signal: new AbortController().signal }
+}
+
+function fakeDeps(httpGetJson: (url: string, auth: string) => Promise<unknown>): RabbitStreamDeps {
+  return {
+    getConnection: (): AmqpConnectionLike => { throw new Error('getConnection unused in these unit tests') },
+    getMgmt: () => ({ url: 'http://x:15672', auth: 'a' }),
+    getVhost: () => '/',
+    httpGetJson,
+    trackChannel: () => {},
+    untrackChannel: () => {},
+  }
+}
+
+function rowsOf(rs: ResultSet): string[] {
+  return rs.rows.map((r) => (r[0]?.t === 'str' ? r[0].v : ''))
+}
+
+describe('RabbitStreamCapability.listTopics (management API 파싱, 단위)', () => {
+  const page: PageRequest = { cursor: null, maxRows: 1000, maxBytes: 8 * 1024 * 1024 }
+
+  it('빈 문자열(default exchange)과 amq.*는 걸러내고 정렬해서 반환한다', async () => {
+    const cap = new RabbitStreamCapability(
+      fakeDeps(async () => [{ name: '' }, { name: 'amq.direct' }, { name: 'orders' }, { name: 'events' }]),
+    )
+    const rs = await cap.listTopics(fakeCtx(), page)
+    expect(rowsOf(rs)).toEqual(['events', 'orders'])
+  })
+
+  it('name이 없거나 문자열이 아닌 항목은 크래시 없이 건너뛴다', async () => {
+    const cap = new RabbitStreamCapability(
+      fakeDeps(async () => [{ name: 'a' }, {}, { name: 123 }, { foo: 'b' }]),
+    )
+    const rs = await cap.listTopics(fakeCtx(), page)
+    expect(rowsOf(rs)).toEqual(['a'])
+  })
+
+  it('payload가 배열이 아니면 (에러 응답 등) throw한다', async () => {
+    const cap = new RabbitStreamCapability(fakeDeps(async () => ({ error: 'boom' })))
+    await expect(cap.listTopics(fakeCtx(), page)).rejects.toThrow()
+  })
+
+  it('offset 커서로 페이지를 이어받고, 잘못된 커서는 reject한다', async () => {
+    const names = ['a', 'b', 'c', 'd', 'e']
+    const cap = new RabbitStreamCapability(fakeDeps(async () => names.map((name) => ({ name }))))
+    const page1: PageRequest = { cursor: null, maxRows: 2, maxBytes: 8 * 1024 * 1024 }
+    const rs1 = await cap.listTopics(fakeCtx(), page1)
+    expect(rowsOf(rs1)).toEqual(['a', 'b'])
+    expect(rs1.page.cursor).toMatch(/^rabbit:exchanges:1:\d+$/)
+
+    const page2: PageRequest = { cursor: rs1.page.cursor, maxRows: 2, maxBytes: 8 * 1024 * 1024 }
+    const rs2 = await cap.listTopics(fakeCtx(), page2)
+    expect(rowsOf(rs2)).toEqual(['c', 'd'])
+    expect(rs2.page.cursor).toMatch(/^rabbit:exchanges:1:\d+$/)
+
+    const page3: PageRequest = { cursor: rs2.page.cursor, maxRows: 2, maxBytes: 8 * 1024 * 1024 }
+    const rs3 = await cap.listTopics(fakeCtx(), page3)
+    expect(rowsOf(rs3)).toEqual(['e'])
+    expect(rs3.page.cursor).toBeNull()
+
+    const badPage: PageRequest = { cursor: 'bogus', maxRows: 2, maxBytes: 8 * 1024 * 1024 }
+    await expect(cap.listTopics(fakeCtx(), badPage)).rejects.toThrow()
+  })
+})
+
 import { RabbitDriver } from '@main/drivers/rabbitmq/RabbitDriver'
 import { RABBIT_AVAILABLE, RABBIT_HOST, withExchange } from '../../../contract/rabbitTestEnv'
 import type { ConnectionConfig } from '@shared/types/connection'
-import type { ExecutionContext } from '@main/core/driver/ExecutionContext'
 import type { StreamMessage } from '@main/core/driver/capabilities/StreamCapability'
 
 function liveCfg(): ConnectionConfig {
@@ -99,18 +166,22 @@ describe.skipIf(!RABBIT_AVAILABLE)('RabbitStreamCapability (실서버)', () => {
       const d = new RabbitDriver(liveCfg(), deps)
       await d.connect(liveCfg())
       try {
-        const { sink, done } = collectingSink(3)
-        const handle = await d.stream.subscribe(ctx(), { topic: exchange, from: 'latest' }, sink)
-        await sleep(300)
-        publish('', 'a'); publish('', 'b'); publish('', 'c')
-        expect((await done).length).toBe(3) // 우리 tail이 전부 받음
-        await sleep(300)
-        // 실제 큐도 독립적으로 3개 전부 보유(우리 소비가 실 큐를 비우지 않음)
-        let realCount = 0
-        for (let i = 0; i < 3; i++) { if (await ch.get(real.queue, { noAck: true })) realCount++ }
-        expect(realCount).toBe(3)
-        await handle.stop()
-        await ch.close()
+        try {
+          const { sink, done } = collectingSink(3)
+          const handle = await d.stream.subscribe(ctx(), { topic: exchange, from: 'latest' }, sink)
+          await sleep(300)
+          publish('', 'a'); publish('', 'b'); publish('', 'c')
+          expect((await done).length).toBe(3) // 우리 tail이 전부 받음
+          await sleep(300)
+          // 실제 큐도 독립적으로 3개 전부 보유(우리 소비가 실 큐를 비우지 않음)
+          let realCount = 0
+          for (let i = 0; i < 3; i++) { if (await ch.get(real.queue, { noAck: true })) realCount++ }
+          expect(realCount).toBe(3)
+          await handle.stop()
+        } finally {
+          await ch.deleteQueue(real.queue)
+          await ch.close()
+        }
       } finally { await d.disconnect() }
     })
   }, 25000)
