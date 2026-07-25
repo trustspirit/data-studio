@@ -64,7 +64,7 @@ export const ENGINE_IMPLEMENTED = {
   sqlite: true,
   mongodb: true,
   redis: true,
-  dynamodb: false,
+  dynamodb: true,
   kafka: true,
   rabbitmq: true,
 } as const satisfies Record<EngineId, boolean>
