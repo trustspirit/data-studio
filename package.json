@@ -29,6 +29,7 @@
     "better-sqlite3": "^13.0.1",
     "codemirror": "^6.0.2",
     "ioredis": "^5.11.1",
+    "kafkajs": "^2.2.4",
     "mongodb": "^6.21.0",
     "mysql2": "^3.23.1",
     "pg": "^8.22.0",

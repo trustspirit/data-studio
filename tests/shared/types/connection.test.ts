@@ -6,8 +6,9 @@ import {
 } from '@shared/types/connection'
 
 describe('ENGINE_IMPLEMENTED', () => {
-  it('구현된 드라이버 6개만 true', () => {
+  it('구현된 드라이버 7개만 true', () => {
     expect([...IMPLEMENTED_ENGINE_IDS].sort()).toEqual([
+      'kafka',
       'mariadb',
       'mongodb',
       'mysql',
