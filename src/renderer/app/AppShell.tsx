@@ -4,10 +4,17 @@ import { useGateways } from './GatewayProvider'
 import { useConnections } from '../features/connections/model/useConnections'
 import { ConnectionsScreen } from '../features/connections'
 import { AuditView } from '../features/audit'
-import { ConnectionWorkspace } from './ConnectionWorkspace'
+import { WorkspaceHost } from './WorkspaceHost'
+import { useOpenConnections, type OpenConnection } from './model/useOpenConnections'
 import { Button, EmptyState, ErrorBanner } from '../shared/ui'
-import type { Capability } from '../../shared/types/capability'
-import type { AiAccountStatus } from '../gateways/ports/ConnectionGateway'
+
+/** 아직 아무 것도 열리지 않았을 때 피커가 보여 줄 실패 사유. */
+function firstOpenError(open: Readonly<Record<string, OpenConnection>>): string | null {
+  for (const entry of Object.values(open)) {
+    if (entry.state === 'error' && entry.error !== null) return entry.error
+  }
+  return null
+}
 
 const Layout = styled.div`
   display: grid;
@@ -144,41 +151,24 @@ const EngineBadge = styled.span`
 function QueryTab() {
   const gateways = useGateways()
   const conns = useConnections(gateways.connection)
-  const [openId, setOpenId] = useState<string | null>(null)
-  const [openCaps, setOpenCaps] = useState<readonly Capability[]>([])
-  const [aiAccount, setAiAccount] = useState<AiAccountStatus>('none')
-  const [statuses, setStatuses] = useState<Readonly<Record<string, string>>>({})
-  const [openError, setOpenError] = useState<string | null>(null)
-
-  const open = async (id: string) => {
-    setOpenError(null)
-    const result = await gateways.connection.open(id)
-    if (!result.opened) {
-      setOpenError(result.reason)
-      return
-    }
-    const status = await gateways.connection.status(id)
-    setStatuses((s) => ({ ...s, [id]: status }))
-    setOpenCaps(result.capabilities)
-    setAiAccount(result.aiAccount)
-    setOpenId(id)
-  }
+  const shell = useOpenConnections(gateways.connection)
+  const { forget } = shell
+  const openError = shell.activeId === null ? firstOpenError(shell.open) : null
 
   useEffect(() => {
-    if (openId !== null && !conns.connections.some((c) => c.id === openId)) setOpenId(null)
-  }, [conns.connections, openId])
+    for (const id of Object.keys(shell.open)) {
+      if (!conns.connections.some((c) => c.id === id)) forget(id)
+    }
+  }, [conns.connections, shell.open, forget])
 
-  const active = conns.connections.find((c) => c.id === openId) ?? null
-  if (active !== null) {
+  if (shell.activeId !== null) {
     return (
-      <ConnectionWorkspace
+      <WorkspaceHost
+        connections={conns.connections}
+        open={shell.open}
+        activeId={shell.activeId}
         gateway={gateways.operation}
         ai={gateways.ai}
-        connectionId={active.id}
-        connectionName={active.name}
-        capabilities={openCaps}
-        engine={active.engine}
-        aiAccount={aiAccount}
       />
     )
   }
@@ -188,10 +178,10 @@ function QueryTab() {
       {openError !== null && <ErrorBanner>{openError}</ErrorBanner>}
       {conns.connections.map((c) => (
         <Row key={c.id}>
-          <Dot $status={statuses[c.id] ?? 'closed'} />
+          <Dot $status={shell.open[c.id]?.state ?? 'closed'} />
           <Name>{c.name}</Name>
           <EngineBadge>{c.engine}</EngineBadge>
-          <Button size="sm" data-testid={`open-${c.id}`} onClick={() => void open(c.id)}>
+          <Button size="sm" data-testid={`open-${c.id}`} onClick={() => void shell.openConnection(c.id)}>
             Open
           </Button>
         </Row>
