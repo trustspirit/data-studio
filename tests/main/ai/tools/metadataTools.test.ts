@@ -41,11 +41,18 @@ describe('metadata tools', () => {
     expect(out.ok).toBe(true)
   })
 
-  it('get_table_stats는 estimatedRows/sizeBytes를 schema 결과에서 뽑는다', async () => {
-    const run = vi.fn(async () => ({ ok: true, payload: { kind: 'tableDetail', detail: { schema: 'public', name: 't', columns: [], sizeBytes: 4096 } } }) as OperationResult)
+  it('get_table_stats는 estimatedRows를 listTables 결과에서 뽑는다', async () => {
+    const run = vi.fn(async () => ({ ok: true, payload: { kind: 'tables', tables: [{ schema: 'public', name: 't', kind: 'table', estimatedRows: 42 }] } }) as OperationResult)
     const ctx = ctxWith({ run })
     const out = await getTableStatsTool.execute({ connectionId: 'c1', schema: 'public', table: 't' }, ctx)
-    expect(out).toMatchObject({ ok: true, data: { sizeBytes: 4096 } })
+    expect(out).toEqual({ ok: true, data: { estimatedRows: 42 } })
+  })
+
+  it('get_table_stats는 테이블을 못 찾으면 estimatedRows: null', async () => {
+    const run = vi.fn(async () => ({ ok: true, payload: { kind: 'tables', tables: [] } }) as OperationResult)
+    const ctx = ctxWith({ run })
+    const out = await getTableStatsTool.execute({ connectionId: 'c1', schema: 'public', table: 'missing' }, ctx)
+    expect(out).toEqual({ ok: true, data: { estimatedRows: null } })
   })
 
   it('explain_query는 EXPLAIN 접두 sql을 실행한다', async () => {
