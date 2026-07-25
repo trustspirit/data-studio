@@ -1,18 +1,17 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { useGateways } from './GatewayProvider'
-import { useConnections } from '../features/connections/model/useConnections'
-import { ConnectionsScreen } from '../features/connections'
+import { useConnections, useConnectionEditor } from '../features/connections'
 import { AuditView } from '../features/audit'
 import { ConnectionRow, ConnectionTree, type ConnectionRowState } from '../entities/connection-tree'
 import { WorkspaceHost } from './WorkspaceHost'
+import { ConnectionSettingsPane } from './ConnectionSettingsPane'
 import { useOpenConnections } from './model/useOpenConnections'
 import { EmptyState } from '../shared/ui'
 
-const Layout = styled.div<{ $sidebar: boolean }>`
+const Layout = styled.div`
   display: grid;
-  grid-template-columns: ${({ theme, $sidebar }) =>
-    $sidebar ? `${theme.size.rail} ${theme.size.sidebar} 1fr` : `${theme.size.rail} 1fr`};
+  grid-template-columns: ${({ theme }) => `${theme.size.rail} ${theme.size.sidebar} 1fr`};
   height: 100%;
   min-height: 0;
   background: ${({ theme }) => theme.color.winBg};
@@ -57,19 +56,6 @@ const RailButton = styled.button<{ $active: boolean }>`
   }
 `
 
-function ConnectionsIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <ellipse cx="10" cy="4.8" rx="6.2" ry="2.6" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M3.8 4.8v10.4c0 1.44 2.78 2.6 6.2 2.6s6.2-1.16 6.2-2.6V4.8"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path d="M3.8 10c0 1.44 2.78 2.6 6.2 2.6s6.2-1.16 6.2-2.6" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  )
-}
 function WorkspaceIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
@@ -90,17 +76,34 @@ function AuditIcon() {
   )
 }
 const Content = styled.div`
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 `
+/**
+ * 설정 패널이나 Audit이 앞에 와도 워크스페이스는 언마운트하지 않고 숨긴다.
+ * 언마운트하면 작성 중인 SQL과 그리드 편집이 사라진다 — 설정을 잠깐 보고
+ * 돌아오는 흐름에서 그건 데이터 손실이다.
+ */
+const Layer = styled.div`
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  &[hidden] {
+    display: none;
+  }
+`
 
 export function AppShell() {
-  const [tab, setTab] = useState<'connections' | 'workspace' | 'audit'>('connections')
+  const [tab, setTab] = useState<'workspace' | 'audit'>('workspace')
   const gateways = useGateways()
   const conns = useConnections(gateways.connection)
+  const editor = useConnectionEditor(gateways.connection, conns)
   const shell = useOpenConnections(gateways.connection)
   const { forget } = shell
 
@@ -111,12 +114,28 @@ export function AppShell() {
     }
   }, [conns.connections, shell.open, forget])
 
-  const rowState = (id: string): ConnectionRowState => shell.open[id]?.state ?? 'closed'
+  const editing = editor.mode !== 'none'
+  const mainView = tab === 'audit' ? 'audit' : editing ? 'settings' : 'workspace'
+
+  const startNew = () => {
+    setTab('workspace')
+    editor.startNew()
+  }
+  const openSettings = (id: string) => {
+    setTab('workspace')
+    conns.select(id)
+  }
+  const deleteConnection = async () => {
+    const id = editor.draft.id
+    // 열려 있는 연결을 그냥 지우면 풀이 남는다. 닫기가 삭제보다 먼저다.
+    if (shell.open[id] !== undefined) await shell.closeConnection(id)
+    await editor.remove()
+  }
 
   const sidebar = (
-    <ConnectionTree isEmpty={conns.connections.length === 0} onNew={() => setTab('connections')}>
+    <ConnectionTree isEmpty={conns.connections.length === 0} onNew={startNew}>
       {conns.connections.map((c) => {
-        const state = rowState(c.id)
+        const state: ConnectionRowState = shell.open[c.id]?.state ?? 'closed'
         return (
           <ConnectionRow
             key={c.id}
@@ -125,56 +144,36 @@ export function AppShell() {
             engine={c.engine}
             state={state}
             expanded={shell.expanded[c.id] === true}
-            active={shell.activeId === c.id}
+            active={shell.activeId === c.id && mainView === 'workspace'}
             error={shell.open[c.id]?.error}
             onToggle={() => shell.toggleExpanded(c.id)}
             // 행 클릭은 접속하지 않는다 — 사이드바에서 스치듯 누른 클릭이
             // 프로덕션 접속이 되면 안 된다. 접속은 '연결' 버튼만 한다.
             onRowClick={() => {
-              if (state === 'ready') shell.setActive(c.id)
-              else shell.toggleExpanded(c.id)
+              if (state === 'ready') {
+                setTab('workspace')
+                editor.close()
+                shell.setActive(c.id)
+              } else {
+                shell.toggleExpanded(c.id)
+              }
             }}
-            onConnect={() => void shell.openConnection(c.id)}
+            onConnect={() => {
+              setTab('workspace')
+              editor.close()
+              void shell.openConnection(c.id)
+            }}
             onClose={() => void shell.closeConnection(c.id)}
-            onSettings={() => setTab('connections')}
+            onSettings={() => openSettings(c.id)}
           />
         )
       })}
     </ConnectionTree>
   )
 
-  const workspace =
-    shell.activeId !== null ? (
-      <WorkspaceHost
-        connections={conns.connections}
-        open={shell.open}
-        activeId={shell.activeId}
-        gateway={gateways.operation}
-        ai={gateways.ai}
-      />
-    ) : (
-      <EmptyState
-        title={
-          conns.connections.length === 0
-            ? '연결이 없습니다 — 사이드바의 + 로 추가하세요.'
-            : '사이드바에서 연결을 골라 접속하세요.'
-        }
-      />
-    )
-
-  const showSidebar = tab === 'workspace'
   return (
-    <Layout $sidebar={showSidebar}>
+    <Layout>
       <Rail>
-        <RailButton
-          type="button"
-          aria-label="Connections"
-          title="Connections"
-          $active={tab === 'connections'}
-          onClick={() => setTab('connections')}
-        >
-          <ConnectionsIcon />
-        </RailButton>
         <RailButton
           type="button"
           aria-label="Workspace"
@@ -194,15 +193,36 @@ export function AppShell() {
           <AuditIcon />
         </RailButton>
       </Rail>
-      {showSidebar && sidebar}
+      {sidebar}
       <Content>
-        {tab === 'connections' ? (
-          <ConnectionsScreen />
-        ) : tab === 'workspace' ? (
-          workspace
-        ) : (
-          <AuditView gateway={gateways.operation} />
+        <Layer hidden={mainView !== 'workspace'} aria-hidden={mainView !== 'workspace'}>
+          {shell.activeId !== null ? (
+            <WorkspaceHost
+              connections={conns.connections}
+              open={shell.open}
+              activeId={shell.activeId}
+              gateway={gateways.operation}
+              ai={gateways.ai}
+            />
+          ) : (
+            <EmptyState
+              title={
+                conns.connections.length === 0
+                  ? '연결이 없습니다 — 사이드바의 + 로 추가하세요.'
+                  : '사이드바에서 연결을 골라 접속하세요.'
+              }
+            />
+          )}
+        </Layer>
+        {mainView === 'settings' && (
+          <ConnectionSettingsPane
+            editor={editor}
+            listError={conns.error}
+            onClose={editor.close}
+            onDelete={() => void deleteConnection()}
+          />
         )}
+        {mainView === 'audit' && <AuditView gateway={gateways.operation} />}
       </Content>
     </Layout>
   )

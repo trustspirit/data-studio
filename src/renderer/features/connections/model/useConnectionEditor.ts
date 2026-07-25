@@ -19,6 +19,8 @@ export interface ConnectionEditorState {
   change: (patch: Partial<ConnectionConfig>) => void
   changeEngine: (engine: EngineId) => void
   startNew: () => void
+  /** 편집을 끝낸다 — `mode`가 `none`으로 돌아가고 선택이 풀린다. */
+  close: () => void
   save: () => Promise<void>
   remove: () => Promise<void>
   browseFile: () => void
@@ -70,6 +72,14 @@ export function useConnectionEditor(
     setHasSavedSecret(false)
     setAiPassword('')
     setHasSavedAiSecret(false)
+    clearSelection()
+  }, [clearSelection])
+
+  const close = useCallback(() => {
+    setMode('none')
+    setErrors({})
+    setPassword('')
+    setAiPassword('')
     clearSelection()
   }, [clearSelection])
 
@@ -132,6 +142,7 @@ export function useConnectionEditor(
     change,
     changeEngine,
     startNew,
+    close,
     save,
     remove,
     browseFile,
