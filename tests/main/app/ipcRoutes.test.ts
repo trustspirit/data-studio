@@ -293,7 +293,7 @@ describe('registerIpcRoutes', () => {
     const r = await h.invoke('connection:open', { connectionId: 'c1' })
     expect(h.calls.open).toHaveLength(1)
     expect(h.calls.capabilitiesOf).toEqual(['c1'])
-    expect(r).toEqual({ opened: true, capabilities: ['sql', 'schema', 'data'] })
+    expect(r).toEqual({ opened: true, capabilities: ['sql', 'schema', 'data'], aiAccount: 'none' })
   })
 
   it('connection:open은 없는 연결이면 opened:false', async () => {

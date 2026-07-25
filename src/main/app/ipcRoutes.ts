@@ -54,7 +54,9 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
     }
     // AI 읽기 전용 계정이 설정돼 있으면 파생 커넥션도 연다. 실패해도 사용자
     // 연결은 성공이다 — AI는 사용자 커넥션 + 읽기 전용 트랜잭션으로 내려간다
-    // (executor.poolIdFor). 조용히 사라지지 않게 로그는 남긴다.
+    // (executor.poolIdFor). 결과에 aiAccount를 실어 UI가 폴백 상태를 표시하고,
+    // 로그에도 남겨 조용히 사라지지 않게 한다.
+    let aiAccount: 'none' | 'ready' | 'failed' = 'none'
     if (typeof config.aiReadOnlyUsername === 'string' && config.aiReadOnlyUsername !== '') {
       const aiConfig = {
         ...config,
@@ -63,14 +65,20 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
       }
       try {
         await services.connections.open(aiConfig)
+        aiAccount = 'ready'
       } catch (error) {
+        aiAccount = 'failed'
         services.logger.warn('connection.ai_readonly_open_failed', {
           connectionId: config.id,
           message: error instanceof Error ? error.message : String(error),
         })
       }
     }
-    return { opened: true as const, capabilities: services.connections.capabilities(config.id) }
+    return {
+      opened: true as const,
+      capabilities: services.connections.capabilities(config.id),
+      aiAccount,
+    }
   })
 
   register('connection:close', async ({ connectionId }) => {

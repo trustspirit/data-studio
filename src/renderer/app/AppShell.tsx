@@ -7,6 +7,7 @@ import { AuditView } from '../features/audit'
 import { ConnectionWorkspace } from './ConnectionWorkspace'
 import { Button, EmptyState, ErrorBanner } from '../shared/ui'
 import type { Capability } from '../../shared/types/capability'
+import type { AiAccountStatus } from '../gateways/ports/ConnectionGateway'
 
 const Layout = styled.div`
   display: grid;
@@ -145,6 +146,7 @@ function QueryTab() {
   const conns = useConnections(gateways.connection)
   const [openId, setOpenId] = useState<string | null>(null)
   const [openCaps, setOpenCaps] = useState<readonly Capability[]>([])
+  const [aiAccount, setAiAccount] = useState<AiAccountStatus>('none')
   const [statuses, setStatuses] = useState<Readonly<Record<string, string>>>({})
   const [openError, setOpenError] = useState<string | null>(null)
 
@@ -158,6 +160,7 @@ function QueryTab() {
     const status = await gateways.connection.status(id)
     setStatuses((s) => ({ ...s, [id]: status }))
     setOpenCaps(result.capabilities)
+    setAiAccount(result.aiAccount)
     setOpenId(id)
   }
 
@@ -175,6 +178,7 @@ function QueryTab() {
         connectionName={active.name}
         capabilities={openCaps}
         engine={active.engine}
+        aiAccount={aiAccount}
       />
     )
   }

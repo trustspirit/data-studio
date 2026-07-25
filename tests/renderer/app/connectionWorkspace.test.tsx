@@ -126,6 +126,53 @@ describe('ConnectionWorkspace', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Columns' })).toBeTruthy())
   })
 
+  it('aiAccount=ready면 상태바에 전용 읽기 계정 배지가 뜬다', () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace
+          gateway={gateway()}
+          connectionId="c1"
+          connectionName="prod"
+          capabilities={['sql']}
+          aiAccount="ready"
+        />
+      </ThemeProvider>,
+    )
+    expect(screen.getByTestId('ai-account-status').textContent).toContain('전용 읽기 계정')
+  })
+
+  it('aiAccount=failed면 사용자 계정 공유 폴백 경고가 뜬다', () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace
+          gateway={gateway()}
+          connectionId="c1"
+          connectionName="prod"
+          capabilities={['sql']}
+          aiAccount="failed"
+        />
+      </ThemeProvider>,
+    )
+    expect(screen.getByTestId('ai-account-status').textContent).toContain('AI 계정 연결 실패')
+  })
+
+  it('aiAccount가 none이거나 없으면 배지가 없다', () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace
+          gateway={gateway()}
+          connectionId="c1"
+          connectionName="prod"
+          capabilities={['sql']}
+          aiAccount="none"
+        />
+      </ThemeProvider>,
+    )
+    expect(screen.queryByTestId('ai-account-status')).toBeNull()
+    wrap() // aiAccount 미전달
+    expect(screen.queryByTestId('ai-account-status')).toBeNull()
+  })
+
   it('sql/schema/data 모두 있으면 4개 서브탭이 다 뜬다', () => {
     wrap(['sql', 'schema', 'data'])
     expect(screen.getByTestId('subtab-query')).toBeTruthy()

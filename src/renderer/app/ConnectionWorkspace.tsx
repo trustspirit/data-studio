@@ -2,6 +2,7 @@ import { useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import type { AiGateway } from '../gateways/ports/AiGateway'
+import type { AiAccountStatus } from '../gateways/ports/ConnectionGateway'
 import type { TableSelection } from '../entities/schema-tree'
 import type { Capability } from '../../shared/types/capability'
 import type { EngineId } from '../../shared/types/connection'
@@ -95,6 +96,9 @@ const StatusRight = styled.span`
   margin-left: auto;
   color: ${({ theme }) => theme.color.textFaint};
 `
+const AiAccountBadge = styled.span<{ $tone: 'ok' | 'warn' }>`
+  color: ${({ theme, $tone }) => ($tone === 'ok' ? theme.color.green : theme.color.orange)};
+`
 const EmptyState = styled.div`
   flex: 1;
   display: flex;
@@ -137,6 +141,8 @@ interface ConnectionWorkspaceProps {
   capabilities: readonly Capability[]
   /** 쿼리 에디터의 SQL 방언·자동완성 선택용. */
   engine?: EngineId | undefined
+  /** AI 읽기 전용 계정의 연결 결과. 없으면(테스트·부분 조립) 표시하지 않는다. */
+  aiAccount?: AiAccountStatus | undefined
 }
 
 export function ConnectionWorkspace({
@@ -146,6 +152,7 @@ export function ConnectionWorkspace({
   connectionName,
   capabilities,
   engine,
+  aiAccount,
 }: ConnectionWorkspaceProps) {
   const availableViews = VIEW_ORDER.filter((v) => capabilities.includes(VIEW_CAPABILITY[v]))
   const [view, setView] = useState<View>(() => availableViews[0] ?? 'query')
@@ -229,6 +236,16 @@ export function ConnectionWorkspace({
         <StatusDot aria-hidden />
         <span>{connectionName}</span>
         {activeView !== null && <span>{VIEW_LABEL[activeView]}</span>}
+        {aiAccount === 'ready' && (
+          <AiAccountBadge $tone="ok" data-testid="ai-account-status">
+            AI: 전용 읽기 계정
+          </AiAccountBadge>
+        )}
+        {aiAccount === 'failed' && (
+          <AiAccountBadge $tone="warn" data-testid="ai-account-status">
+            AI 계정 연결 실패 — 사용자 계정 공유
+          </AiAccountBadge>
+        )}
         <StatusRight>{capabilities.join(' · ')}</StatusRight>
       </StatusBar>
     </Layout>

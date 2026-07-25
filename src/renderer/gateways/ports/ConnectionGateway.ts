@@ -4,9 +4,21 @@ import type { Capability } from '../../../shared/types/capability'
 /** 커넥션의 실시간 연결 상태. */
 export type ConnectionStatus = 'closed' | 'connecting' | 'ready' | 'error'
 
+/**
+ * AI 읽기 전용 계정(파생 커넥션)의 연결 결과.
+ * - `none`: 계정이 설정되지 않음 — AI가 사용자 계정을 공유한다(폼이 경고).
+ * - `ready`: 전용 계정으로 접속됨 — AI 읽기가 그 계정으로 나간다.
+ * - `failed`: 접속 실패 — 사용자 계정 공유로 폴백. UI가 경고를 표시해야 한다.
+ */
+export type AiAccountStatus = 'none' | 'ready' | 'failed'
+
 /** `open` 호출 결과. 실패해도 예외가 아니라 이 값으로 사유를 준다. */
 export type OpenResult =
-  | { readonly opened: true; readonly capabilities: readonly Capability[] }
+  | {
+      readonly opened: true
+      readonly capabilities: readonly Capability[]
+      readonly aiAccount: AiAccountStatus
+    }
   | { readonly opened: false; readonly reason: string }
 
 /**

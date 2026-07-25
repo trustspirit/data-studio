@@ -22,7 +22,12 @@ describe('connection:open capabilities', () => {
     registerIpcRoutes(register, services)
     const result = await handlers.get('connection:open')!({ connectionId: 'c1' }, CONTEXT)
 
-    expect(result).toMatchObject({ opened: true, capabilities: ['sql', 'schema', 'data'] })
+    expect(result).toMatchObject({
+      opened: true,
+      capabilities: ['sql', 'schema', 'data'],
+      // AI 계정이 설정되지 않은 커넥션은 'none'이다.
+      aiAccount: 'none',
+    })
   })
 
   it('aiReadOnlyUsername이 있으면 파생 커넥션(::ai)도 AI 계정으로 연다', async () => {
@@ -53,7 +58,7 @@ describe('connection:open capabilities', () => {
     registerIpcRoutes(register, services)
     const result = await handlers.get('connection:open')!({ connectionId: 'c1' }, CONTEXT)
 
-    expect(result).toMatchObject({ opened: true })
+    expect(result).toMatchObject({ opened: true, aiAccount: 'ready' })
     expect(opened).toEqual([
       { id: 'c1', username: 'human' },
       { id: 'c1::ai', username: 'ai_reader' },
@@ -88,7 +93,7 @@ describe('connection:open capabilities', () => {
     registerIpcRoutes(register, services)
     const result = await handlers.get('connection:open')!({ connectionId: 'c1' }, CONTEXT)
 
-    expect(result).toMatchObject({ opened: true })
+    expect(result).toMatchObject({ opened: true, aiAccount: 'failed' })
     expect(warns).toEqual(['connection.ai_readonly_open_failed'])
   })
 
