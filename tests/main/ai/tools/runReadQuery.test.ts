@@ -16,11 +16,11 @@ import { wire } from '@shared/types/wire'
 function rows(cols: string[], data: string[][]) {
   return { requestId: 'r', columns: cols.map((name) => ({ name, type: 'str' })), rows: data.map((r) => r.map((v) => wire.str(v))), page: { cursor: null, hasMore: false, rowCount: data.length, bytes: 0 }, meta: { durationMs: 0, truncatedRows: false, truncatedBytes: false, rowsAffected: null } }
 }
-function ctxWith(run: (req: any, actor: any) => Promise<OperationResult>, patterns: string[] = []): AiToolContext {
+function ctxWith(run: OperationExecutor['run'], patterns: string[] = []): AiToolContext {
   return {
-    executor: { run: vi.fn(run) } as any,
-    connections: { list: async () => [], get: async () => ({ id: 'c1', name: 'n', engine: 'postgres', host: '', port: 0, database: '', username: '', tlsMode: 'disable', aiReadOnlyUsername: null, maskedColumnPatterns: patterns }) },
-    proposals: {} as any,
+    executor: { run: vi.fn(run) } as unknown as OperationExecutor,
+    connections: { list: () => Promise.resolve([]), get: () => Promise.resolve({ id: 'c1', name: 'n', engine: 'postgres' as const, host: '', port: 0, database: '', username: '', tlsMode: 'disable' as const, aiReadOnlyUsername: null, maskedColumnPatterns: patterns }) },
+    proposals: {} as unknown as WriteProposalStore,
     redactor: new DefaultPiiRedactor(),
     sessionId: 's1',
     aiActor: () => ({ type: 'ai', sessionId: 's1' }),
@@ -30,7 +30,7 @@ function ctxWith(run: (req: any, actor: any) => Promise<OperationResult>, patter
 
 describe('run_read_query', () => {
   it('sql을 AI actor로 실행하고 결과를 마스킹해 반환한다', async () => {
-    const run = vi.fn(async () => ({ ok: true, payload: { kind: 'rows', rows: rows(['id', 'email'], [['1', 'a@b.com']]) } }) as OperationResult)
+    const run = vi.fn((): Promise<OperationResult> => Promise.resolve({ ok: true, payload: { kind: 'rows', rows: rows(['id', 'email'], [['1', 'a@b.com']]) } }))
     const ctx = ctxWith(run, ['email'])
     const out = await runReadQueryTool.execute({ connectionId: 'c1', sql: 'SELECT * FROM users' }, ctx)
     expect(run).toHaveBeenCalledWith(
@@ -45,9 +45,10 @@ describe('run_read_query', () => {
   })
 
   it('정책이 거부하면(write 등) ok:false', async () => {
-    const ctx = ctxWith(async () => ({ ok: false, reason: 'ai_write_requires_proposal' }))
+    const ctx = ctxWith(() => Promise.resolve({ ok: false, reason: 'ai_write_requires_proposal' }))
     const out = await runReadQueryTool.execute({ connectionId: 'c1', sql: 'DELETE FROM users' }, ctx)
-    expect(out).toEqual({ ok: false, error: expect.stringContaining('ai_write_requires_proposal') })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.error).toContain('ai_write_requires_proposal')
   })
 })
 
@@ -112,7 +113,7 @@ describe('run_read_query — end-to-end gate (real OperationExecutor + MemoryDri
 
     return {
       executor,
-      connections: { list: async () => [], get: async (id) => (id === CONFIG.id ? CONFIG : null) },
+      connections: { list: () => Promise.resolve([]), get: (id) => Promise.resolve(id === CONFIG.id ? CONFIG : null) },
       proposals,
       redactor: new DefaultPiiRedactor(),
       sessionId: 's1',
@@ -134,13 +135,15 @@ describe('run_read_query — end-to-end gate (real OperationExecutor + MemoryDri
   it('AI write(DELETE)는 ai_write_requires_proposal로 거부된다', async () => {
     const ctx = await buildCtx()
     const out = await runReadQueryTool.execute({ connectionId: CONFIG.id, sql: 'DELETE FROM public.contract_probe' }, ctx)
-    expect(out).toEqual({ ok: false, error: expect.stringContaining('ai_write_requires_proposal') })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.error).toContain('ai_write_requires_proposal')
   })
 
   it('다중 문장은 ai_multi_statement로 거부된다', async () => {
     const ctx = await buildCtx()
     const out = await runReadQueryTool.execute({ connectionId: CONFIG.id, sql: 'SELECT 1; SELECT 2' }, ctx)
-    expect(out).toEqual({ ok: false, error: expect.stringContaining('ai_multi_statement') })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.error).toContain('ai_multi_statement')
   })
 
   it('EXPLAIN ANALYZE는 거부된다(classify=write)', async () => {

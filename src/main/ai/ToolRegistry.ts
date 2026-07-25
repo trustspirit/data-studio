@@ -11,7 +11,7 @@ export class ToolRegistry {
 
   register<I>(tool: AiTool<I>): void {
     if (this.tools.has(tool.name)) throw new Error(`tool already registered: ${tool.name}`)
-    this.tools.set(tool.name, tool as AiTool<unknown>)
+    this.tools.set(tool.name, tool)
   }
 
   get(name: string): AiTool<unknown> | undefined {

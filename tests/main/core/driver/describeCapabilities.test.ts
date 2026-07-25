@@ -237,9 +237,9 @@ describe('describeCapabilities', () => {
     const driver = {
       ...baseDriver(),
       dynamo: {
-        listTables: async () => { throw new Error('unused') },
-        scan: async () => { throw new Error('unused') },
-        partiql: async () => { throw new Error('unused') },
+        listTables: () => Promise.reject(new Error('unused')),
+        scan: () => Promise.reject(new Error('unused')),
+        partiql: () => Promise.reject(new Error('unused')),
         isReadOnlyStatement: () => true,
       },
     }

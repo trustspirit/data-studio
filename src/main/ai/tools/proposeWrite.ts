@@ -17,13 +17,13 @@ export const proposeWriteTool: AiTool<z.infer<typeof input>> = {
   name: 'propose_write',
   description: 'Propose a write (INSERT/UPDATE/DELETE/DDL) for user approval. Does NOT execute.',
   inputSchema: input,
-  execute: async (i, ctx) => {
+  execute: (i, ctx) => {
     const view = ctx.proposals.propose({
       connectionId: i.connectionId,
       statement: i.sql,
       kind: 'write',
       impact: describeImpact(i.sql, classifyStatement(i.sql)),
     })
-    return { ok: true, data: { proposalId: view.proposalId, statement: view.statement, impact: view.impact, expiresAt: view.expiresAt, kind: view.kind } }
+    return Promise.resolve({ ok: true, data: { proposalId: view.proposalId, statement: view.statement, impact: view.impact, expiresAt: view.expiresAt, kind: view.kind } })
   },
 }

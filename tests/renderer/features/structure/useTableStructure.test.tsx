@@ -93,7 +93,7 @@ describe('useTableStructure', () => {
       run: vi.fn((req: { operation: { op: string } }) =>
         Promise.resolve(
           req.operation.op === 'listIndexes'
-            ? ({ ok: false, reason: 'index read failed' } as OperationOutcome)
+            ? ({ ok: false, reason: 'index read failed' })
             : payloadFor(req.operation.op, 'orders'),
         ),
       ) as OperationGateway['run'],

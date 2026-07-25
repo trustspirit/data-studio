@@ -103,7 +103,7 @@ describe('useTableEditor', () => {
     await act(async () => { ok = await result.current.save() })
     expect(ok).toBe(true)
     expect(result.current.dirty).toBe(false)  // 스테이징이 비워졌다
-    // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock
+     
     expect(vi.mocked(run)).not.toHaveBeenCalled()  // 보낼 게 없으니 apply 미전송
   })
 })

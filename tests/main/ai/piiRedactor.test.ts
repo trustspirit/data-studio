@@ -3,11 +3,11 @@ import { DefaultPiiRedactor } from '@main/ai/PiiRedactor'
 import type { ResultSet } from '@shared/types/resultSet'
 import { wire } from '@shared/types/wire'
 
-function rs(columns: string[], rows: unknown[][]): ResultSet {
+function rs(columns: string[], rows: (string | null)[][]): ResultSet {
   return {
     requestId: 'r',
     columns: columns.map((name) => ({ name, type: 'str' })),
-    rows: rows.map((r) => r.map((v) => (v === null ? wire.null() : wire.str(String(v))))),
+    rows: rows.map((r) => r.map((v) => (v === null ? wire.null() : wire.str(v)))),
     page: { cursor: null, hasMore: false, rowCount: rows.length, bytes: 0 },
     meta: { durationMs: 0, truncatedRows: false, truncatedBytes: false, rowsAffected: null },
   }

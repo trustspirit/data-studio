@@ -93,7 +93,7 @@ describe('useSchemaGraph', () => {
 
   it('일부 테이블 fetch 실패는 fail-soft — 성공분은 렌더하고 error를 노출한다', async () => {
     const gw = makeGateway((op, table) =>
-      op === 'describeTable' && table === 'users' ? ({ ok: false, reason: 'describe users failed' } as OperationOutcome) : null,
+      op === 'describeTable' && table === 'users' ? ({ ok: false, reason: 'describe users failed' }) : null,
     )
     const { result } = renderHook(() => useSchemaGraph(gw, 'c1', 'public'))
     await waitFor(() => expect(result.current.error).toBe('describe users failed'))
@@ -103,7 +103,7 @@ describe('useSchemaGraph', () => {
   })
 
   it('listTables 자체가 실패하면 error만 세우고 노드는 비운다', async () => {
-    const gw = makeGateway((op) => (op === 'listTables' ? ({ ok: false, reason: 'no tables' } as OperationOutcome) : null))
+    const gw = makeGateway((op) => (op === 'listTables' ? ({ ok: false, reason: 'no tables' }) : null))
     const { result } = renderHook(() => useSchemaGraph(gw, 'c1', 'public'))
     await waitFor(() => expect(result.current.error).toBe('no tables'))
     expect(result.current.nodes).toHaveLength(0)

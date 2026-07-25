@@ -99,10 +99,11 @@ export class DynamoDriver implements Driver {
     this.client = create(params)
   }
 
-  async disconnect(): Promise<void> {
+  disconnect(): Promise<void> {
     const c = this.client
     this.client = null
     if (c !== null) c.destroy()
+    return Promise.resolve()
   }
 
   async ping(): Promise<number> {

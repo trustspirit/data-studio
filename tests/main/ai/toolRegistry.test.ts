@@ -10,7 +10,7 @@ const echo: AiTool<{ msg: string }> = {
   name: 'echo',
   description: 'echoes',
   inputSchema: z.object({ msg: z.string() }),
-  execute: async (input) => ({ ok: true, data: input.msg }),
+  execute: (input) => Promise.resolve({ ok: true, data: input.msg }),
 }
 
 describe('ToolRegistry', () => {
@@ -35,7 +35,7 @@ describe('ToolRegistry', () => {
 
   it('execute 예외는 ok:false로 감싼다(원문 미노출)', async () => {
     const reg = new ToolRegistry()
-    reg.register({ ...echo, name: 'boom', execute: async () => { throw new Error('secret detail') } })
+    reg.register({ ...echo, name: 'boom', execute: () => Promise.reject(new Error('secret detail')) })
     const out = await reg.invoke('boom', { msg: 'x' }, ctx)
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.error).not.toContain('secret detail')

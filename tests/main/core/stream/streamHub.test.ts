@@ -6,7 +6,7 @@ import type {
   StreamCapability, StreamHandle, StreamMessage, StreamMessageSink, StreamSubscribeReq,
 } from '@main/core/driver/capabilities/StreamCapability'
 import type { ExecutionContext } from '@main/core/driver/ExecutionContext'
-import type { PageRequest, ResultSet } from '@shared/types/resultSet'
+import type { ResultSet } from '@shared/types/resultSet'
 
 /** setTimeout 콜백을 저장해 테스트가 수동으로 발화하는 결정적 clock. */
 function makeClock() {
@@ -18,7 +18,7 @@ function makeClock() {
       clearTimeout: (h: unknown): void => { pending.delete(h as number) },
     },
     /** 현재 예약된 콜백을 모두 한 번씩 발화한다(재예약분은 다음 tick에서). */
-    tick(): void {
+    tick: (): void => {
       const now = [...pending.entries()]
       pending.clear()
       for (const [, fn] of now) fn()
@@ -40,7 +40,7 @@ function fakeStream(): { cap: StreamCapability; sink(): StreamMessageSink; stopp
   let stops = 0
   return {
     cap: {
-      listTopics: (_c: ExecutionContext, _p: PageRequest) => Promise.resolve(emptyRs()),
+      listTopics: () => Promise.resolve(emptyRs()),
       subscribe: (_c: ExecutionContext, _r: StreamSubscribeReq, sink: StreamMessageSink): Promise<StreamHandle> => {
         captured = sink
         return Promise.resolve({ stop: () => { stops++; return Promise.resolve() } })

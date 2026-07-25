@@ -19,12 +19,12 @@ export const explainAnalyzeTool: AiTool<z.infer<typeof input>> = {
   name: 'explain_analyze',
   description: 'Propose an EXPLAIN ANALYZE (which actually executes the query) for user approval. Only wraps read-only statements. Does NOT execute.',
   inputSchema: input,
-  execute: async (i, ctx) => {
+  execute: (i, ctx) => {
     if (splitStatements(i.sql).length !== 1) {
-      return { ok: false, error: 'explain_analyze accepts a single statement' }
+      return Promise.resolve({ ok: false, error: 'explain_analyze accepts a single statement' })
     }
     if (classifyStatement(i.sql) !== 'read') {
-      return { ok: false, error: 'explain_analyze only wraps read-only statements' }
+      return Promise.resolve({ ok: false, error: 'explain_analyze only wraps read-only statements' })
     }
     const statement = `EXPLAIN ANALYZE ${i.sql}`
     const view = ctx.proposals.propose({
@@ -33,6 +33,6 @@ export const explainAnalyzeTool: AiTool<z.infer<typeof input>> = {
       kind: 'analyze',
       impact: describeImpact(statement, 'write'),
     })
-    return { ok: true, data: { proposalId: view.proposalId, statement: view.statement, impact: view.impact, expiresAt: view.expiresAt, kind: view.kind } }
+    return Promise.resolve({ ok: true, data: { proposalId: view.proposalId, statement: view.statement, impact: view.impact, expiresAt: view.expiresAt, kind: view.kind } })
   },
 }
