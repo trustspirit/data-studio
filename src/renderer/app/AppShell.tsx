@@ -4,6 +4,7 @@ import { useGateways } from './GatewayProvider'
 import { useConnections, useConnectionEditor } from '../features/connections'
 import { AuditView } from '../features/audit'
 import { ConnectionRow, ConnectionTree, type ConnectionRowState } from '../entities/connection-tree'
+import { ConnectionBranch } from './ConnectionBranch'
 import { WorkspaceHost } from './WorkspaceHost'
 import { ConnectionSettingsPane } from './ConnectionSettingsPane'
 import { useOpenConnections } from './model/useOpenConnections'
@@ -165,7 +166,22 @@ export function AppShell() {
             }}
             onClose={() => void shell.closeConnection(c.id)}
             onSettings={() => openSettings(c.id)}
-          />
+          >
+            {state === 'ready' && (
+              <ConnectionBranch
+                key={c.id}
+                gateway={gateways.operation}
+                connectionId={c.id}
+                selected={shell.selection[c.id] ?? null}
+                onSelect={(sel) => {
+                  shell.setSelection(c.id, sel)
+                  setTab('workspace')
+                  editor.close()
+                  shell.setActive(c.id)
+                }}
+              />
+            )}
+          </ConnectionRow>
         )
       })}
     </ConnectionTree>
