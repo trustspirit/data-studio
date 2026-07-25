@@ -19,8 +19,11 @@ const DEFAULT_MAX_ROUNDS = 8
  */
 export function boundToolResult(result: ToolResult): string {
   const raw = JSON.stringify(result.ok ? result.data : { error: result.error })
-  if (raw.length <= AI_CONTEXT_MAX_BYTES) return raw
-  return raw.slice(0, AI_CONTEXT_MAX_BYTES) + '…[truncated]'
+  if (Buffer.byteLength(raw, 'utf8') <= AI_CONTEXT_MAX_BYTES) return raw
+  // 바이트 경계로 자른다. 끝에 걸친 멀티바이트 시퀀스는 TextDecoder가 U+FFFD로
+  // 처리한다(무해) — UTF-16 길이가 아니라 실제 UTF-8 바이트로 상한을 지킨다.
+  const truncated = new TextDecoder('utf-8').decode(Buffer.from(raw, 'utf8').subarray(0, AI_CONTEXT_MAX_BYTES))
+  return truncated + '…[truncated]'
 }
 
 export interface AiOrchestratorDeps {

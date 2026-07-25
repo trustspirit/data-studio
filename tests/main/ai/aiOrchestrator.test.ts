@@ -69,4 +69,41 @@ describe('AiOrchestrator', () => {
     expect(out.length).toBeLessThanOrEqual(100 * 1024 + 64) // 절단 표시 여유
     expect(out).toContain('truncated')
   })
+
+  it('boundToolResult는 글자 수가 아니라 UTF-8 바이트 수로 상한을 지킨다(한글/CJK)', () => {
+    // '가'는 UTF-16 1 code unit이지만 UTF-8로는 3 bytes다.
+    // 60 * 1024 chars → .length로는 100*1024 미만이지만 실제 바이트로는 180*1024로 상한 초과.
+    const korean = { data: '가'.repeat(60 * 1024) }
+    const raw = JSON.stringify(korean)
+    expect(raw.length).toBeLessThan(100 * 1024)
+    expect(Buffer.byteLength(raw, 'utf8')).toBeGreaterThan(100 * 1024)
+
+    const out = boundToolResult({ ok: true, data: korean })
+    expect(Buffer.byteLength(out, 'utf8')).toBeLessThanOrEqual(100 * 1024 + 64) // 절단 표시 여유
+    expect(out).toContain('truncated')
+  })
+
+  it('boundToolResult는 상한 미만이면 절단하지 않는다(ASCII)', () => {
+    const small = { data: 'hello world' }
+    const out = boundToolResult({ ok: true, data: small })
+    expect(out).not.toContain('truncated')
+    expect(out).toBe(JSON.stringify(small))
+  })
+
+  it('이미 취소된 signal이면 provider/invoke를 호출하지 않고 즉시 onError로 끝낸다', async () => {
+    const invoke = vi.fn(async () => ({ ok: true, data: {} }))
+    const registry = { invoke, specs: () => [] } as unknown as ToolRegistry
+    const chat = vi.fn(async () => ({ text: '', toolUses: [], stopReason: 'end' as const }))
+    const provider = { id: 'anthropic' as const, chat }
+    const orch = new AiOrchestrator({ provider, toolRegistry: registry, toolContext: ctx, systemPrompt: 'S', schemaContext: '' })
+    const sink = recordingSink()
+    const controller = new AbortController()
+    controller.abort()
+
+    await orch.sendMessage('q', sink, controller.signal)
+
+    expect(sink.events.some((e) => e.startsWith('error:'))).toBe(true)
+    expect(chat).not.toHaveBeenCalled()
+    expect(invoke).not.toHaveBeenCalled()
+  })
 })
