@@ -1,20 +1,34 @@
 import { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import type { SqlEngineId } from '../../../../shared/types/connection'
+import type { ColumnInfo, IndexInfo } from '../../../../shared/types/schema'
 import type { TableSelection } from '../../../entities/schema-tree'
 import { SqlCode } from '../../../entities/sql-lang'
 import { Button, ErrorBanner, Input, NativeSelect } from '../../../shared/ui'
 import {
+  buildAddColumn,
   buildAddForeignKey,
   buildCreateIndex,
   buildCreateTable,
+  buildDropColumn,
+  buildDropIndex,
+  buildDropTable,
+  buildRenameColumn,
+  buildRenameTable,
   supportsAddForeignKey,
   TYPE_SUGGESTIONS,
+  validateAddColumn,
   validateCreateTable,
+  validateDropColumn,
+  validateDropIndex,
+  validateDropTable,
   validateForeignKey,
   validateIndex,
+  validateRenameColumn,
+  validateRenameTable,
   type ColumnSpec,
   type FkAction,
+  type TableFacts,
 } from '../model/ddlBuilder'
 
 const Wrap = styled.div`
@@ -77,8 +91,39 @@ const Actions = styled.div`
   display: flex;
   gap: ${({ theme }) => theme.space.sm};
 `
+const Danger = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.space.xs};
+  padding: ${({ theme }) => theme.space.sm};
+  border: 1px solid ${({ theme }) => theme.color.red};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.color.text};
 
-export type DesignerMode = 'create' | 'fk' | 'index'
+  code {
+    font-family: ${({ theme }) => theme.font.mono};
+    color: ${({ theme }) => theme.color.orange};
+  }
+`
+
+export type DesignerMode =
+  | 'create'
+  | 'fk'
+  | 'index'
+  | 'renameTable'
+  | 'renameColumn'
+  | 'addColumn'
+  | 'dropColumn'
+  | 'dropTable'
+  | 'dropIndex'
+
+/** 되돌릴 수 없는 모드. 대상 이름을 직접 입력받아야 실행이 열린다. */
+const DESTRUCTIVE: ReadonlySet<DesignerMode> = new Set<DesignerMode>([
+  'dropColumn',
+  'dropTable',
+  'dropIndex',
+])
 
 interface TableDesignerProps {
   dialect: SqlEngineId
@@ -87,6 +132,16 @@ interface TableDesignerProps {
   schemas: readonly string[]
   /** fk/index 모드의 대상 테이블. create 모드는 schema만 시드로 쓴다. */
   selection: TableSelection | null
+  /**
+   * 선택된 테이블에서 읽어 온 구조. 컬럼·인덱스를 고르는 모드와 sqlite의
+   * DROP COLUMN 사전 검사에 쓴다.
+   */
+  existing?: {
+    readonly columns: readonly ColumnInfo[]
+    readonly indexes: readonly IndexInfo[]
+  }
+  /** 컬럼/인덱스 행에서 바로 열었을 때 미리 고를 대상 이름. */
+  initialTarget?: string
   /** 성공하면 null, 실패하면 사용자에게 보여줄 이유를 돌려준다. */
   onRun: (sql: string) => Promise<string | null>
   onClose: () => void
@@ -143,6 +198,12 @@ const MODE_TITLE: Record<DesignerMode, string> = {
   create: 'New Table',
   fk: 'Add Foreign Key',
   index: 'Add Index',
+  renameTable: 'Rename Table',
+  renameColumn: 'Rename Column',
+  addColumn: 'Add Column',
+  dropColumn: 'Drop Column',
+  dropTable: 'Drop Table',
+  dropIndex: 'Drop Index',
 }
 
 export function TableDesigner({
@@ -150,10 +211,14 @@ export function TableDesigner({
   mode,
   schemas,
   selection,
+  existing,
+  initialTarget,
   onRun,
   onClose,
 }: TableDesignerProps) {
   const seedSchema = selection?.schema ?? schemas[0] ?? ''
+  const existingColumns = existing?.columns ?? []
+  const existingIndexes = existing?.indexes ?? []
 
   // create
   const [schema, setSchema] = useState(seedSchema)
@@ -172,6 +237,16 @@ export function TableDesigner({
   const [indexName, setIndexName] = useState('')
   const [indexColumns, setIndexColumns] = useState('')
   const [unique, setUnique] = useState(false)
+  // alter — 대상은 initialTarget으로 시드한다(컬럼/인덱스 행에서 바로 열 때).
+  const [targetColumn, setTargetColumn] = useState(initialTarget ?? '')
+  const [targetIndex, setTargetIndex] = useState(initialTarget ?? '')
+  const [newName, setNewName] = useState('')
+  const [addName, setAddName] = useState('')
+  const [addType, setAddType] = useState('')
+  const [addNotNull, setAddNotNull] = useState(false)
+  const [addDefault, setAddDefault] = useState('')
+  /** 파괴적 모드의 확인 입력. 대상 이름과 정확히 같아야 실행이 열린다. */
+  const [confirmText, setConfirmText] = useState('')
 
   const [busy, setBusy] = useState(false)
   const [runError, setRunError] = useState<string | null>(null)
@@ -200,6 +275,44 @@ export function TableDesigner({
       }
       return { sql: buildAddForeignKey(dialect, spec), issues: validateForeignKey(spec) }
     }
+    if (mode === 'renameTable') {
+      const spec = { ...target, newName }
+      return { sql: buildRenameTable(dialect, spec), issues: validateRenameTable(spec) }
+    }
+    if (mode === 'renameColumn') {
+      const spec = { ...target, column: targetColumn, newName }
+      return { sql: buildRenameColumn(dialect, spec), issues: validateRenameColumn(spec) }
+    }
+    if (mode === 'addColumn') {
+      const spec = {
+        ...target,
+        name: addName,
+        type: addType,
+        notNull: addNotNull,
+        defaultExpr: addDefault,
+      }
+      return { sql: buildAddColumn(dialect, spec), issues: validateAddColumn(dialect, spec) }
+    }
+    if (mode === 'dropColumn') {
+      const spec = { ...target, column: targetColumn }
+      const facts: TableFacts = {
+        pkColumns: existingColumns
+          .filter((c) => c.primaryKeyOrdinal !== null)
+          .map((c) => c.name),
+        indexedColumns: existingIndexes.flatMap((ix) => ix.columns),
+      }
+      return {
+        sql: buildDropColumn(dialect, spec),
+        issues: validateDropColumn(dialect, spec, facts),
+      }
+    }
+    if (mode === 'dropTable') {
+      return { sql: buildDropTable(dialect, target), issues: validateDropTable(target) }
+    }
+    if (mode === 'dropIndex') {
+      const spec = { ...target, indexName: targetIndex }
+      return { sql: buildDropIndex(dialect, spec), issues: validateDropIndex(spec) }
+    }
     const spec = { ...target, indexName, columns: splitColumns(indexColumns), unique }
     return { sql: buildCreateIndex(dialect, spec), issues: validateIndex(spec) }
   }, [
@@ -218,7 +331,31 @@ export function TableDesigner({
     indexName,
     indexColumns,
     unique,
+    newName,
+    targetColumn,
+    targetIndex,
+    addName,
+    addType,
+    addNotNull,
+    addDefault,
+    existingColumns,
+    existingIndexes,
   ])
+
+  /**
+   * 파괴적 모드에서 사용자가 입력해야 하는 대상 이름. 확인 절차의 기준이다.
+   */
+  const confirmTarget =
+    mode === 'dropColumn'
+      ? targetColumn.trim()
+      : mode === 'dropIndex'
+        ? targetIndex.trim()
+        : mode === 'dropTable'
+          ? (selection?.table ?? '')
+          : ''
+  const needsConfirm = DESTRUCTIVE.has(mode)
+  // 공백만 다른 입력을 통과시키지 않는다 — 지우는 문장이다.
+  const confirmed = !needsConfirm || (confirmTarget !== '' && confirmText.trim() === confirmTarget)
 
   const run = () => {
     setBusy(true)
@@ -472,6 +609,125 @@ export function TableDesigner({
         </FieldRow>
       )}
 
+      {(mode === 'renameTable' || mode === 'renameColumn') && (
+        <FieldRow>
+          {mode === 'renameColumn' && (
+            <Label>
+              Column
+              <NativeSelect
+                data-testid="ddl-target-column"
+                value={targetColumn}
+                onChange={(e) => setTargetColumn(e.target.value)}
+              >
+                <option value="">(고르세요)</option>
+                {existingColumns.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Label>
+          )}
+          <Label>
+            New name
+            <Input
+              data-testid="ddl-new-name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={mode === 'renameTable' ? 'new_table_name' : 'new_column_name'}
+            />
+          </Label>
+        </FieldRow>
+      )}
+
+      {mode === 'addColumn' && (
+        <FieldRow>
+          <Label>
+            Name
+            <Input
+              data-testid="ddl-add-name"
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+              placeholder="column"
+            />
+          </Label>
+          <Label>
+            Type
+            <Input
+              data-testid="ddl-add-type"
+              list={typeListId}
+              value={addType}
+              onChange={(e) => setAddType(e.target.value)}
+              placeholder="type"
+            />
+          </Label>
+          <Label>
+            DEFAULT
+            <Input
+              data-testid="ddl-add-default"
+              value={addDefault}
+              onChange={(e) => setAddDefault(e.target.value)}
+              placeholder={addNotNull ? '기존 행에 채울 값 (필수)' : 'DEFAULT (선택)'}
+            />
+          </Label>
+          <Check>
+            <input
+              type="checkbox"
+              data-testid="ddl-add-notnull"
+              checked={addNotNull}
+              onChange={(e) => setAddNotNull(e.target.checked)}
+            />
+            NOT NULL
+          </Check>
+        </FieldRow>
+      )}
+
+      {mode === 'dropColumn' && (
+        <FieldRow>
+          <Label>
+            Column
+            <NativeSelect
+              data-testid="ddl-target-column"
+              value={targetColumn}
+              onChange={(e) => {
+                setTargetColumn(e.target.value)
+                setConfirmText('')
+              }}
+            >
+              <option value="">(고르세요)</option>
+              {existingColumns.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </Label>
+        </FieldRow>
+      )}
+
+      {mode === 'dropIndex' && (
+        <FieldRow>
+          <Label>
+            Index
+            <NativeSelect
+              data-testid="ddl-target-index"
+              value={targetIndex}
+              onChange={(e) => {
+                setTargetIndex(e.target.value)
+                setConfirmText('')
+              }}
+            >
+              <option value="">(고르세요)</option>
+              {existingIndexes.map((ix) => (
+                <option key={ix.name} value={ix.name}>
+                  {ix.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </Label>
+        </FieldRow>
+      )}
+
       {issues.length > 0 ? (
         <IssueList data-testid="ddl-issues">
           {issues.map((it) => (
@@ -481,13 +737,31 @@ export function TableDesigner({
       ) : (
         <SqlCode engine={dialect} code={sql} data-testid="ddl-preview" />
       )}
+
+      {needsConfirm && issues.length === 0 && confirmTarget !== '' && (
+        <Danger data-testid="ddl-confirm-block">
+          <strong>되돌릴 수 없습니다.</strong>
+          {mode === 'dropColumn' && dialect === 'postgres' && (
+            <span> 이 컬럼만 쓰는 인덱스도 함께 사라집니다.</span>
+          )}
+          <Label>
+            실행하려면 <code>{confirmTarget}</code> 을 입력하세요
+            <Input
+              data-testid="ddl-confirm"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={confirmTarget}
+            />
+          </Label>
+        </Danger>
+      )}
       {runError !== null && <ErrorBanner>{runError}</ErrorBanner>}
 
       <Actions>
         <Button
           type="button"
           data-testid="ddl-run"
-          disabled={busy || issues.length > 0}
+          disabled={busy || issues.length > 0 || !confirmed}
           onClick={run}
         >
           {busy ? '실행 중…' : 'Run SQL'}

@@ -1,5 +1,6 @@
 import styled from 'styled-components'
 import type { IndexInfo } from '../../../../shared/types/schema'
+import { Button } from '../../../shared/ui'
 
 const Table = styled.table`
   width: 100%;
@@ -23,7 +24,18 @@ const Empty = styled.div`
   font-size: 12px;
 `
 
-export function IndexList({ indexes }: { indexes: readonly IndexInfo[] }) {
+const RowActions = styled.td`
+  white-space: nowrap;
+  text-align: right;
+`
+
+export function IndexList({
+  indexes,
+  onDrop,
+}: {
+  indexes: readonly IndexInfo[]
+  onDrop?: (indexName: string) => void
+}) {
   if (indexes.length === 0) return <Empty>인덱스 없음</Empty>
   return (
     <Table>
@@ -33,6 +45,7 @@ export function IndexList({ indexes }: { indexes: readonly IndexInfo[] }) {
           <th>Columns</th>
           <th>Unique</th>
           <th>Size</th>
+          {onDrop !== undefined && <th />}
         </tr>
       </thead>
       <tbody>
@@ -42,6 +55,19 @@ export function IndexList({ indexes }: { indexes: readonly IndexInfo[] }) {
             <td>({i.columns.join(', ')})</td>
             <td>{i.unique ? 'UNIQUE' : ''}</td>
             <td>{i.sizeBytes !== null ? `${i.sizeBytes} B` : ''}</td>
+            {onDrop !== undefined && (
+              <RowActions>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  data-testid={`index-drop-${i.name}`}
+                  onClick={() => onDrop(i.name)}
+                >
+                  Drop
+                </Button>
+              </RowActions>
+            )}
           </tr>
         ))}
       </tbody>

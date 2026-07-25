@@ -54,11 +54,22 @@ export function StructureView({
   const tree = useSchemaTree(gateway, connectionId)
   const [selected, setSelected] = useState<TableSelection | null>(null)
   const [designer, setDesigner] = useState<DesignerMode | null>(null)
+  /** 컬럼/인덱스 행에서 연 경우의 대상 이름. 폼에서 다시 고르지 않게 한다. */
+  const [target, setTarget] = useState('')
   const [structureToken, setStructureToken] = useState(0)
+  const openDesigner = (mode: DesignerMode, forTarget = '') => {
+    setTarget(forTarget)
+    setDesigner(mode)
+  }
+  const closeDesigner = () => {
+    setTarget('')
+    setDesigner(null)
+  }
   useEffect(() => {
     // 연결이 바뀌면 선택을 초기화한다 (useSchemaTree의 캐시 리셋과 일관).
     setSelected(null)
     setDesigner(null)
+    setTarget('')
   }, [connectionId])
   useEffect(() => {
     // ER 뷰 등 상위가 특정 테이블을 열도록 요청하면 내부 선택을 시드한다.
@@ -100,8 +111,10 @@ export function StructureView({
         onToggle={tree.toggle}
         onSelect={(sel) => {
           setSelected(sel)
-          // 다른 테이블을 고르면 이전 테이블 기준의 FK/인덱스 폼은 무의미하다.
+          // 다른 테이블을 고르면 이전 테이블 기준의 폼은 무의미하다. create만
+          // 테이블 선택과 무관하므로 남긴다.
           setDesigner((d) => (d === 'create' ? d : null))
+          setTarget('')
         }}
       />
       <Main>
@@ -113,43 +126,78 @@ export function StructureView({
               variant="secondary"
               size="sm"
               data-testid="ddl-open-create"
-              onClick={() => setDesigner('create')}
+              onClick={() => openDesigner('create')}
             >
               New Table
             </Button>
+            {selected !== null && (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  data-testid="ddl-open-rename-table"
+                  onClick={() => openDesigner('renameTable')}
+                >
+                  Rename Table
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  data-testid="ddl-open-add-column"
+                  onClick={() => openDesigner('addColumn')}
+                >
+                  Add Column
+                </Button>
+              </>
+            )}
             {selected !== null && supportsAddForeignKey(dialect) && (
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
                 data-testid="ddl-open-fk"
-                onClick={() => setDesigner('fk')}
+                onClick={() => openDesigner('fk')}
               >
                 Add Foreign Key
               </Button>
             )}
             {selected !== null && (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                data-testid="ddl-open-index"
-                onClick={() => setDesigner('index')}
-              >
-                Add Index
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  data-testid="ddl-open-index"
+                  onClick={() => openDesigner('index')}
+                >
+                  Add Index
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  data-testid="ddl-open-drop-table"
+                  onClick={() => openDesigner('dropTable')}
+                >
+                  Drop Table
+                </Button>
+              </>
             )}
           </DdlToolbar>
         )}
         {dialect !== null && designer !== null ? (
           <TableDesigner
-            key={`${designer}:${selected?.schema ?? ''}.${selected?.table ?? ''}`}
+            key={`${designer}:${selected?.schema ?? ''}.${selected?.table ?? ''}:${target}`}
             dialect={dialect}
             mode={designer}
             schemas={tree.schemas.map((s) => s.name)}
             selection={selected}
+            existing={{ columns: structure.columns, indexes: structure.indexes }}
+            initialTarget={target}
             onRun={runDdl}
-            onClose={() => setDesigner(null)}
+            onClose={closeDesigner}
           />
         ) : (
           <StructurePanel
@@ -159,6 +207,13 @@ export function StructureView({
             columns={structure.columns}
             indexes={structure.indexes}
             foreignKeys={structure.foreignKeys}
+            {...(dialect !== null && selected !== null
+              ? {
+                  onRenameColumn: (column: string) => openDesigner('renameColumn', column),
+                  onDropColumn: (column: string) => openDesigner('dropColumn', column),
+                  onDropIndex: (indexName: string) => openDesigner('dropIndex', indexName),
+                }
+              : {})}
           />
         )}
       </Main>
