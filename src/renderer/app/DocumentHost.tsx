@@ -6,9 +6,8 @@ import type { ColumnInfo, IndexInfo } from '../../shared/types/schema'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import type { AiGateway } from '../gateways/ports/AiGateway'
 import { documentKey, type Document } from '../entities/document'
-import { Button, EmptyState, SplitPane, Toolbar } from '../shared/ui'
+import { Button, EmptyState, InspectorDock, SplitPane, Toolbar, type InspectorSection } from '../shared/ui'
 import { readPanelSize, writePanelSize } from '../shared/lib'
-import { InspectorDock, type InspectorSection } from '../features/inspector'
 import {
   DESIGNER_TABLE_ACTIONS,
   DesignerOverlay,

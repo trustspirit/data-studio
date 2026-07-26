@@ -2,7 +2,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
-import { InspectorDock } from '@renderer/features/inspector'
+import { InspectorDock } from '@renderer/shared/ui'
 
 const SECTIONS = [
   { id: 'columns', title: 'Columns', content: <div>컬럼 내용</div> },

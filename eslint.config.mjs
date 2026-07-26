@@ -1,6 +1,17 @@
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import importPlugin from 'eslint-plugin-import'
+import fs from 'node:fs'
+import path from 'node:path'
+
+/**
+ * renderer feature 슬라이스 이름. 디렉토리에서 읽는다 — 새 feature가 생겨도
+ * 아래 격리 존이 자동으로 따라붙는다(손으로 적으면 새 feature만 무방비가 된다).
+ */
+const FEATURE_NAMES = fs
+  .readdirSync(path.join(import.meta.dirname, 'src/renderer/features'), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
 
 export default tseslint.config(
   {
@@ -109,6 +120,12 @@ export default tseslint.config(
   {
     // renderer의 feature 슬라이스는 서로를 직접 import하지 않는다.
     files: ['src/renderer/features/**/*.{ts,tsx}'],
+    settings: {
+      // no-restricted-paths는 import 지정자를 **실제 파일 경로로 풀어** 판정한다.
+      // 기본 node 리졸버의 확장자 목록에는 .ts/.tsx가 없어서 풀리지 않고, 풀리지
+      // 않은 import는 규칙이 조용히 통과시킨다 — 확장자를 넓혀야 규칙이 산다.
+      'import/resolver': { node: { extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'] } },
+    },
     rules: {
       'no-restricted-imports': [
         'error',
@@ -119,6 +136,25 @@ export default tseslint.config(
               message: 'feature는 다른 feature의 내부를 import할 수 없다. entities로 내려라',
             },
           ],
+        },
+      ],
+      /**
+       * 위 패턴은 import **문자열**만 본다 — `'../../inspector'`처럼 features/
+       * 세그먼트가 글자로 드러나지 않는 상대 경로는 그대로 빠져나간다. 실제로
+       * 이 브랜치에서 structure → inspector 상대 import가 그렇게 통과했다.
+       * 이 규칙은 지정자를 파일 경로로 풀어서 보므로 상대·별칭·절대 표기를
+       * 모두 같은 잣대로 잡는다. 문자열 패턴은 심층 방어로 남겨 둔다.
+       */
+      'import/no-restricted-paths': [
+        'error',
+        {
+          basePath: import.meta.dirname,
+          zones: FEATURE_NAMES.map((name) => ({
+            target: `./src/renderer/features/${name}`,
+            from: './src/renderer/features',
+            except: [`./${name}`],
+            message: 'feature는 다른 feature를 import할 수 없다. 공용이면 shared/entities로 내려라',
+          })),
         },
       ],
     },
