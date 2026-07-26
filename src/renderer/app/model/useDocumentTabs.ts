@@ -59,14 +59,20 @@ export function useDocumentTabs(): DocumentTabsState {
     setTabs((cur) => {
       const set = cur[connectionId]
       if (set === undefined) return cur
-      return { ...cur, [connectionId]: closeIn(set, key) }
+      const next = closeIn(set, key)
+      // 대상 키가 없으면 closeIn이 같은 참조를 돌려준다 — 그걸 그대로
+      // 전체 상태에 되씌우면 참조가 바뀌어 불필요한 리렌더가 퍼진다.
+      if (next === set) return cur
+      return { ...cur, [connectionId]: next }
     })
   }, [])
 
   const activate = useCallback((connectionId: string, key: string) => {
     setTabs((cur) => {
       const set = cur[connectionId]
-      if (set === undefined || !set.documents.some((d) => documentKey(d) === key)) return cur
+      if (set === undefined || set.activeKey === key || !set.documents.some((d) => documentKey(d) === key)) {
+        return cur
+      }
       return { ...cur, [connectionId]: { ...set, activeKey: key } }
     })
   }, [])

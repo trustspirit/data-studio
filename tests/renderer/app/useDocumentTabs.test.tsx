@@ -77,11 +77,33 @@ describe('useDocumentTabs', () => {
     expect(result.current.tabs['c1']).toBeUndefined()
   })
 
-  it('싱글턴 문서를 한 번만 자동으로 연다', () => {
+  it('없는 키를 닫아도 아무 일도 일어나지 않는다 (tabs 참조 보존)', () => {
+    const { result } = renderHook(() => useDocumentTabs())
+    act(() => result.current.open('c1', ORDERS))
+    const before = result.current.tabs
+    act(() => result.current.close('c1', 'nonexistent-key'))
+    expect(result.current.tabs).toBe(before)
+  })
+
+  it('이미 활성인 탭을 다시 activate해도 아무 일도 일어나지 않는다 (tabs 참조 보존)', () => {
+    const { result } = renderHook(() => useDocumentTabs())
+    act(() => result.current.open('c1', ORDERS))
+    const before = result.current.tabs
+    act(() => result.current.activate('c1', documentKey(ORDERS)))
+    expect(result.current.tabs).toBe(before)
+  })
+
+  it('싱글턴 문서를 한 번만 자동으로 연다 — 두 번째 호출이 사용자가 고른 활성 탭을 훔치지 않는다', () => {
     const { result } = renderHook(() => useDocumentTabs())
     act(() => result.current.ensureDefaults('c1', ['keyvalue']))
+    // 사용자가 다른 문서를 열고 그걸 활성으로 삼는다.
+    act(() => result.current.open('c1', ORDERS))
+    act(() => result.current.activate('c1', documentKey(ORDERS)))
+    // 같은 연결에 ensureDefaults가 다시 불려도(예: 재연결 이벤트 중복) 문서
+    // 목록도, 사용자가 고른 활성 탭도 그대로여야 한다.
     act(() => result.current.ensureDefaults('c1', ['keyvalue']))
-    expect(result.current.tabs['c1']?.documents).toEqual([{ kind: 'keys' }])
+    expect(result.current.tabs['c1']?.documents).toEqual([{ kind: 'keys' }, ORDERS])
+    expect(result.current.tabs['c1']?.activeKey).toBe(documentKey(ORDERS))
   })
 
   it('SQL 연결에는 자동으로 여는 문서가 없다', () => {
