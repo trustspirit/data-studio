@@ -15,6 +15,8 @@ import { KeyBrowserView } from '../features/keys'
 import { StreamsView } from '../features/streams'
 import { DynamoView } from '../features/dynamo'
 import { AiChatPanel } from '../features/ai'
+// DataView가 요구하는 selection 없음 안내용 — 아래 이름 EmptyState는 이미 이 뷰가 쓰고 있다.
+import { EmptyState as TableEmptyState } from '../shared/ui'
 
 const Layout = styled.div`
   display: flex;
@@ -242,7 +244,12 @@ export function ConnectionWorkspace({
               engine={engine}
             />
           ) : activeView === 'data' ? (
-            <DataView gateway={gateway} connectionId={connectionId} selection={activeSelection} />
+            // DataView는 이제 selection이 필수다 — Task 9가 이 파일을 다시 짤 때까지의 임시 가드.
+            activeSelection === null ? (
+              <TableEmptyState title="테이블을 선택하세요." hint="왼쪽 트리에서 스키마를 펼쳐 테이블을 고르세요" />
+            ) : (
+              <DataView gateway={gateway} connectionId={connectionId} selection={activeSelection} />
+            )
           ) : activeView === 'documents' ? (
             <DocumentsView gateway={gateway} connectionId={connectionId} />
           ) : activeView === 'keys' ? (
@@ -255,6 +262,8 @@ export function ConnectionWorkspace({
             <ErView
               gateway={gateway}
               connectionId={connectionId}
+              // ErView는 이제 schema가 필수다 — 워크스페이스엔 목록만 있어 첫 항목으로 임시 대응한다(Task 9가 이 파일을 다시 짤 때까지).
+              schema={schemas?.[0] ?? ''}
               onOpenTable={(schema, table) => {
                 selectTable({ schema, table })
                 setView('structure')

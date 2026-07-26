@@ -14,8 +14,6 @@ beforeAll(() => {
 
 function outcome(op: string, table?: string): OperationOutcome {
   switch (op) {
-    case 'listSchemas':
-      return { ok: true, payload: { kind: 'schemas', schemas: [{ name: 'public' }] } }
     case 'listTables':
       return {
         ok: true,
@@ -56,33 +54,21 @@ function gateway(): OperationGateway {
 function wrap(onOpen = vi.fn()) {
   render(
     <ThemeProvider theme={darkTheme}>
-      <ErView gateway={gateway()} connectionId="c1" onOpenTable={onOpen} />
+      <ErView gateway={gateway()} connectionId="c1" schema="public" onOpenTable={onOpen} />
     </ThemeProvider>,
   )
   return onOpen
 }
 
 describe('ErView', () => {
-  it('스키마 미선택 시 안내 문구를 보여준다', async () => {
+  it('문서가 확정한 스키마의 그래프 노드가 렌더된다', async () => {
     wrap()
-    await waitFor(() =>
-      expect(screen.getByLabelText<HTMLSelectElement>('schema').options.length).toBeGreaterThan(1),
-    )
-    expect(screen.getByText(/스키마를 선택/)).toBeTruthy()
-  })
-
-  it('스키마를 고르면 그래프 노드가 렌더된다', async () => {
-    wrap()
-    await waitFor(() => expect(screen.getByLabelText('schema')).toBeTruthy())
-    fireEvent.change(screen.getByLabelText('schema'), { target: { value: 'public' } })
     await waitFor(() => expect(screen.getByText('orders')).toBeTruthy())
     expect(screen.getByText('users')).toBeTruthy()
   })
 
   it('노드 클릭 시 onOpenTable(schema, table)을 호출한다', async () => {
     const onOpen = wrap()
-    await waitFor(() => expect(screen.getByLabelText('schema')).toBeTruthy())
-    fireEvent.change(screen.getByLabelText('schema'), { target: { value: 'public' } })
     await waitFor(() => expect(screen.getByText('orders')).toBeTruthy())
     fireEvent.click(screen.getByText('orders'))
     expect(onOpen).toHaveBeenCalledWith('public', 'orders')

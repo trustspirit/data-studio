@@ -145,17 +145,38 @@ describe('ConnectionWorkspace', () => {
     expect(screen.queryByText(/Query — /)).toBeNull()
   })
 
-  it('ER 서브탭으로 전환하면 스키마 셀렉터가 뜬다', async () => {
-    wrap()
+  // ErView가 schema를 props로 받게 되면서 워크스페이스는 schemas 목록의 첫 항목을 넘긴다
+  // (임시 가드 — Task 9가 이 파일을 다시 짤 때까지). 셀렉터 없이 그 스키마의 그래프가 바로 뜬다.
+  it('ER 서브탭으로 전환하면 첫 스키마의 그래프가 바로 뜬다', async () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace
+          gateway={gateway()}
+          connectionId="c1"
+          connectionName="prod"
+          capabilities={['sql', 'schema', 'data']}
+          schemas={['public']}
+        />
+      </ThemeProvider>,
+    )
     fireEvent.click(screen.getByTestId('subtab-er'))
-    await waitFor(() => expect(screen.getByLabelText('schema')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('orders')).toBeTruthy())
+    expect(screen.getByText('users')).toBeTruthy()
   })
 
   it('ER에서 노드를 클릭하면 Structure 뷰가 그 테이블을 연다', async () => {
-    wrap()
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace
+          gateway={gateway()}
+          connectionId="c1"
+          connectionName="prod"
+          capabilities={['sql', 'schema', 'data']}
+          schemas={['public']}
+        />
+      </ThemeProvider>,
+    )
     fireEvent.click(screen.getByTestId('subtab-er'))
-    await waitFor(() => expect(screen.getByLabelText('schema')).toBeTruthy())
-    fireEvent.change(screen.getByLabelText('schema'), { target: { value: 'public' } })
     await waitFor(() => expect(screen.getByText('orders')).toBeTruthy())
     fireEvent.click(screen.getByText('orders'))
     // Structure 뷰로 전환되고 orders의 컬럼이 패널에 뜬다.

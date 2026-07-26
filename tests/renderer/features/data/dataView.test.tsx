@@ -54,11 +54,6 @@ describe('DataView', () => {
     await waitFor(() => expect(screen.getByText('7')).toBeTruthy()) // 셀 값
   })
 
-  it('선택이 없으면 안내 문구를 보여준다', async () => {
-    wrap(<DataView gateway={gateway()} connectionId="c1" selection={null} />)
-    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
-  })
-
   it('자기 트리를 그리지 않는다 — 사이드바 트리가 앱에 하나뿐이다', async () => {
     wrap(<DataView gateway={gateway()} connectionId="c1" selection={USERS} />)
     await usersTableLoaded()
