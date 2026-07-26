@@ -10,30 +10,48 @@ const Bar = styled.div`
   background: ${({ theme }) => theme.color.toolbar};
   overflow-x: auto;
 `
-const Tab = styled.button<{ $active: boolean }>`
+/**
+ * 탭 하나의 껍데기. 제목 버튼과 닫기 버튼은 **형제**다 —
+ * `SchemaNavigator`의 `SchemaRow`(펼치기/ER)와 `ConnectionRow`가 같은 구조다.
+ * 닫기를 제목 버튼 **안에** 넣으면 HTML이 금지하는 버튼 속의 상호작용 요소가
+ * 되고(`role="tab"` 아래로는 ARIA도 금지한다), 보조 기술이 둘을 컨트롤 하나로
+ * 합쳐 버려 닫기가 사라진다.
+ *
+ * `role="presentation"`을 주는 이유: tablist는 tab을 직접 소유해야 한다. 중간
+ * 요소가 표현용임을 밝혀야 그 소유 관계가 유지된다.
+ */
+const TabGroup = styled.div<{ $active: boolean }>`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.space.xs};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme, $active }) => ($active ? theme.color.panel : 'transparent')};
+`
+const Tab = styled.button<{ $active: boolean }>`
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.sm};
-  padding: 4px 6px 4px 12px;
+  padding: 4px 4px 4px 12px;
   border: none;
-  border-radius: ${({ theme }) => theme.radius.md};
+  border-radius: ${({ theme }) => `${theme.radius.md} 0 0 ${theme.radius.md}`};
   cursor: pointer;
   white-space: nowrap;
+  background: transparent;
   color: ${({ theme, $active }) => ($active ? theme.color.text : theme.color.textDim)};
-  background: ${({ theme, $active }) => ($active ? theme.color.panel : 'transparent')};
   &:hover {
     color: ${({ theme }) => theme.color.text};
   }
 `
-const Close = styled.span`
+const Close = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 16px;
   height: 16px;
+  margin: 0 6px 0 ${({ theme }) => theme.space.xs};
+  padding: 0;
+  border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
+  cursor: pointer;
+  background: transparent;
   color: ${({ theme }) => theme.color.textFaint};
   &:hover {
     background: ${({ theme }) => theme.color.rowHover};
@@ -70,37 +88,27 @@ export function DocumentTabBar({ documents, activeKey, onActivate, onClose, onNe
         const key = documentKey(doc)
         const active = key === activeKey
         return (
-          <Tab
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            data-testid={`doctab-${key}`}
-            $active={active}
-            onClick={() => onActivate(key)}
-          >
-            {documentTitle(doc)}
+          <TabGroup key={key} role="presentation" $active={active}>
+            <Tab
+              type="button"
+              role="tab"
+              aria-selected={active}
+              data-testid={`doctab-${key}`}
+              $active={active}
+              onClick={() => onActivate(key)}
+            >
+              {documentTitle(doc)}
+            </Tab>
             <Close
-              role="button"
-              tabIndex={0}
+              type="button"
               aria-label={`${documentTitle(doc)} 닫기`}
               data-testid={`doctab-close-${key}`}
-              onClick={(e) => {
-                // 닫기는 탭 활성화가 아니다 — 버블링을 막지 않으면 닫으면서 활성이 된다.
-                e.stopPropagation()
-                onClose(key)
-              }}
-              onKeyDown={(e) => {
-                if (e.key !== 'Enter' && e.key !== ' ') return
-                // 클릭과 동일하게 탭 활성화로 번지지 않도록 막는다. Space는 페이지 스크롤도 막는다.
-                e.stopPropagation()
-                if (e.key === ' ') e.preventDefault()
-                onClose(key)
-              }}
+              // 형제 버튼이라 탭 활성화로 번지지 않는다 — stopPropagation이 필요 없다.
+              onClick={() => onClose(key)}
             >
               ×
             </Close>
-          </Tab>
+          </TabGroup>
         )
       })}
       {onNewQuery !== undefined && (

@@ -53,49 +53,39 @@ describe('DocumentTabBar', () => {
     expect(onActivate).not.toHaveBeenCalled()
   })
 
-  it('닫기를 Enter로 눌러도 탭 활성 요청은 나가지 않는다', () => {
-    const { onActivate, onClose } = renderBar()
-    fireEvent.keyDown(screen.getByTestId(`doctab-close-${documentKey(QUERY)}`), { key: 'Enter' })
-    expect(onClose).toHaveBeenCalledWith(documentKey(QUERY))
-    expect(onActivate).not.toHaveBeenCalled()
-  })
-
-  it('닫기를 Space로 눌러도 탭 활성 요청은 나가지 않는다', () => {
-    const { onActivate, onClose } = renderBar()
-    fireEvent.keyDown(screen.getByTestId(`doctab-close-${documentKey(QUERY)}`), { key: ' ' })
-    expect(onClose).toHaveBeenCalledWith(documentKey(QUERY))
-    expect(onActivate).not.toHaveBeenCalled()
-  })
-
-  it('닫기 컨트롤은 tabIndex로 포커스를 받을 수 있다', () => {
+  it('닫기는 다른 버튼 안에 들어 있지 않다', () => {
+    // 버튼 속의 버튼은 HTML이 금지하고(role="tab" 아래로는 ARIA도 금지한다),
+    // 보조 기술은 둘을 컨트롤 하나로 합쳐 버린다 — 그러면 닫기가 사라진다.
+    // SchemaNavigator의 ER 버튼과 ConnectionRow가 이미 따르는 규칙이다.
     renderBar()
     const closeEl = screen.getByTestId(`doctab-close-${documentKey(QUERY)}`)
-    closeEl.focus()
-    // tabIndex가 없는 span은 .focus()를 불러도 document.activeElement가 되지 않는다 —
-    // 이 단언은 tabIndex={0}이 실제로 붙어 있어야만 통과한다.
-    expect(document.activeElement).toBe(closeEl)
+    expect(closeEl.parentElement?.closest('button')).toBeNull()
+    // 반대 방향도 본다 — 탭 버튼이 닫기를 품고 있지 않아야 한다.
+    expect(screen.getByTestId(`doctab-${documentKey(QUERY)}`).contains(closeEl)).toBe(false)
   })
 
-  it('닫기의 키보드 이벤트는 상위 요소로 전파되지 않는다', () => {
-    const wrapperKeyDown = vi.fn()
-    const onActivate = vi.fn()
-    const onClose = vi.fn()
-    render(
-      <ThemeProvider theme={darkTheme}>
-        <div onKeyDown={wrapperKeyDown}>
-          <DocumentTabBar
-            documents={[ORDERS, QUERY]}
-            activeKey={documentKey(ORDERS)}
-            onActivate={onActivate}
-            onClose={onClose}
-          />
-        </div>
-      </ThemeProvider>,
-    )
-    fireEvent.keyDown(screen.getByTestId(`doctab-close-${documentKey(QUERY)}`), { key: 'Enter' })
+  it('닫기는 네이티브 버튼이라 키보드로 닿고 키보드로 눌린다', () => {
+    // 네이티브 <button>만이 탭 순서에 들어가고 Enter/Space를 click으로 바꾼다.
+    // span[role=button]으로 두면 브라우저가 그 변환을 해 주지 않는다.
+    const { onActivate, onClose } = renderBar()
+    const closeEl = screen.getByTestId(`doctab-close-${documentKey(QUERY)}`)
+
+    expect(closeEl.tagName).toBe('BUTTON')
+    closeEl.focus()
+    expect(document.activeElement).toBe(closeEl)
+    fireEvent.click(closeEl)
     expect(onClose).toHaveBeenCalledWith(documentKey(QUERY))
-    // stopPropagation이 없으면 이 keydown이 감싸는 요소까지 버블링된다.
-    expect(wrapperKeyDown).not.toHaveBeenCalled()
+    expect(onActivate).not.toHaveBeenCalled()
+  })
+
+  it('탭 자체는 tablist가 직접 소유한다', () => {
+    // 제목과 닫기를 감싸는 줄이 생겼다 — 그 줄이 표현용임을 밝히지 않으면
+    // tablist가 tab을 소유하지 못해 접근성 트리에서 탭 목록이 깨진다.
+    renderBar()
+    const tab = screen.getByTestId(`doctab-${documentKey(QUERY)}`)
+    expect(tab.getAttribute('role')).toBe('tab')
+    expect(tab.parentElement?.getAttribute('role')).toBe('presentation')
+    expect(screen.getAllByRole('tab')).toHaveLength(2)
   })
 
   it('onNewQuery가 없으면 새 쿼리 버튼을 그리지 않는다', () => {
