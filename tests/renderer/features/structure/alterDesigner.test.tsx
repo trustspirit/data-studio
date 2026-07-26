@@ -97,7 +97,6 @@ function renderHost(doc: Document, gateway: OperationGateway, engine: EngineId) 
         activeKey={documentKey(doc)}
         gateway={gateway}
         connectionId="c1"
-        connectionName="prod"
         engine={engine}
         schemas={SCHEMAS}
         onOpenDocument={vi.fn()}

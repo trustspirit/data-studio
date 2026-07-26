@@ -94,7 +94,6 @@ function mount(doc: Document, engine: EngineId | undefined, onSchemaChanged?: ()
         activeKey={documentKey(doc)}
         gateway={gateway}
         connectionId="c1"
-        connectionName="prod"
         {...(engine !== undefined ? { engine } : {})}
         schemas={SCHEMAS}
         {...(onSchemaChanged !== undefined ? { onSchemaChanged } : {})}
@@ -114,7 +113,6 @@ function mountWithSql(doc: Document, engine: EngineId, overrideSql: (sql: string
         activeKey={documentKey(doc)}
         gateway={gateway}
         connectionId="c1"
-        connectionName="prod"
         engine={engine}
         schemas={SCHEMAS}
         onOpenDocument={vi.fn()}

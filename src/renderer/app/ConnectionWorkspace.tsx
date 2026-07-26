@@ -99,7 +99,6 @@ export function ConnectionWorkspace({
         gateway={gateway}
         ai={ai}
         connectionId={connectionId}
-        connectionName={connectionName}
         engine={engine}
         schemas={schemas}
         onSchemaChanged={onSchemaChanged}
