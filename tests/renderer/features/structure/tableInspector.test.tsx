@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
 import { TableInspector } from '@renderer/features/structure/ui/TableInspector'
 import type { OperationGateway } from '@renderer/gateways/ports/OperationGateway'
+import type { ColumnInfo, IndexInfo } from '@shared/types/schema'
 
 function gateway(): OperationGateway {
   return {
@@ -78,7 +79,8 @@ describe('TableInspector', () => {
     // 부모가 그 응답으로 상태를 바꾸면 무한 렌더 루프가 된다.
     // 여기서는 부모가 "안정된" 콜백(참조가 바뀌지 않는 함수)을 넘겼을 때,
     // 구조 데이터가 안 바뀐 리렌더에서는 추가로 호출되지 않는지를 고정한다.
-    const onStructureLoaded = vi.fn()
+    const onStructureLoaded =
+      vi.fn<(structure: { readonly columns: readonly ColumnInfo[]; readonly indexes: readonly IndexInfo[] }) => void>()
     const gw = gateway()
 
     const { rerender } = render(
@@ -100,11 +102,8 @@ describe('TableInspector', () => {
     // 호출 횟수뿐 아니라, 실제로 로드된 구조(빈 배열이 아니라 id 컬럼 포함)가
     // 콜백에 전달됐는지도 확인한다 — 효과가 mount 시 빈 초기값만 한 번 흘려보내고
     // 데이터가 도착했을 때 다시 실행되지 않는 회귀는 "호출은 됐다"만으로는 못 잡는다.
-    expect(onStructureLoaded).toHaveBeenCalledWith(
-      expect.objectContaining({
-        columns: expect.arrayContaining([expect.objectContaining({ name: 'id' })]),
-      }),
-    )
+    const loaded = onStructureLoaded.mock.calls.at(-1)?.[0]
+    expect(loaded?.columns.some((c) => c.name === 'id')).toBe(true)
     const callsAfterLoad = onStructureLoaded.mock.calls.length
     expect(callsAfterLoad).toBeGreaterThan(0)
 

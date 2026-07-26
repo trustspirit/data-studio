@@ -210,7 +210,7 @@ describe('DocumentHost', () => {
       // 활성 문서(orders)의 컬럼 옆 Drop 버튼으로 DDL 폼을 연다.
       fireEvent.click(screen.getByTestId('col-drop-order_id'))
 
-      const select = screen.getByTestId('ddl-target-column') as HTMLSelectElement
+      const select = screen.getByTestId<HTMLSelectElement>('ddl-target-column')
       const options = Array.from(select.options).map((o) => o.value)
       expect(options).toContain('order_id')
       expect(options).toContain('total')
