@@ -82,11 +82,19 @@ export function DocumentTabBar({ documents, activeKey, onActivate, onClose, onNe
             {documentTitle(doc)}
             <Close
               role="button"
+              tabIndex={0}
               aria-label={`${documentTitle(doc)} 닫기`}
               data-testid={`doctab-close-${key}`}
               onClick={(e) => {
                 // 닫기는 탭 활성화가 아니다 — 버블링을 막지 않으면 닫으면서 활성이 된다.
                 e.stopPropagation()
+                onClose(key)
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return
+                // 클릭과 동일하게 탭 활성화로 번지지 않도록 막는다. Space는 페이지 스크롤도 막는다.
+                e.stopPropagation()
+                if (e.key === ' ') e.preventDefault()
                 onClose(key)
               }}
             >

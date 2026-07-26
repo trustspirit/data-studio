@@ -53,6 +53,20 @@ describe('DocumentTabBar', () => {
     expect(onActivate).not.toHaveBeenCalled()
   })
 
+  it('닫기를 Enter로 눌러도 탭 활성 요청은 나가지 않는다', () => {
+    const { onActivate, onClose } = renderBar()
+    fireEvent.keyDown(screen.getByTestId(`doctab-close-${documentKey(QUERY)}`), { key: 'Enter' })
+    expect(onClose).toHaveBeenCalledWith(documentKey(QUERY))
+    expect(onActivate).not.toHaveBeenCalled()
+  })
+
+  it('닫기를 Space로 눌러도 탭 활성 요청은 나가지 않는다', () => {
+    const { onActivate, onClose } = renderBar()
+    fireEvent.keyDown(screen.getByTestId(`doctab-close-${documentKey(QUERY)}`), { key: ' ' })
+    expect(onClose).toHaveBeenCalledWith(documentKey(QUERY))
+    expect(onActivate).not.toHaveBeenCalled()
+  })
+
   it('onNewQuery가 없으면 새 쿼리 버튼을 그리지 않는다', () => {
     renderBar({ onNewQuery: undefined })
     expect(screen.queryByTestId('doctab-new-query')).toBeNull()
