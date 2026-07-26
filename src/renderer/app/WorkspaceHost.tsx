@@ -1,9 +1,11 @@
+import { useRef } from 'react'
 import styled from 'styled-components'
 import type { ConnectionConfig } from '../../shared/types/connection'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import type { AiGateway } from '../gateways/ports/AiGateway'
-import type { TableSelection } from '../entities/schema-tree'
+import type { Document } from '../entities/document'
 import { ConnectionWorkspace } from './ConnectionWorkspace'
+import { EMPTY_TAB_SET, type TabSet } from './model/useDocumentTabs'
 import type { OpenConnection } from './model/useOpenConnections'
 
 const Host = styled.div`
@@ -27,18 +29,31 @@ interface WorkspaceHostProps {
   activeId: string | null
   gateway: OperationGateway
   ai?: AiGateway | undefined
-  /** 연결별 선택 테이블. 사이드바 트리와 같은 출처를 읽는다. */
-  selection?: Readonly<Record<string, TableSelection | null>> | undefined
-  onSelectionChange?: ((connectionId: string, selection: TableSelection | null) => void) | undefined
+  /** 연결별 탭 세트. 셸이 소유한다. */
+  tabs: Readonly<Record<string, TabSet>>
+  onOpenDocument: (connectionId: string, doc: Document) => void
+  onCloseDocument: (connectionId: string, key: string) => void
+  onActivateDocument: (connectionId: string, key: string) => void
+  onNewQuery: (connectionId: string) => void
+  /**
+   * 워크스페이스가 실제로 화면에 있는지. 셸은 Audit이나 설정 패널이 앞에 와도
+   * 워크스페이스를 언마운트하지 않고 `display:none` 레이어에 숨겨 둔다 — 그
+   * 동안에도 탭 단축키가 살아 있으면 보이지도 않는 문서가 닫히고, dirty 탭이면
+   * 확인 다이얼로그가 숨은 레이어 안에서 떠서 보이지 않는 채로 Escape를
+   * 삼킨다. 그래서 활성 연결 여부와 별개로 이 값이 함께 참이어야 단축키가 산다.
+   */
+  visible: boolean
   /** 연결별 스키마 이름(테이블 디자이너 자동완성용). */
   schemas?: Readonly<Record<string, readonly string[]>> | undefined
   onSchemaChanged?: ((connectionId: string) => void) | undefined
+  /** 연결 하나에 스테이징된 편집을 가진 문서가 하나라도 있는지 알린다 — 연결 닫기/삭제 확인에 쓴다. */
+  onConnectionDirtyChange: (connectionId: string, dirty: boolean) => void
 }
 
 /**
  * 열린 연결마다 워크스페이스를 하나씩 마운트하고 활성인 것만 보여 준다.
  *
- * `key={activeId}`로 하나만 마운트하면 전환할 때마다 작성 중인 SQL·서브탭 선택·
+ * `key={activeId}`로 하나만 마운트하면 전환할 때마다 작성 중인 SQL·열린 문서·
  * 그리드 편집·AI 세션이 통째로 사라진다. 반대로 key 없이 인스턴스를 재사용하면
  * 그 상태들이 연결 사이로 새어 나간다. 그래서 숨기는 쪽을 택했다 — 대가는
  * 비활성 연결의 effect(스트림 구독 등)가 계속 산다는 것이고, 언마운트 시점은
@@ -53,12 +68,34 @@ export function WorkspaceHost({
   activeId,
   gateway,
   ai,
-  selection,
-  onSelectionChange,
+  tabs,
+  onOpenDocument,
+  onCloseDocument,
+  onActivateDocument,
+  onNewQuery,
+  visible,
   schemas,
   onSchemaChanged,
+  onConnectionDirtyChange,
 }: WorkspaceHostProps) {
   const panes = connections.filter((c) => open[c.id]?.state === 'ready')
+
+  /**
+   * 연결 키마다 신원이 고정된 dirty 리포터를 재사용한다 — `DocumentHost`의
+   * `dirtyReporters`와 같은 이유다. `ConnectionWorkspace`의 dirty-sync effect가
+   * 이 콜백을 deps에 넣으므로, 매 렌더 새 화살표를 주면(다른 연결이 리렌더될
+   * 때마다) effect가 다시 돈다. 연결 키당 하나씩만 만들어 재사용해, 연결 A의
+   * 편집 상태가 연결 B의 리포터 정체성에 영향을 주지 못하게 한다.
+   */
+  const dirtyReporters = useRef(new Map<string, (dirty: boolean) => void>())
+  const reporterFor = (connectionId: string): ((dirty: boolean) => void) => {
+    const cached = dirtyReporters.current.get(connectionId)
+    if (cached !== undefined) return cached
+    const fn = (dirty: boolean) => onConnectionDirtyChange(connectionId, dirty)
+    dirtyReporters.current.set(connectionId, fn)
+    return fn
+  }
+
   return (
     <Host>
       {panes.map((c) => {
@@ -77,13 +114,16 @@ export function WorkspaceHost({
               ai={ai}
               connectionId={c.id}
               connectionName={c.name}
+              active={!inactive && visible}
               capabilities={entry?.capabilities ?? []}
               engine={c.engine}
               aiAccount={entry?.aiAccount ?? 'none'}
-              {...(selection !== undefined ? { selection: selection[c.id] ?? null } : {})}
-              {...(onSelectionChange !== undefined
-                ? { onSelectionChange: (sel: TableSelection | null) => onSelectionChange(c.id, sel) }
-                : {})}
+              tabs={tabs[c.id] ?? EMPTY_TAB_SET}
+              onOpenDocument={(doc) => onOpenDocument(c.id, doc)}
+              onCloseDocument={(key) => onCloseDocument(c.id, key)}
+              onActivateDocument={(key) => onActivateDocument(c.id, key)}
+              onNewQuery={() => onNewQuery(c.id)}
+              onConnectionDirtyChange={reporterFor(c.id)}
               {...(schemas !== undefined ? { schemas: schemas[c.id] ?? [] } : {})}
               {...(onSchemaChanged !== undefined
                 ? { onSchemaChanged: () => onSchemaChanged(c.id) }

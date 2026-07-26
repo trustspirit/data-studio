@@ -142,6 +142,63 @@ describe('ConnectionBranch', () => {
     expect(screen.getByTestId('workspace-b').hasAttribute('hidden')).toBe(true)
   })
 
+  it('테이블 한 번 클릭은 문서를 열지 않는다', async () => {
+    // 사이드바에서 스치듯 누른 클릭이 프로덕션 테이블에 SELECT를 쏘면 안 된다 —
+    // 연결 행이 클릭만으로 접속하지 않는 것과 같은 규칙이다.
+    wrap(bridge([conn('a', 'prod')]))
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(within(tree()).getByText(/schema_a/)).toBeTruthy())
+    fireEvent.click(within(tree()).getByText(/schema_a/))
+    await waitFor(() => expect(within(tree()).getByText('table_a')).toBeTruthy())
+
+    fireEvent.click(within(tree()).getByText('table_a'))
+
+    expect(screen.queryByTestId('docpane-table:schema_a.table_a')).toBeNull()
+    expect(screen.queryByTestId('doctab-table:schema_a.table_a')).toBeNull()
+  })
+
+  it('한 번 클릭은 그 행을 강조한다 — 아무 반응이 없으면 클릭이 먹었는지 알 수 없다', async () => {
+    wrap(bridge([conn('a', 'prod')]))
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(within(tree()).getByText(/schema_a/)).toBeTruthy())
+    fireEvent.click(within(tree()).getByText(/schema_a/))
+    await waitFor(() => expect(within(tree()).getByText('table_a')).toBeTruthy())
+
+    const row = within(tree()).getByText('table_a')
+    const before = getComputedStyle(row).background
+    fireEvent.click(row)
+
+    await waitFor(() => expect(getComputedStyle(within(tree()).getByText('table_a')).background).not.toBe(before))
+  })
+
+  it('테이블을 두 번 누르면 그 테이블 문서가 열린다', async () => {
+    wrap(bridge([conn('a', 'prod')]))
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(within(tree()).getByText(/schema_a/)).toBeTruthy())
+    fireEvent.click(within(tree()).getByText(/schema_a/))
+    await waitFor(() => expect(within(tree()).getByText('table_a')).toBeTruthy())
+
+    fireEvent.doubleClick(within(tree()).getByText('table_a'))
+
+    await waitFor(() => expect(screen.getByTestId('doctab-table:schema_a.table_a')).toBeTruthy())
+    expect(screen.getByTestId('docpane-table:schema_a.table_a')).toBeTruthy()
+  })
+
+  it('스키마 행의 ER 버튼이 그 스키마의 ER 문서를 연다', async () => {
+    wrap(bridge([conn('a', 'prod')]))
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(screen.getByTestId('schema-open-er-schema_a')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('schema-open-er-schema_a'))
+
+    await waitFor(() => expect(screen.getByTestId('doctab-er:schema_a')).toBeTruthy())
+    expect(screen.getByTestId('docpane-er:schema_a')).toBeTruthy()
+  })
+
   it('연결을 닫으면 그 가지도 사라진다', async () => {
     await openBoth(bridge([conn('a', 'prod'), conn('b', 'staging')]))
     await waitFor(() => expect(within(tree()).getByText(/schema_a/)).toBeTruthy())

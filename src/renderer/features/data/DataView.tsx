@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import type { BrowseSort } from '../../../shared/types/operation'
 import type { OperationGateway } from '../../gateways/ports/OperationGateway'
 import type { TableSelection } from '../../entities/schema-tree'
-import { Button, EmptyState, ErrorBanner, Notice, Toolbar } from '../../shared/ui'
+import { Button, ErrorBanner, Notice, Toolbar } from '../../shared/ui'
 import { DataGrid } from '../../entities/result-set/ui/DataGrid'
 import { useTableData } from './model/useTableData'
 import { useTableColumns } from './model/useTableColumns'
@@ -35,8 +35,10 @@ const EditHint = styled.span`
 interface DataViewProps {
   gateway: OperationGateway
   connectionId: string
-  /** 셸의 사이드바 트리가 고른 테이블. 이 뷰는 자기 트리를 갖지 않는다. */
-  selection: TableSelection | null
+  /** 문서 자체가 대상 테이블을 확정한다 — 이 뷰는 자기 트리를 갖지 않는다. */
+  selection: TableSelection
+  /** 스테이징된 편집 유무가 바뀔 때마다 알린다 — 탭 닫기 확인에 쓴다. */
+  onDirtyChange?: ((dirty: boolean) => void) | undefined
 }
 
 /**
@@ -49,11 +51,11 @@ interface SortState {
   readonly sort: BrowseSort | undefined
 }
 
-export function DataView({ gateway, connectionId, selection }: DataViewProps) {
+export function DataView({ gateway, connectionId, selection, onDirtyChange }: DataViewProps) {
   const [sortState, setSortState] = useState<SortState>({ key: '', sort: undefined })
 
-  const schema = selection?.schema ?? ''
-  const table = selection?.table ?? ''
+  const schema = selection.schema
+  const table = selection.table
   const sortKey = `${connectionId}\u0000${schema}\u0000${table}`
   const sort = sortState.key === sortKey ? sortState.sort : undefined
 
@@ -65,6 +67,11 @@ export function DataView({ gateway, connectionId, selection }: DataViewProps) {
 
   // 선택/정렬/연결이 바뀌면 스테이징된 편집을 버린다 — 다른 테이블로 편집이 새어나가면 안 된다.
   useEffect(() => { editor.discard() }, [connectionId, schema, table, sort?.column, sort?.direction])
+
+  // dirty 여부를 상위(문서 탭)로 올린다 — 탭을 닫을 때 이 편집이 사라진다고 경고하는 데 쓴다.
+  useEffect(() => {
+    onDirtyChange?.(editor.dirty)
+  }, [editor.dirty, onDirtyChange])
 
   const toggleSort = (column: string) => {
     setSortState((prev) => {
@@ -87,37 +94,33 @@ export function DataView({ gateway, connectionId, selection }: DataViewProps) {
     <Layout>
       <Right>
         {data.error !== null && <ErrorBanner>{data.error}</ErrorBanner>}
-        {selection !== null && editor.error !== null && <ErrorBanner>{editor.error}</ErrorBanner>}
-        {selection === null ? (
-          <EmptyState title="테이블을 선택하세요." hint="왼쪽 트리에서 스키마를 펼쳐 테이블을 고르세요" />
-        ) : (
-          <>
-            {canEdit ? (
-              <Toolbar>
-                <Spacer />
-                <EditHint>셀을 두 번 누르거나 Enter로 편집</EditHint>
-                <span>{editor.changeCount} changes</span>
-                <Button variant="secondary" size="sm" onClick={editor.addRow}>Add row</Button>
-                <Button variant="secondary" size="sm" disabled={!editor.dirty} onClick={editor.discard}>Discard</Button>
-                <Button variant="secondary" size="sm" disabled={!editor.dirty} onClick={handleSave}>Save</Button>
-              </Toolbar>
-            ) : (
-              <Notice>PK 없음 — 편집 불가</Notice>
-            )}
-            {data.loading && data.rows.length === 0 && <Notice>불러오는 중…</Notice>}
-            <DataGrid
-              columns={data.columns}
-              rows={data.rows}
-              hasMore={data.hasMore}
-              onLoadMore={() => void data.loadMore()}
-              {...(sort ? { sort } : {})}
-              onHeaderClick={toggleSort}
-              {...(canEdit
-                ? { editing: { onCommitCell: editor.editCell, edits: editor.edits, deletedRows: editor.deleted, onToggleDelete: editor.toggleDelete, newRows: editor.newRows, onCommitNewCell: editor.editNewCell, onSetNull: editor.setNull, onSetNewCellNull: editor.setNewCellNull } }
-                : {})}
-            />
-          </>
-        )}
+        {editor.error !== null && <ErrorBanner>{editor.error}</ErrorBanner>}
+        <>
+          {canEdit ? (
+            <Toolbar>
+              <Spacer />
+              <EditHint>셀을 두 번 누르거나 Enter로 편집</EditHint>
+              <span>{editor.changeCount} changes</span>
+              <Button variant="secondary" size="sm" onClick={editor.addRow}>Add row</Button>
+              <Button variant="secondary" size="sm" disabled={!editor.dirty} onClick={editor.discard}>Discard</Button>
+              <Button variant="secondary" size="sm" disabled={!editor.dirty} onClick={handleSave}>Save</Button>
+            </Toolbar>
+          ) : (
+            <Notice>PK 없음 — 편집 불가</Notice>
+          )}
+          {data.loading && data.rows.length === 0 && <Notice>불러오는 중…</Notice>}
+          <DataGrid
+            columns={data.columns}
+            rows={data.rows}
+            hasMore={data.hasMore}
+            onLoadMore={() => void data.loadMore()}
+            {...(sort ? { sort } : {})}
+            onHeaderClick={toggleSort}
+            {...(canEdit
+              ? { editing: { onCommitCell: editor.editCell, edits: editor.edits, deletedRows: editor.deleted, onToggleDelete: editor.toggleDelete, newRows: editor.newRows, onCommitNewCell: editor.editNewCell, onSetNull: editor.setNull, onSetNewCellNull: editor.setNewCellNull } }
+              : {})}
+          />
+        </>
       </Right>
     </Layout>
   )

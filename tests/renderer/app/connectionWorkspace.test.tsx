@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
 import { ConnectionWorkspace } from '@renderer/app/ConnectionWorkspace'
+import type { TabSet } from '@renderer/app/model/useDocumentTabs'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
+import type { AiAccountStatus } from '@renderer/gateways/ports/ConnectionGateway'
 import type { Capability } from '@shared/types/capability'
 
 beforeAll(() => {
@@ -66,7 +68,32 @@ function gateway(): OperationGateway {
     onStreamMessage: vi.fn(() => () => {}),
   }
 }
-function wrap(capabilities: readonly Capability[] = ['sql', 'schema', 'data']) {
+
+const ORDERS_TABS: TabSet = {
+  documents: [{ kind: 'table', schema: 'public', table: 'orders' }],
+  activeKey: 'table:public.orders',
+}
+
+interface WrapOptions {
+  capabilities?: readonly Capability[]
+  tabs?: TabSet
+  aiAccount?: AiAccountStatus
+  onOpenDocument?: () => void
+  onCloseDocument?: (key: string) => void
+  onActivateDocument?: (key: string) => void
+  onNewQuery?: () => void
+}
+
+function wrap(options: WrapOptions = {}) {
+  const {
+    capabilities = ['sql', 'schema', 'data'] as Capability[],
+    tabs = ORDERS_TABS,
+    aiAccount,
+    onOpenDocument = vi.fn(),
+    onCloseDocument = vi.fn(),
+    onActivateDocument = vi.fn(),
+    onNewQuery = vi.fn(),
+  } = options
   return render(
     <ThemeProvider theme={darkTheme}>
       <ConnectionWorkspace
@@ -74,219 +101,148 @@ function wrap(capabilities: readonly Capability[] = ['sql', 'schema', 'data']) {
         connectionId="c1"
         connectionName="prod"
         capabilities={capabilities}
+        engine="postgres"
+        {...(aiAccount !== undefined ? { aiAccount } : {})}
+        tabs={tabs}
+        onOpenDocument={onOpenDocument}
+        onCloseDocument={onCloseDocument}
+        onActivateDocument={onActivateDocument}
+        onNewQuery={onNewQuery}
+        onConnectionDirtyChange={vi.fn()}
       />
     </ThemeProvider>,
   )
 }
 
 describe('ConnectionWorkspace', () => {
-  it('셸이 테이블을 고르면 Query에 있어도 Data로 넘어간다', async () => {
-    const props = { gateway: gateway(), connectionId: 'c1', connectionName: 'prod', capabilities: ['sql', 'schema', 'data'] as const }
-    const { rerender } = render(
-      <ThemeProvider theme={darkTheme}>
-        <ConnectionWorkspace {...props} selection={null} />
-      </ThemeProvider>,
-    )
-    expect(screen.getByText(/Query — prod/)).toBeTruthy()
-
-    // 트리에서 테이블을 눌렀는데 화면이 그대로면 클릭이 먹었는지 알 수 없다.
-    rerender(
-      <ThemeProvider theme={darkTheme}>
-        <ConnectionWorkspace {...props} selection={{ schema: 'public', table: 'users' }} />
-      </ThemeProvider>,
-    )
-    await waitFor(() => expect(screen.getByText('7')).toBeTruthy())
-    expect(screen.queryByText(/Query — prod/)).toBeNull()
-  })
-
-  it('Structure를 보던 중에 테이블을 고르면 Structure에 머문다', async () => {
-    const props = { gateway: gateway(), connectionId: 'c1', connectionName: 'prod', capabilities: ['sql', 'schema', 'data'] as const }
-    const { rerender } = render(
-      <ThemeProvider theme={darkTheme}>
-        <ConnectionWorkspace {...props} selection={null} />
-      </ThemeProvider>,
-    )
-    fireEvent.click(screen.getByTestId('subtab-structure'))
-    rerender(
-      <ThemeProvider theme={darkTheme}>
-        <ConnectionWorkspace {...props} selection={{ schema: 'public', table: 'users' }} />
-      </ThemeProvider>,
-    )
-    // 구조도 테이블을 보는 화면이다 — 굳이 뺏어 오지 않는다.
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Columns' })).toBeTruthy())
-  })
-
-  it('기본은 Query 서브뷰다', () => {
-    wrap()
-    expect(screen.getByText(/Query — prod/)).toBeTruthy()
-  })
-
-  it('Structure 서브탭으로 전환하면 구조 뷰가 뜬다', async () => {
-    wrap()
-    fireEvent.click(screen.getByTestId('subtab-structure'))
-    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
-    // Query 헤더는 더 이상 없다.
-    expect(screen.queryByText(/Query — prod/)).toBeNull()
-  })
-
-  it('다시 Query 서브탭으로 돌아올 수 있다', async () => {
-    wrap()
-    fireEvent.click(screen.getByTestId('subtab-structure'))
-    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
-    fireEvent.click(screen.getByTestId('subtab-query'))
-    expect(screen.getByText(/Query — prod/)).toBeTruthy()
-  })
-
-  it('Data 서브탭으로 전환하면 데이터 뷰가 뜬다', async () => {
-    wrap()
-    fireEvent.click(screen.getByTestId('subtab-data'))
-    await waitFor(() => expect(screen.getByText(/왼쪽 트리에서 스키마를 펼쳐/)).toBeTruthy())
-    // Query 헤더는 더 이상 없다.
-    expect(screen.queryByText(/Query — /)).toBeNull()
-  })
-
-  it('ER 서브탭으로 전환하면 스키마 셀렉터가 뜬다', async () => {
-    wrap()
-    fireEvent.click(screen.getByTestId('subtab-er'))
-    await waitFor(() => expect(screen.getByLabelText('schema')).toBeTruthy())
-  })
-
-  it('ER에서 노드를 클릭하면 Structure 뷰가 그 테이블을 연다', async () => {
-    wrap()
-    fireEvent.click(screen.getByTestId('subtab-er'))
-    await waitFor(() => expect(screen.getByLabelText('schema')).toBeTruthy())
-    fireEvent.change(screen.getByLabelText('schema'), { target: { value: 'public' } })
-    await waitFor(() => expect(screen.getByText('orders')).toBeTruthy())
-    fireEvent.click(screen.getByText('orders'))
-    // Structure 뷰로 전환되고 orders의 컬럼이 패널에 뜬다.
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Columns' })).toBeTruthy())
-  })
-
-  it('aiAccount=ready면 상태바에 전용 읽기 계정 배지가 뜬다', () => {
+  it('탭 줄과 활성 문서를 그린다', () => {
     render(
       <ThemeProvider theme={darkTheme}>
         <ConnectionWorkspace
           gateway={gateway()}
           connectionId="c1"
-          connectionName="prod"
-          capabilities={['sql']}
-          aiAccount="ready"
+          connectionName="pg-dev"
+          capabilities={['sql', 'schema', 'data'] as Capability[]}
+          engine="postgres"
+          tabs={{ documents: [{ kind: 'table', schema: 'public', table: 'orders' }], activeKey: 'table:public.orders' }}
+          onOpenDocument={vi.fn()}
+          onCloseDocument={vi.fn()}
+          onActivateDocument={vi.fn()}
+          onNewQuery={vi.fn()}
+          onConnectionDirtyChange={vi.fn()}
         />
       </ThemeProvider>,
     )
+    expect(screen.getByTestId('doctab-table:public.orders')).toBeTruthy()
+    expect(screen.getByTestId('docpane-table:public.orders')).toBeTruthy()
+  })
+
+  it('Redis 연결에서는 탭 줄을 감춘다', () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <ConnectionWorkspace
+          gateway={gateway()}
+          connectionId="c1"
+          connectionName="redis"
+          capabilities={['keyvalue'] as Capability[]}
+          tabs={{ documents: [{ kind: 'keys' }], activeKey: 'keys' }}
+          onOpenDocument={vi.fn()}
+          onCloseDocument={vi.fn()}
+          onActivateDocument={vi.fn()}
+          onNewQuery={vi.fn()}
+          onConnectionDirtyChange={vi.fn()}
+        />
+      </ThemeProvider>,
+    )
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.getByTestId('docpane-keys')).toBeTruthy()
+  })
+
+  it('열 수 있는 종류가 여럿이면 탭 줄을 보인다 — 싱글턴 하나뿐일 때만 감춘다', () => {
+    wrap({ capabilities: ['sql', 'schema', 'data'] })
+    expect(screen.getByRole('tablist')).toBeTruthy()
+  })
+
+  it('탭을 누르면 그 문서 키로 onActivateDocument를 부른다', () => {
+    const onActivateDocument = vi.fn()
+    wrap({
+      tabs: {
+        documents: [
+          { kind: 'table', schema: 'public', table: 'orders' },
+          { kind: 'query', serial: 1 },
+        ],
+        activeKey: 'table:public.orders',
+      },
+      onActivateDocument,
+    })
+    fireEvent.click(screen.getByTestId('doctab-query:1'))
+    expect(onActivateDocument).toHaveBeenCalledWith('query:1')
+  })
+
+  it('탭의 닫기가 그 문서 키로 onCloseDocument를 부른다', () => {
+    const onCloseDocument = vi.fn()
+    wrap({ onCloseDocument })
+    fireEvent.click(screen.getByTestId('doctab-close-table:public.orders'))
+    expect(onCloseDocument).toHaveBeenCalledWith('table:public.orders')
+  })
+
+  it('sql capability가 있으면 새 쿼리 버튼이 onNewQuery를 부른다', () => {
+    const onNewQuery = vi.fn()
+    wrap({ onNewQuery })
+    fireEvent.click(screen.getByTestId('doctab-new-query'))
+    expect(onNewQuery).toHaveBeenCalled()
+  })
+
+  it('sql capability가 없으면 새 쿼리 버튼이 아예 없다', () => {
+    // 쿼리를 실행할 수 없는 엔진에서 ＋가 보이면 열리지 않는 탭을 권하는 셈이다.
+    wrap({
+      capabilities: ['schema', 'data'],
+      tabs: { documents: [{ kind: 'er', schema: 'public' }], activeKey: 'er:public' },
+    })
+    expect(screen.queryByTestId('doctab-new-query')).toBeNull()
+  })
+
+  it('상태바가 연결 이름과 활성 문서 제목을 보여 준다', () => {
+    wrap({
+      tabs: {
+        documents: [
+          { kind: 'table', schema: 'public', table: 'orders' },
+          { kind: 'query', serial: 2 },
+        ],
+        activeKey: 'query:2',
+      },
+    })
+    // 제목은 탭 줄에도 있다 — 상태바 안에서 찾아야 상태바를 실제로 검사한다.
+    const statusBar = screen.getByText('prod').parentElement as HTMLElement
+    expect(within(statusBar).getByText('Query 2')).toBeTruthy()
+  })
+
+  it('열린 문서가 없으면 상태바에 문서 제목이 없다', () => {
+    wrap({ tabs: { documents: [], activeKey: null } })
+    expect(screen.getByTestId('document-empty')).toBeTruthy()
+    expect(screen.getByText('prod')).toBeTruthy()
+  })
+
+  it('aiAccount=ready면 상태바에 전용 읽기 계정 배지가 뜬다', () => {
+    wrap({ capabilities: ['sql'], tabs: { documents: [], activeKey: null }, aiAccount: 'ready' })
     expect(screen.getByTestId('ai-account-status').textContent).toContain('전용 읽기 계정')
   })
 
   it('aiAccount=failed면 사용자 계정 공유 폴백 경고가 뜬다', () => {
-    render(
-      <ThemeProvider theme={darkTheme}>
-        <ConnectionWorkspace
-          gateway={gateway()}
-          connectionId="c1"
-          connectionName="prod"
-          capabilities={['sql']}
-          aiAccount="failed"
-        />
-      </ThemeProvider>,
-    )
+    wrap({ capabilities: ['sql'], tabs: { documents: [], activeKey: null }, aiAccount: 'failed' })
     expect(screen.getByTestId('ai-account-status').textContent).toContain('AI 계정 연결 실패')
   })
 
   it('aiAccount가 none이거나 없으면 배지가 없다', () => {
-    render(
-      <ThemeProvider theme={darkTheme}>
-        <ConnectionWorkspace
-          gateway={gateway()}
-          connectionId="c1"
-          connectionName="prod"
-          capabilities={['sql']}
-          aiAccount="none"
-        />
-      </ThemeProvider>,
-    )
+    const none = wrap({ capabilities: ['sql'], tabs: { documents: [], activeKey: null }, aiAccount: 'none' })
     expect(screen.queryByTestId('ai-account-status')).toBeNull()
-    wrap() // aiAccount 미전달
+    none.unmount()
+    wrap({ capabilities: ['sql'], tabs: { documents: [], activeKey: null } }) // aiAccount 미전달
     expect(screen.queryByTestId('ai-account-status')).toBeNull()
   })
 
-  it('sql/schema/data 모두 있으면 4개 서브탭이 다 뜬다', () => {
-    wrap(['sql', 'schema', 'data'])
-    expect(screen.getByTestId('subtab-query')).toBeTruthy()
-    expect(screen.getByTestId('subtab-structure')).toBeTruthy()
-    expect(screen.getByTestId('subtab-data')).toBeTruthy()
-    expect(screen.getByTestId('subtab-er')).toBeTruthy()
-  })
-
-  it('schema만 있으면 Structure/ER만 뜨고 Query/Data는 없다', () => {
-    wrap(['schema'])
-    expect(screen.queryByTestId('subtab-query')).toBeNull()
-    expect(screen.queryByTestId('subtab-data')).toBeNull()
-    expect(screen.getByTestId('subtab-structure')).toBeTruthy()
-    expect(screen.getByTestId('subtab-er')).toBeTruthy()
-  })
-
-  it('sql만 있으면 Query만 뜬다', () => {
-    wrap(['sql'])
-    expect(screen.getByTestId('subtab-query')).toBeTruthy()
-    expect(screen.queryByTestId('subtab-structure')).toBeNull()
-    expect(screen.queryByTestId('subtab-data')).toBeNull()
-    expect(screen.queryByTestId('subtab-er')).toBeNull()
-  })
-
-  it('document capability만 있으면 Documents만 뜨고 나머지는 없다', () => {
-    wrap(['document'])
-    expect(screen.getByTestId('subtab-documents')).toBeTruthy()
-    expect(screen.queryByTestId('subtab-query')).toBeNull()
-    expect(screen.queryByTestId('subtab-structure')).toBeNull()
-    expect(screen.queryByTestId('subtab-data')).toBeNull()
-    expect(screen.queryByTestId('subtab-er')).toBeNull()
-  })
-
-  it('keyvalue capability만 있으면 Key Browser만 뜨고 나머지는 없다', () => {
-    wrap(['keyvalue'])
-    expect(screen.getByTestId('subtab-keys')).toBeTruthy()
-    expect(screen.queryByTestId('subtab-query')).toBeNull()
-    expect(screen.queryByTestId('subtab-structure')).toBeNull()
-    expect(screen.queryByTestId('subtab-data')).toBeNull()
-    expect(screen.queryByTestId('subtab-er')).toBeNull()
-    expect(screen.queryByTestId('subtab-documents')).toBeNull()
-  })
-
-  it('stream capability만 있으면 Streams만 뜨고 나머지는 없다', () => {
-    wrap(['stream'])
-    expect(screen.getByTestId('subtab-streams')).toBeTruthy()
-    expect(screen.queryByTestId('subtab-query')).toBeNull()
-    expect(screen.queryByTestId('subtab-keys')).toBeNull()
-  })
-
-  it('capability가 없으면 서브탭이 하나도 없다(빈 상태)', () => {
-    wrap([])
-    expect(screen.queryByTestId('subtab-query')).toBeNull()
-    expect(screen.queryByTestId('subtab-structure')).toBeNull()
-    expect(screen.queryByTestId('subtab-data')).toBeNull()
-    expect(screen.queryByTestId('subtab-er')).toBeNull()
-  })
-
-  it('capability가 줄어드는 리렌더에서 사라진 뷰가 남아있지 않고 즉시 대체된다', async () => {
-    const { rerender } = wrap(['sql', 'schema', 'data'])
-    fireEvent.click(screen.getByTestId('subtab-data'))
-    await waitFor(() => expect(screen.getByText(/왼쪽 트리에서 스키마를 펼쳐/)).toBeTruthy())
-
-    // 같은 인스턴스를 data capability가 빠진 capabilities로 리렌더한다(마운트가 아니라 리렌더).
-    rerender(
-      <ThemeProvider theme={darkTheme}>
-        <ConnectionWorkspace
-          gateway={gateway()}
-          connectionId="c1"
-          connectionName="prod"
-          capabilities={['sql']}
-        />
-      </ThemeProvider>,
-    )
-
-    // Data 서브탭은 사라져야 하고, view state가 useEffect로 나중에 보정되기 전에도
-    // stale한 Data 뷰 본문이 한 커밋이라도 뜨면 안 된다 — query가 즉시 보여야 한다.
-    expect(screen.queryByTestId('subtab-data')).toBeNull()
-    expect(screen.getByText(/Query — prod/)).toBeTruthy()
+  it('상태바 오른쪽에 capability를 나열한다', () => {
+    wrap({ capabilities: ['sql', 'schema', 'data'] })
+    expect(screen.getByText('sql · schema · data')).toBeTruthy()
   })
 })

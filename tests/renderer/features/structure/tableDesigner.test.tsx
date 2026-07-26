@@ -1,9 +1,20 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
-import { StructureView } from '@renderer/features/structure'
+import { DocumentHost } from '@renderer/app/DocumentHost'
+import { DesignerOverlay } from '@renderer/features/structure'
+import type { Document } from '@renderer/entities/document'
+import { documentKey } from '@renderer/entities/document'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
+import type { EngineId } from '@shared/types/connection'
+
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({ width: 800, height: 400, top: 0, left: 0, right: 800, bottom: 400, x: 0, y: 0, toJSON() {} }),
+  })
+})
 
 interface RanOperation {
   readonly kind: string
@@ -64,13 +75,54 @@ function fakeGateway(overrideSql?: (sql: string) => OperationOutcome) {
   return { gateway, run }
 }
 
-function wrap(ui: React.ReactElement) {
-  return render(<ThemeProvider theme={darkTheme}>{ui}</ThemeProvider>)
+/** 트리는 셸이 갖는다 — 문서 호스트에는 열린 문서가 prop으로 들어온다. */
+const SCHEMAS = ['public']
+const ER: Document = { kind: 'er', schema: 'public' }
+const USERS: Document = { kind: 'table', schema: 'public', table: 'users' }
+
+/**
+ * DDL 폼은 이제 문서 호스트가 띄운다 — "New Table"은 ER 문서 툴바에, 테이블에
+ * 매인 액션들은 테이블 문서 툴바에 있다. 그래서 이 파일은 호스트를 통째로
+ * 마운트해 실제 경로(툴바 → 폼 → 실행)를 검사한다.
+ */
+function mount(doc: Document, engine: EngineId | undefined, onSchemaChanged?: () => void) {
+  const { gateway, run } = fakeGateway()
+  render(
+    <ThemeProvider theme={darkTheme}>
+      <DocumentHost
+        documents={[doc]}
+        activeKey={documentKey(doc)}
+        gateway={gateway}
+        connectionId="c1"
+        {...(engine !== undefined ? { engine } : {})}
+        schemas={SCHEMAS}
+        {...(onSchemaChanged !== undefined ? { onSchemaChanged } : {})}
+        onOpenDocument={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />
+    </ThemeProvider>,
+  )
+  return { run }
 }
 
-/** 트리는 셸이 갖는다 — 이 뷰에는 선택이 prop으로 들어온다. */
-const SCHEMAS = ['public']
-const USERS = { schema: 'public', table: 'users' }
+function mountWithSql(doc: Document, engine: EngineId, overrideSql: (sql: string) => OperationOutcome) {
+  const { gateway, run } = fakeGateway(overrideSql)
+  render(
+    <ThemeProvider theme={darkTheme}>
+      <DocumentHost
+        documents={[doc]}
+        activeKey={documentKey(doc)}
+        gateway={gateway}
+        connectionId="c1"
+        engine={engine}
+        schemas={SCHEMAS}
+        onOpenDocument={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />
+    </ThemeProvider>,
+  )
+  return { run }
+}
 
 function sqlCalls(run: ReturnType<typeof vi.fn>): string[] {
   return run.mock.calls
@@ -79,34 +131,22 @@ function sqlCalls(run: ReturnType<typeof vi.fn>): string[] {
     .map((op) => op.sql ?? '')
 }
 
-describe('StructureView 테이블 디자이너', () => {
+describe('테이블 디자이너', () => {
   it('engine이 없으면 DDL 툴바가 표시되지 않는다', async () => {
-    const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} />)
-    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
+    mount(ER, undefined)
+    await waitFor(() => expect(screen.getByTestId(`docpane-${documentKey(ER)}`)).toBeTruthy())
     expect(screen.queryByTestId('ddl-open-create')).toBeNull()
   })
 
   it('SQL이 아닌 엔진(mongodb)이면 DDL 툴바가 표시되지 않는다', async () => {
-    const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="mongodb" />)
-    await waitFor(() => expect(screen.getByText(/테이블을 선택/)).toBeTruthy())
+    mount(ER, 'mongodb')
+    await waitFor(() => expect(screen.getByTestId(`docpane-${documentKey(ER)}`)).toBeTruthy())
     expect(screen.queryByTestId('ddl-open-create')).toBeNull()
   })
 
   it('New Table: 폼 → SQL 미리보기 → 실행 → 트리 재조회 통지 → 닫힘', async () => {
-    const { gateway, run } = fakeGateway()
     const onSchemaChanged = vi.fn()
-    wrap(
-      <StructureView
-        gateway={gateway}
-        connectionId="c1"
-        selection={null}
-        schemas={SCHEMAS}
-        onSchemaChanged={onSchemaChanged}
-        engine="postgres"
-      />,
-    )
+    const { run } = mount(ER, 'postgres', onSchemaChanged)
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -132,8 +172,7 @@ describe('StructureView 테이블 디자이너', () => {
   })
 
   it('+ ID를 누르면 방언에 맞는 자동 증가 PK 컬럼이 생긴다', async () => {
-    const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
+    mount(ER, 'postgres')
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -148,8 +187,7 @@ describe('StructureView 테이블 디자이너', () => {
   })
 
   it('+ ID를 한 번 누르면 다시 눌러 중복 id를 만들 수 없다', async () => {
-    const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
+    mount(ER, 'postgres')
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -165,8 +203,7 @@ describe('StructureView 테이블 디자이너', () => {
   })
 
   it('직접 입력한 대문자 ID도 + ID 프리셋을 비활성화한다', async () => {
-    const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
+    mount(ER, 'postgres')
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -178,8 +215,7 @@ describe('StructureView 테이블 디자이너', () => {
   it('sqlite의 + ID는 integer를 쓴다', async () => {
     // bigint는 rowid 별칭이 아니라 id가 오류 없이 비어 저장된다 — 프리셋이
     // 그 함정을 만들면 안 된다.
-    const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="sqlite" />)
+    mount(ER, 'sqlite')
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -193,8 +229,7 @@ describe('StructureView 테이블 디자이너', () => {
 
   it('AUTO를 켜면 그 행의 DEFAULT 입력이 잠기고 값이 지워진다', async () => {
     // 엔진이 거부하는 조합(both default and identity)을 애초에 만들 수 없게 한다.
-    const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
+    mount(ER, 'postgres')
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -209,8 +244,7 @@ describe('StructureView 테이블 디자이너', () => {
   })
 
   it('AUTO를 켠 채 타입이 맞지 않으면 이슈가 뜨고 Run이 잠긴다', async () => {
-    const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
+    mount(ER, 'postgres')
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -224,8 +258,7 @@ describe('StructureView 테이블 디자이너', () => {
   })
 
   it('실행이 거부되면 이유를 보여주고 디자이너를 유지한다', async () => {
-    const { gateway } = fakeGateway(() => ({ ok: false, reason: 'permission denied' }))
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
+    mountWithSql(ER, 'postgres', () => ({ ok: false, reason: 'permission denied' }))
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -240,12 +273,11 @@ describe('StructureView 테이블 디자이너', () => {
 
   it('실행이 실패하면 엔진이 말한 이유를 보여준다', async () => {
     // 예전에는 'error' 한 단어만 떴다. 무엇이 잘못됐는지 알 방법이 없었다.
-    const { gateway } = fakeGateway(() => ({
+    mountWithSql(ER, 'postgres', () => ({
       ok: false,
       reason: 'error',
       detail: 'relation "users" already exists',
     }))
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />)
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-create'))
@@ -256,9 +288,8 @@ describe('StructureView 테이블 디자이너', () => {
     expect(await screen.findByText('relation "users" already exists')).toBeTruthy()
   })
 
-  it('테이블을 선택하면 Add FK·Add Index가 나타나고, FK 폼이 ALTER TABLE을 만든다', async () => {
-    const { gateway, run } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine="postgres" />)
+  it('테이블 문서에는 Add FK·Add Index가 있고, FK 폼이 ALTER TABLE을 만든다', async () => {
+    const { run } = mount(USERS, 'postgres')
     await waitFor(() => expect(screen.getByTestId('ddl-open-fk')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-fk'))
@@ -275,16 +306,46 @@ describe('StructureView 테이블 디자이너', () => {
     expect(sqlCalls(run)[0]).toContain('ADD FOREIGN KEY ("org_id")')
   })
 
-  it('sqlite에서는 Add FK 버튼이 없다(ALTER 미지원)', async () => {
-    const { gateway } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine="sqlite" />)
+  it('sqlite에는 Add FK 버튼이 없다 — 눌러 봐야 오류 배너로 끝나는 버튼은 권하지 않는다', async () => {
+    mount(USERS, 'sqlite')
     await waitFor(() => expect(screen.getByTestId('ddl-open-index')).toBeTruthy())
     expect(screen.queryByTestId('ddl-open-fk')).toBeNull()
+    // 다른 액션까지 같이 사라지면 게이팅이 너무 넓게 걸린 것이다.
+    expect(screen.getByTestId('ddl-open-drop-table')).toBeTruthy()
+  })
+
+  it('postgres에는 Add FK 버튼이 있다', async () => {
+    mount(USERS, 'postgres')
+    await waitFor(() => expect(screen.getByTestId('ddl-open-fk')).toBeTruthy())
+  })
+
+  it('sqlite로 FK 폼이 열리더라도 실행은 잠긴다 — 버튼 감추기가 유일한 방어선이면 안 된다', () => {
+    // 툴바 게이팅은 어포던스일 뿐이다. 폼 자체가 sqlite를 거부해야 다른 경로로
+    // 열려도 엔진이 거부하는 문장이 나가지 않는다.
+    const { gateway, run } = fakeGateway()
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <DesignerOverlay
+          gateway={gateway}
+          connectionId="c1"
+          dialect="sqlite"
+          mode="fk"
+          target=""
+          selection={{ schema: 'public', table: 'users' }}
+          schemas={SCHEMAS}
+          existing={{ columns: [], indexes: [] }}
+          onClose={vi.fn()}
+          onRan={vi.fn()}
+        />
+      </ThemeProvider>,
+    )
+    expect(screen.getByTestId('ddl-issues').textContent).toContain('FK')
+    expect(screen.getByTestId<HTMLButtonElement>('ddl-run').disabled).toBe(true)
+    expect(sqlCalls(run)).toHaveLength(0)
   })
 
   it('Add Index 폼이 CREATE INDEX를 만들어 실행한다', async () => {
-    const { gateway, run } = fakeGateway()
-    wrap(<StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine="mysql" />)
+    const { run } = mount(USERS, 'mysql')
     await waitFor(() => expect(screen.getByTestId('ddl-open-index')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('ddl-open-index'))

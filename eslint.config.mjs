@@ -1,6 +1,29 @@
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import importPlugin from 'eslint-plugin-import'
+import fs from 'node:fs'
+import path from 'node:path'
+
+/**
+ * renderer feature 슬라이스 이름. 디렉토리에서 읽는다 — 새 feature가 생겨도
+ * 아래 격리 존이 자동으로 따라붙는다(손으로 적으면 새 feature만 무방비가 된다).
+ */
+const FEATURE_NAMES = fs
+  .readdirSync(path.join(import.meta.dirname, 'src/renderer/features'), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+
+/**
+ * renderer 전역 import 금지 패턴. flat config에서 같은 규칙을 두 블록이 선언하면
+ * 뒤 블록이 앞 블록을 **대체한다** — 병합되지 않는다. features 블록이 자기
+ * no-restricted-imports를 선언하는 순간 이 가드들이 그 슬라이스에서 통째로
+ * 사라졌고, 실제로 features/** 어디서든 `import { app } from 'electron'`이
+ * 조용히 통과했다. 그래서 상수로 빼서 두 블록에 함께 펴 넣는다.
+ */
+const RENDERER_FORBIDDEN_IMPORTS = [
+  { group: ['@main/*', '**/main/*'], message: 'renderer는 main 프로세스 코드를 import할 수 없다' },
+  { group: ['electron'], message: 'renderer는 electron을 직접 import할 수 없다. preload를 통해라' },
+]
 
 export default tseslint.config(
   {
@@ -47,15 +70,7 @@ export default tseslint.config(
     // 여기로 딸려 들어가면 커넥션 처리·비밀 취급 코드가 함께 실려 나간다.
     files: ['src/renderer/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            { group: ['@main/*', '**/main/*'], message: 'renderer는 main 프로세스 코드를 import할 수 없다' },
-            { group: ['electron'], message: 'renderer는 electron을 직접 import할 수 없다. preload를 통해라' },
-          ],
-        },
-      ],
+      'no-restricted-imports': ['error', { patterns: RENDERER_FORBIDDEN_IMPORTS }],
     },
   },
   {
@@ -109,16 +124,43 @@ export default tseslint.config(
   {
     // renderer의 feature 슬라이스는 서로를 직접 import하지 않는다.
     files: ['src/renderer/features/**/*.{ts,tsx}'],
+    settings: {
+      // no-restricted-paths는 import 지정자를 **실제 파일 경로로 풀어** 판정한다.
+      // 기본 node 리졸버의 확장자 목록에는 .ts/.tsx가 없어서 풀리지 않고, 풀리지
+      // 않은 import는 규칙이 조용히 통과시킨다 — 확장자를 넓혀야 규칙이 산다.
+      'import/resolver': { node: { extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'] } },
+    },
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
+            ...RENDERER_FORBIDDEN_IMPORTS,
             {
-              group: ['**/features/*/*'],
-              message: 'feature는 다른 feature의 내부를 import할 수 없다. entities로 내려라',
+              // 배럴(`@renderer/features/query`)과 내부(`.../query/ui/X`)를 모두 잡는다.
+              group: ['**/features/*', '**/features/*/*'],
+              message: 'feature는 다른 feature를 import할 수 없다. entities/shared로 내려라',
             },
           ],
+        },
+      ],
+      /**
+       * 위 패턴은 import **문자열**만 본다 — `'../../inspector'`처럼 features/
+       * 세그먼트가 글자로 드러나지 않는 상대 경로는 그대로 빠져나간다. 실제로
+       * 이 브랜치에서 structure → inspector 상대 import가 그렇게 통과했다.
+       * 이 규칙은 지정자를 파일 경로로 풀어서 보므로 상대·별칭·절대 표기를
+       * 모두 같은 잣대로 잡는다. 문자열 패턴은 심층 방어로 남겨 둔다.
+       */
+      'import/no-restricted-paths': [
+        'error',
+        {
+          basePath: import.meta.dirname,
+          zones: FEATURE_NAMES.map((name) => ({
+            target: `./src/renderer/features/${name}`,
+            from: './src/renderer/features',
+            except: [`./${name}`],
+            message: 'feature는 다른 feature를 import할 수 없다. 공용이면 shared/entities로 내려라',
+          })),
         },
       ],
     },

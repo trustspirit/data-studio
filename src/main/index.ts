@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, session } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, session } from 'electron'
 import type { OpenDialogOptions } from 'electron'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -9,6 +9,7 @@ import { createContractRegistrar } from './ipc/registerHandler'
 import { buildAppServices } from './app/compositionRoot'
 import { registerIpcRoutes } from './app/ipcRoutes'
 import { registerDrivers } from './app/registerDrivers'
+import { buildAppMenuTemplate } from './app/appMenu'
 import { consoleLogger } from './infrastructure/consoleLogger'
 import { FileConnectionRepository } from './infrastructure/FileConnectionRepository'
 import { FileOperationLog } from './infrastructure/execution/FileOperationLog'
@@ -208,6 +209,11 @@ async function wireServices(): Promise<void> {
 let auditFlushed = false
 
 void app.whenReady().then(async () => {
+  // 창을 만들기 전에 깐다. 메뉴를 직접 깔지 않으면 Electron이 기본 메뉴를
+  // 설치하고, 그 Window 서브메뉴의 CmdOrCtrl+W가 renderer의 탭 닫기 단축키보다
+  // 먼저 창을 닫아 버린다(브라우저 프로세스가 처리하므로 renderer의
+  // preventDefault로는 막을 수 없다). 자세한 사정은 appMenu.ts 주석에.
+  Menu.setApplicationMenu(Menu.buildFromTemplate(buildAppMenuTemplate(process.platform)))
   installCsp()
   denyAllPermissions()
   await wireServices()

@@ -140,31 +140,12 @@ describe('useOpenConnections', () => {
     expect(result.current.activeId).toBe('a')
   })
 
-  it('펼침과 선택은 연결별로 따로 유지된다', () => {
+  it('펼침은 연결별로 따로 유지된다', () => {
     const gw = gateway()
     const { result } = renderHook(() => useOpenConnections(gw))
     act(() => result.current.toggleExpanded('a'))
     expect(result.current.expanded['a']).toBe(true)
     expect(result.current.expanded['b']).toBeUndefined()
-
-    act(() => result.current.setSelection('a', { schema: 'public', table: 'users' }))
-    act(() => result.current.setSelection('b', { schema: 'sales', table: 'orders' }))
-    expect(result.current.selection['a']).toEqual({ schema: 'public', table: 'users' })
-    expect(result.current.selection['b']).toEqual({ schema: 'sales', table: 'orders' })
-  })
-
-  it('닫으면 그 연결의 테이블 선택도 사라진다', async () => {
-    const gw = gateway()
-    const { result } = renderHook(() => useOpenConnections(gw))
-    await act(async () => {
-      await result.current.openConnection('a')
-    })
-    act(() => result.current.setSelection('a', { schema: 'public', table: 'users' }))
-    await act(async () => {
-      await result.current.closeConnection('a')
-    })
-    // 닫힌 연결의 선택이 남아 있으면 다시 열었을 때 없어진 테이블을 가리킬 수 있다.
-    expect(result.current.selection['a']).toBeUndefined()
   })
 
   it('닫기가 실패하면 사유를 남기고 엔트리를 지우지 않는다', async () => {
@@ -189,11 +170,11 @@ describe('useOpenConnections', () => {
     await act(async () => {
       await result.current.openConnection('a')
     })
-    act(() => result.current.setSelection('a', { schema: 'public', table: 'users' }))
+    // 열기가 이미 펼쳐 놨다 — forget이 그 흔적까지 지우는지 본다.
+    expect(result.current.expanded['a']).toBe(true)
     act(() => result.current.forget('a'))
     await waitFor(() => expect(result.current.open['a']).toBeUndefined())
     expect(result.current.expanded['a']).toBeUndefined()
-    expect(result.current.selection['a']).toBeUndefined()
     expect(result.current.activeId).toBeNull()
     // forget은 셸 상태만 버린다 — 풀을 닫는 것은 closeConnection의 책임이다.
     // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
