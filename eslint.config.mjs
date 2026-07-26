@@ -13,6 +13,18 @@ const FEATURE_NAMES = fs
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
 
+/**
+ * renderer 전역 import 금지 패턴. flat config에서 같은 규칙을 두 블록이 선언하면
+ * 뒤 블록이 앞 블록을 **대체한다** — 병합되지 않는다. features 블록이 자기
+ * no-restricted-imports를 선언하는 순간 이 가드들이 그 슬라이스에서 통째로
+ * 사라졌고, 실제로 features/** 어디서든 `import { app } from 'electron'`이
+ * 조용히 통과했다. 그래서 상수로 빼서 두 블록에 함께 펴 넣는다.
+ */
+const RENDERER_FORBIDDEN_IMPORTS = [
+  { group: ['@main/*', '**/main/*'], message: 'renderer는 main 프로세스 코드를 import할 수 없다' },
+  { group: ['electron'], message: 'renderer는 electron을 직접 import할 수 없다. preload를 통해라' },
+]
+
 export default tseslint.config(
   {
     // scripts/afterPack.cjs는 electron-builder가 require()로 로딩하는 CJS 훅이다.
@@ -58,15 +70,7 @@ export default tseslint.config(
     // 여기로 딸려 들어가면 커넥션 처리·비밀 취급 코드가 함께 실려 나간다.
     files: ['src/renderer/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            { group: ['@main/*', '**/main/*'], message: 'renderer는 main 프로세스 코드를 import할 수 없다' },
-            { group: ['electron'], message: 'renderer는 electron을 직접 import할 수 없다. preload를 통해라' },
-          ],
-        },
-      ],
+      'no-restricted-imports': ['error', { patterns: RENDERER_FORBIDDEN_IMPORTS }],
     },
   },
   {
@@ -131,9 +135,11 @@ export default tseslint.config(
         'error',
         {
           patterns: [
+            ...RENDERER_FORBIDDEN_IMPORTS,
             {
-              group: ['**/features/*/*'],
-              message: 'feature는 다른 feature의 내부를 import할 수 없다. entities로 내려라',
+              // 배럴(`@renderer/features/query`)과 내부(`.../query/ui/X`)를 모두 잡는다.
+              group: ['**/features/*', '**/features/*/*'],
+              message: 'feature는 다른 feature를 import할 수 없다. entities/shared로 내려라',
             },
           ],
         },
