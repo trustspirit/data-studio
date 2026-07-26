@@ -78,6 +78,12 @@ interface DocumentHostProps {
   gateway: OperationGateway
   ai?: AiGateway | undefined
   connectionId: string
+  /**
+   * 호출부(ConnectionWorkspace)가 자기 상태바에 이미 이 값을 보여 준다.
+   * 이 컴포넌트 내부에서는 더 쓰이지 않는다 — 예전엔 QueryWorkspace로
+   * 그대로 전달했지만 그쪽도 더는 받지 않는다. 인터페이스에는 남긴다:
+   * 호출부를 고치는 건 이 컴포넌트의 관심사가 아니다.
+   */
   connectionName: string
   engine?: EngineId | undefined
   schemas: readonly string[]
@@ -98,7 +104,6 @@ export function DocumentHost({
   gateway,
   ai,
   connectionId,
-  connectionName,
   engine,
   schemas,
   onSchemaChanged,
@@ -195,14 +200,7 @@ export function DocumentHost({
           <DataView gateway={gateway} connectionId={connectionId} selection={{ schema: doc.schema, table: doc.table }} />
         )
       case 'query':
-        return (
-          <QueryWorkspace
-            gateway={gateway}
-            connectionId={connectionId}
-            connectionName={connectionName}
-            engine={engine}
-          />
-        )
+        return <QueryWorkspace gateway={gateway} connectionId={connectionId} engine={engine} />
       case 'er':
         return (
           <ErView
