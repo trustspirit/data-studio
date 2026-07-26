@@ -15,6 +15,10 @@ interface ConnectionBranchProps {
   connectionId: string
   selected: TableSelection | null
   onSelect: (selection: TableSelection) => void
+  /** 테이블을 문서로 연다(더블클릭·Enter). 고르기와는 다른 동작이다. */
+  onOpen: (selection: TableSelection) => void
+  /** 스키마 단위 문서(ER)를 연다. 없으면 트리에 버튼이 나오지 않는다. */
+  onOpenSchema?: ((schema: string) => void) | undefined
   /** 스키마 이름을 셸로 올린다 — 테이블 디자이너가 자동완성에 쓴다. */
   onSchemasLoaded?: ((names: readonly string[]) => void) | undefined
   /** 값이 바뀌면 서버 기준으로 다시 읽는다(DDL 실행 후). */
@@ -33,6 +37,8 @@ export function ConnectionBranch({
   connectionId,
   selected,
   onSelect,
+  onOpen,
+  onOpenSchema,
   onSchemasLoaded,
   reloadToken = 0,
 }: ConnectionBranchProps) {
@@ -63,6 +69,8 @@ export function ConnectionBranch({
         selected={selected}
         onToggle={tree.toggle}
         onSelect={onSelect}
+        onOpen={onOpen}
+        {...(onOpenSchema !== undefined ? { onOpenSchema } : {})}
       />
     </>
   )

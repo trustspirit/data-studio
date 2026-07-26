@@ -26,7 +26,8 @@ const Tree = styled.div<{ $inline: boolean }>`
         `}
 `
 const SchemaRow = styled.button<{ $depth: number }>`
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
   text-align: left;
   font: inherit;
@@ -38,6 +39,17 @@ const SchemaRow = styled.button<{ $depth: number }>`
   font-weight: 600;
   &:hover {
     background: ${({ theme }) => theme.color.rowHover};
+  }
+`
+const SchemaAction = styled.span`
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.textFaint};
+  &:hover {
+    background: ${({ theme }) => theme.color.rowHover};
+    color: ${({ theme }) => theme.color.text};
   }
 `
 const TableRow = styled.button<{ $active: boolean; $depth: number }>`
@@ -63,6 +75,10 @@ interface SchemaNavigatorProps {
   selected: TableSelection | null
   onToggle: (schema: string) => void
   onSelect: (selection: TableSelection) => void
+  /** 테이블을 문서로 연다. 더블클릭과 Enter가 이 콜백을 부른다. */
+  onOpen: (selection: TableSelection) => void
+  /** 스키마 단위 문서(ER)를 연다. 없으면 버튼이 나오지 않는다. */
+  onOpenSchema?: ((schema: string) => void) | undefined
   /** 다른 트리 안에 중첩할 때 켠다 — 자기 폭·배경·보더를 쓰지 않는다. */
   inline?: boolean
   /** 들여쓰기 기준 단계. 0이면 최상위. */
@@ -76,6 +92,8 @@ export function SchemaNavigator({
   selected,
   onToggle,
   onSelect,
+  onOpen,
+  onOpenSchema,
   inline = false,
   depth = 0,
 }: SchemaNavigatorProps) {
@@ -86,6 +104,20 @@ export function SchemaNavigator({
           <SchemaRow type="button" $depth={depth} onClick={() => onToggle(s.name)}>
             {expanded[s.name] ? '▾ ' : '▸ '}
             {s.name}
+            {onOpenSchema !== undefined && (
+              <SchemaAction
+                role="button"
+                aria-label={`${s.name} ER 열기`}
+                data-testid={`schema-open-er-${s.name}`}
+                onClick={(e) => {
+                  // 스키마 행 클릭은 펼치기다 — ER 열기가 그걸 겸하면 안 된다.
+                  e.stopPropagation()
+                  onOpenSchema(s.name)
+                }}
+              >
+                ER
+              </SchemaAction>
+            )}
           </SchemaRow>
           {expanded[s.name] === true &&
             (tablesBySchema[s.name] ?? []).map((t) => {
@@ -96,7 +128,15 @@ export function SchemaNavigator({
                   type="button"
                   $active={active}
                   $depth={depth}
+                  // 한 번 클릭은 고르기만 한다 — 스치듯 누른 클릭이 프로덕션
+                  // 테이블을 열고 SELECT를 쏘면 안 된다(연결 행의 규칙과 같다).
                   onClick={() => onSelect({ schema: s.name, table: t.name })}
+                  onDoubleClick={() => onOpen({ schema: s.name, table: t.name })}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return
+                    e.preventDefault()
+                    onOpen({ schema: s.name, table: t.name })
+                  }}
                 >
                   {t.name}
                 </TableRow>

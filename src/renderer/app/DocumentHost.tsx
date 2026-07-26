@@ -341,9 +341,9 @@ export function DocumentHost({
       {designer !== null && dialect !== null && (
         <DesignerOverlay
           // 실제 방어는 위 useEffect(activeKey가 바뀌면 designer를 닫는다)다.
-          // 이 key는 2차 방어선이다 — StructureView가 쓰던 것과 같은 관례를
-          // 남겨서, 닫는 effect보다 먼저 렌더가 도는 경우에도 폼이 옛 대상의
-          // 입력값을 들고 새 대상 위에 뜨는 일은 없게 한다.
+          // 이 key는 2차 방어선이다 — 닫는 effect보다 먼저 렌더가 도는
+          // 경우에도 폼이 옛 대상의 입력값을 들고 새 대상 위에 뜨는 일은
+          // 없게 한다.
           key={`${designer.mode}:${activeTarget?.schema ?? ''}.${activeTarget?.table ?? ''}:${designer.target}`}
           gateway={gateway}
           connectionId={connectionId}

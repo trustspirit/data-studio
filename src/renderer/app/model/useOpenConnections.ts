@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
 import type { AiAccountStatus, ConnectionGateway } from '../../gateways/ports/ConnectionGateway'
-import type { TableSelection } from '../../entities/schema-tree'
 import type { Capability } from '../../../shared/types/capability'
 
 export type OpenState = 'connecting' | 'ready' | 'error'
@@ -18,12 +17,10 @@ export interface OpenConnectionsState {
   /** 메인 영역이 보여 주는 연결. `ready`인 것만 가리킨다. */
   readonly activeId: string | null
   readonly expanded: Readonly<Record<string, boolean>>
-  readonly selection: Readonly<Record<string, TableSelection | null>>
   openConnection: (id: string) => Promise<void>
   closeConnection: (id: string) => Promise<void>
   setActive: (id: string) => void
   toggleExpanded: (id: string) => void
-  setSelection: (id: string, sel: TableSelection | null) => void
   /** 목록에서 사라진 연결(삭제 등)의 셸 상태를 버린다. */
   forget: (id: string) => void
 }
@@ -76,7 +73,6 @@ function omit<T>(cur: Readonly<Record<string, T>>, id: string): Readonly<Record<
 export function useOpenConnections(gateway: ConnectionGateway): OpenConnectionsState {
   const [set, setSet] = useState<OpenSet>(EMPTY)
   const [expanded, setExpanded] = useState<Readonly<Record<string, boolean>>>({})
-  const [selection, setSelectionState] = useState<Readonly<Record<string, TableSelection | null>>>({})
   // 열기 요청이 겹치면 같은 연결에 connection:open이 두 번 나간다. 상태 반영은
   // 비동기라 in-flight 판정은 ref로만 정확하다.
   const opening = useRef<Set<string>>(new Set())
@@ -142,8 +138,6 @@ export function useOpenConnections(gateway: ConnectionGateway): OpenConnectionsS
       }
       opening.current.delete(id)
       setSet((prev) => without(prev, id))
-      // 닫힌 연결의 선택이 남으면 다시 열었을 때 사라진 테이블을 가리킬 수 있다.
-      setSelectionState((cur) => omit(cur, id))
     },
     [gateway],
   )
@@ -152,7 +146,6 @@ export function useOpenConnections(gateway: ConnectionGateway): OpenConnectionsS
     opening.current.delete(id)
     setSet((prev) => without(prev, id))
     setExpanded((cur) => omit(cur, id))
-    setSelectionState((cur) => omit(cur, id))
   }, [])
 
   const setActive = useCallback((id: string) => {
@@ -161,20 +154,15 @@ export function useOpenConnections(gateway: ConnectionGateway): OpenConnectionsS
   const toggleExpanded = useCallback((id: string) => {
     setExpanded((cur) => ({ ...cur, [id]: cur[id] !== true }))
   }, [])
-  const setSelection = useCallback((id: string, sel: TableSelection | null) => {
-    setSelectionState((cur) => ({ ...cur, [id]: sel }))
-  }, [])
 
   return {
     open: set.open,
     activeId: set.activeId,
     expanded,
-    selection,
     openConnection,
     closeConnection,
     setActive,
     toggleExpanded,
-    setSelection,
     forget,
   }
 }

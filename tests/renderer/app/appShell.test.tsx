@@ -79,7 +79,7 @@ describe('AppShell', () => {
 
     // 사이드바에서 스치듯 누른 클릭이 프로덕션 접속이 되면 안 된다.
     expect(channelsOf(bridge)).not.toContain('connection:open')
-    expect(screen.queryByTestId('subtab-query')).toBeNull()
+    expect(screen.queryByTestId('workspace-a')).toBeNull()
     // 그래도 클릭이 아무 데도 닿지 않으면 막다른 길이다 — 무엇을 골랐는지
     // 보여 주고 접속 버튼을 준다.
     const invite = screen.getByTestId('invite-a')
@@ -135,8 +135,10 @@ describe('AppShell', () => {
 
     await waitFor(() => expect(channelsOf(bridge)).toContain('connection:open'))
     await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
-    expect(within(screen.getByTestId('workspace-a')).getByTestId('subtab-structure')).toBeTruthy()
-    expect(within(screen.getByTestId('workspace-a')).getByText(/Query — prod/)).toBeTruthy()
+    // SQL 연결은 자동으로 열리는 문서가 없다 — 탭 줄과 빈 안내가 함께 뜬다.
+    const pane = screen.getByTestId('workspace-a')
+    expect(within(pane).getByTestId('doctab-new-query')).toBeTruthy()
+    expect(within(pane).getByTestId('document-empty')).toBeTruthy()
   })
 
   it('두 연결을 열고 행 클릭으로 전환할 수 있다', async () => {
@@ -195,6 +197,55 @@ describe('AppShell', () => {
 
     await waitFor(() => expect(screen.getByTestId('row-error-a').textContent).toContain('password required'))
     expect(screen.getByTestId('connect-a').textContent).toBe('재시도')
+  })
+
+  it('접속하면 새 쿼리 버튼으로 쿼리 문서를 열 수 있다', async () => {
+    const bridge = bridgeWith([conn('a', 'prod')])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
+
+    fireEvent.click(within(screen.getByTestId('workspace-a')).getByTestId('doctab-new-query'))
+
+    await waitFor(() => expect(screen.getByTestId('doctab-query:1')).toBeTruthy())
+    expect(screen.getByTestId('docpane-query:1')).toBeTruthy()
+    // 문서가 생겼으니 빈 안내는 사라진다.
+    expect(screen.queryByTestId('document-empty')).toBeNull()
+  })
+
+  it('비-SQL 엔진은 접속하자마자 단일 문서를 열고 탭 줄을 감춘다', async () => {
+    // Redis는 열 수 있는 문서가 Keys 하나뿐이다 — 탭 줄은 크롬 낭비고,
+    // 자동으로 열어 주지 않으면 접속해도 빈 화면만 남는다.
+    const bridge: DataconBridge = {
+      invoke: vi.fn((channel: string) => {
+        if (channel === 'connection:list') return Promise.resolve({ ok: true, value: [conn('a', 'cache')] })
+        if (channel === 'secrets:status') return Promise.resolve({ ok: true, value: { persistent: true } })
+        if (channel === 'connection:open')
+          return Promise.resolve({ ok: true, value: { opened: true, capabilities: ['keyvalue'] } })
+        return Promise.resolve({ ok: true, value: null })
+      }),
+      on: () => () => {},
+    }
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('connect-a'))
+
+    await waitFor(() => expect(screen.getByTestId('docpane-keys')).toBeTruthy())
+    expect(screen.queryByRole('tablist')).toBeNull()
+  })
+
+  it('사이드바 폭을 구분자로 조절한다', async () => {
+    const bridge = bridgeWith([conn('a', 'prod')])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    const gutter = screen.getByTestId('split-sidebar')
+    const before = Number(gutter.getAttribute('aria-valuenow'))
+    fireEvent.keyDown(gutter, { key: 'ArrowRight' })
+    expect(Number(screen.getByTestId('split-sidebar').getAttribute('aria-valuenow'))).toBeGreaterThan(before)
   })
 
   it('연결이 없으면 트리와 메인이 모두 추가를 안내한다', async () => {

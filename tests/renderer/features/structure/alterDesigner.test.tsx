@@ -1,10 +1,18 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
-import { StructureView } from '@renderer/features/structure'
+import { DocumentHost } from '@renderer/app/DocumentHost'
+import { documentKey, type Document } from '@renderer/entities/document'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
 import type { EngineId } from '@shared/types/connection'
+
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({ width: 800, height: 400, top: 0, left: 0, right: 800, bottom: 400, x: 0, y: 0, toJSON() {} }),
+  })
+})
 
 interface RanOperation {
   readonly kind: string
@@ -77,32 +85,47 @@ function sqlCalls(run: ReturnType<typeof vi.fn>): string[] {
     .map((op) => op.sql ?? '')
 }
 
-/** 트리는 셸이 갖는다 — 이 뷰에는 선택이 prop으로 들어온다. */
+/** 트리는 셸이 갖는다 — 문서 호스트에는 열린 문서가 prop으로 들어온다. */
 const SCHEMAS = ['public']
-const USERS = { schema: 'public', table: 'users' }
+const USERS: Document = { kind: 'table', schema: 'public', table: 'users' }
 
-/** public.users가 선택된 상태로 마운트한다. */
-async function mounted(engine: EngineId = 'postgres') {
-  const { gateway, run } = fakeGateway()
+function renderHost(doc: Document, gateway: OperationGateway, engine: EngineId) {
   render(
     <ThemeProvider theme={darkTheme}>
-      <StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine={engine} />
+      <DocumentHost
+        documents={[doc]}
+        activeKey={documentKey(doc)}
+        gateway={gateway}
+        connectionId="c1"
+        connectionName="prod"
+        engine={engine}
+        schemas={SCHEMAS}
+        onOpenDocument={vi.fn()}
+      />
     </ThemeProvider>,
   )
+}
+
+/** public.users 문서가 열린 상태로 마운트한다. */
+async function mounted(engine: EngineId = 'postgres') {
+  const { gateway, run } = fakeGateway()
+  renderHost(USERS, gateway, engine)
   await waitFor(() => expect(screen.getByTestId('col-rename-email')).toBeTruthy())
   return { run }
+}
+
+/** 인덱스 섹션은 처음엔 접혀 있다 — 행을 만지려면 먼저 펼친다. */
+function expandIndexes() {
+  fireEvent.click(screen.getByTestId('inspector-section-indexes'))
 }
 
 const runButton = () => screen.getByTestId<HTMLButtonElement>('ddl-run')
 
 describe('테이블 이름 변경', () => {
-  it('테이블을 고르기 전에는 버튼이 없다', async () => {
+  it('테이블 문서가 아니면 버튼이 없다', async () => {
+    // ER 문서에는 대상 테이블이 없다 — 테이블에 매인 액션을 보여 주면 안 된다.
     const { gateway } = fakeGateway()
-    render(
-      <ThemeProvider theme={darkTheme}>
-        <StructureView gateway={gateway} connectionId="c1" selection={null} schemas={SCHEMAS} engine="postgres" />
-      </ThemeProvider>,
-    )
+    renderHost({ kind: 'er', schema: 'public' }, gateway, 'postgres')
     await waitFor(() => expect(screen.getByTestId('ddl-open-create')).toBeTruthy())
     expect(screen.queryByTestId('ddl-open-rename-table')).toBeNull()
   })
@@ -205,6 +228,7 @@ describe('파괴적 작업 — 대상 이름을 입력해야 열린다', () => {
 
   it('인덱스 행의 Drop이 그 인덱스를 대상으로 삼는다', async () => {
     const { run } = await mounted()
+    expandIndexes()
     fireEvent.click(screen.getByTestId('index-drop-ix_users_email'))
     fireEvent.change(screen.getByTestId('ddl-confirm'), {
       target: { value: 'ix_users_email' },
@@ -253,17 +277,7 @@ describe('이름에 공백이 있는 대상', () => {
 
   async function mountedPadded() {
     const { gateway, run } = paddedGateway()
-    render(
-      <ThemeProvider theme={darkTheme}>
-        <StructureView
-          gateway={gateway}
-          connectionId="c1"
-          selection={{ schema: 'public', table: PADDED }}
-          schemas={SCHEMAS}
-          engine="postgres"
-        />
-      </ThemeProvider>,
-    )
+    renderHost({ kind: 'table', schema: 'public', table: PADDED }, gateway, 'postgres')
     await waitFor(() => expect(screen.getByTestId('ddl-open-drop-table')).toBeTruthy())
     return { run }
   }
@@ -336,11 +350,7 @@ describe('이름에 공백이 있는 대상', () => {
       recentAudit: vi.fn().mockResolvedValue([]),
       onStreamMessage: vi.fn(() => () => {}),
     }
-    render(
-      <ThemeProvider theme={darkTheme}>
-        <StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine="postgres" />
-      </ThemeProvider>,
-    )
+    renderHost(USERS, gateway, 'postgres')
     await waitFor(() => expect(screen.getByText('pad')).toBeTruthy())
     return { run }
   }
@@ -395,14 +405,11 @@ describe('딸려 사라지는 인덱스 경고', () => {
 describe('SQL 엔진이 아니면 행별 DDL 버튼이 없다', () => {
   it('mongodb에는 Rename/Drop이 나오지 않는다', async () => {
     const { gateway } = fakeGateway()
-    render(
-      <ThemeProvider theme={darkTheme}>
-        <StructureView gateway={gateway} connectionId="c1" selection={USERS} schemas={SCHEMAS} engine="mongodb" />
-      </ThemeProvider>,
-    )
+    renderHost(USERS, gateway, 'mongodb')
     await waitFor(() => expect(screen.getByText('email')).toBeTruthy())
     expect(screen.queryByTestId('col-rename-email')).toBeNull()
     expect(screen.queryByTestId('col-drop-email')).toBeNull()
+    expandIndexes()
     expect(screen.queryByTestId('index-drop-ix_users_email')).toBeNull()
   })
 })

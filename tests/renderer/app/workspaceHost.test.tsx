@@ -5,6 +5,7 @@ import { EditorView } from '@codemirror/view'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
 import { WorkspaceHost } from '@renderer/app/WorkspaceHost'
 import type { OpenConnection } from '@renderer/app/model/useOpenConnections'
+import type { TabSet } from '@renderer/app/model/useDocumentTabs'
 import type { ConnectionConfig } from '@shared/types/connection'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
 
@@ -57,11 +58,41 @@ function gateway(): OperationGateway {
 
 const CONNECTIONS = [conn('a', 'prod'), conn('b', 'staging')]
 const OPEN = { a: ready(), b: ready() }
+/** 두 연결 모두 쿼리 문서 하나씩. 문서는 연결별로 따로 소유된다. */
+const QUERY_TABS: Readonly<Record<string, TabSet>> = {
+  a: { documents: [{ kind: 'query', serial: 1 }], activeKey: 'query:1' },
+  b: { documents: [{ kind: 'query', serial: 1 }], activeKey: 'query:1' },
+}
 
-function host(activeId: string, gw: OperationGateway) {
+interface HostOverrides {
+  tabs?: Readonly<Record<string, TabSet>>
+  onOpenDocument?: (connectionId: string, doc: unknown) => void
+  onCloseDocument?: (connectionId: string, key: string) => void
+  onActivateDocument?: (connectionId: string, key: string) => void
+  onNewQuery?: (connectionId: string) => void
+}
+
+function host(activeId: string, gw: OperationGateway, overrides: HostOverrides = {}) {
+  const {
+    tabs = QUERY_TABS,
+    onOpenDocument = vi.fn(),
+    onCloseDocument = vi.fn(),
+    onActivateDocument = vi.fn(),
+    onNewQuery = vi.fn(),
+  } = overrides
   return (
     <ThemeProvider theme={darkTheme}>
-      <WorkspaceHost connections={CONNECTIONS} open={OPEN} activeId={activeId} gateway={gw} />
+      <WorkspaceHost
+        connections={CONNECTIONS}
+        open={OPEN}
+        activeId={activeId}
+        gateway={gw}
+        tabs={tabs}
+        onOpenDocument={onOpenDocument}
+        onCloseDocument={onCloseDocument}
+        onActivateDocument={onActivateDocument}
+        onNewQuery={onNewQuery}
+      />
     </ThemeProvider>
   )
 }
@@ -89,7 +120,7 @@ describe('WorkspaceHost', () => {
     expect(paneB.hasAttribute('hidden')).toBe(true)
     expect(paneB.getAttribute('aria-hidden')).toBe('true')
     // 두 워크스페이스가 실제로 마운트돼 있다(숨김이지 언마운트가 아니다).
-    expect(within(paneB).getByTestId('subtab-query')).toBeTruthy()
+    expect(within(paneB).getByTestId('docpane-query:1')).toBeTruthy()
   })
 
   it('숨은 워크스페이스는 접근성 트리에서 빠진다', () => {
@@ -119,29 +150,65 @@ describe('WorkspaceHost', () => {
     await waitFor(() => expect(screen.getByTestId('workspace-b').hasAttribute('hidden')).toBe(true))
   })
 
-  it('서브탭 선택이 연결별로 따로 유지된다', async () => {
-    const gw = gateway()
-    const { rerender } = render(host('a', gw))
-
-    fireEvent.click(within(screen.getByTestId('workspace-a')).getByTestId('subtab-structure'))
-    await waitFor(() =>
-      expect(within(screen.getByTestId('workspace-a')).getByText(/테이블을 선택/)).toBeTruthy(),
+  it('탭 세트를 연결별로 나눠 준다 — 한쪽 문서가 다른 쪽에 새지 않는다', () => {
+    render(
+      host('a', gateway(), {
+        tabs: {
+          a: { documents: [{ kind: 'table', schema: 'public', table: 'users' }], activeKey: 'table:public.users' },
+          b: { documents: [{ kind: 'query', serial: 3 }], activeKey: 'query:3' },
+        },
+      }),
     )
+    expect(within(screen.getByTestId('workspace-a')).getByTestId('docpane-table:public.users')).toBeTruthy()
+    expect(within(screen.getByTestId('workspace-a')).queryByTestId('docpane-query:3')).toBeNull()
+    expect(within(screen.getByTestId('workspace-b')).getByTestId('docpane-query:3')).toBeTruthy()
+  })
 
-    rerender(host('b', gw))
-    // B는 A의 서브탭 선택을 물려받지 않는다 — 기본값 Query여야 한다.
-    expect(within(screen.getByTestId('workspace-b')).getByText(/Query — staging/)).toBeTruthy()
+  it('탭 세트가 없는 연결은 빈 문서 상태로 뜬다', () => {
+    render(host('a', gateway(), { tabs: {} }))
+    expect(within(screen.getByTestId('workspace-a')).getByTestId('document-empty')).toBeTruthy()
+  })
 
-    rerender(host('a', gw))
-    // A는 Structure에 그대로 있다.
-    expect(within(screen.getByTestId('workspace-a')).queryByText(/Query — prod/)).toBeNull()
-    expect(within(screen.getByTestId('workspace-a')).getByText(/테이블을 선택/)).toBeTruthy()
+  it('문서 콜백에 그 판의 연결 id가 붙는다', () => {
+    const onActivateDocument = vi.fn()
+    const onCloseDocument = vi.fn()
+    const onNewQuery = vi.fn()
+    render(
+      host('b', gateway(), {
+        tabs: {
+          b: {
+            documents: [{ kind: 'query', serial: 1 }, { kind: 'query', serial: 2 }],
+            activeKey: 'query:1',
+          },
+        },
+        onActivateDocument,
+        onCloseDocument,
+        onNewQuery,
+      }),
+    )
+    const paneB = screen.getByTestId('workspace-b')
+    fireEvent.click(within(paneB).getByTestId('doctab-query:2'))
+    expect(onActivateDocument).toHaveBeenCalledWith('b', 'query:2')
+    fireEvent.click(within(paneB).getByTestId('doctab-close-query:1'))
+    expect(onCloseDocument).toHaveBeenCalledWith('b', 'query:1')
+    fireEvent.click(within(paneB).getByTestId('doctab-new-query'))
+    expect(onNewQuery).toHaveBeenCalledWith('b')
   })
 
   it('열리지 않은 연결은 판을 갖지 않는다', () => {
     render(
       <ThemeProvider theme={darkTheme}>
-        <WorkspaceHost connections={CONNECTIONS} open={{ a: ready() }} activeId="a" gateway={gateway()} />
+        <WorkspaceHost
+          connections={CONNECTIONS}
+          open={{ a: ready() }}
+          activeId="a"
+          gateway={gateway()}
+          tabs={QUERY_TABS}
+          onOpenDocument={vi.fn()}
+          onCloseDocument={vi.fn()}
+          onActivateDocument={vi.fn()}
+          onNewQuery={vi.fn()}
+        />
       </ThemeProvider>,
     )
     expect(screen.getByTestId('workspace-a')).toBeTruthy()
