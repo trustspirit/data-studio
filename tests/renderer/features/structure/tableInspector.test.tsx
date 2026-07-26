@@ -96,6 +96,15 @@ describe('TableInspector', () => {
 
     // 로딩 완료(빈 배열 -> 실제 데이터) 전까지 최대 두 번(초기 마운트 + 로드 완료) 호출된다.
     await waitFor(() => expect(screen.getByTestId('inspector-body-columns').textContent).toContain('id'))
+
+    // 호출 횟수뿐 아니라, 실제로 로드된 구조(빈 배열이 아니라 id 컬럼 포함)가
+    // 콜백에 전달됐는지도 확인한다 — 효과가 mount 시 빈 초기값만 한 번 흘려보내고
+    // 데이터가 도착했을 때 다시 실행되지 않는 회귀는 "호출은 됐다"만으로는 못 잡는다.
+    expect(onStructureLoaded).toHaveBeenCalledWith(
+      expect.objectContaining({
+        columns: expect.arrayContaining([expect.objectContaining({ name: 'id' })]),
+      }),
+    )
     const callsAfterLoad = onStructureLoaded.mock.calls.length
     expect(callsAfterLoad).toBeGreaterThan(0)
 
@@ -117,5 +126,63 @@ describe('TableInspector', () => {
     }
 
     expect(onStructureLoaded.mock.calls.length).toBe(callsAfterLoad)
+  })
+
+  it('컬럼 이름 변경 콜백을 ColumnsTable에 전달한다', async () => {
+    const onRenameColumn = vi.fn()
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <TableInspector
+          gateway={gateway()}
+          connectionId="c1"
+          selection={{ schema: 'public', table: 'orders' }}
+          reloadToken={0}
+          extraSections={[]}
+          onRenameColumn={onRenameColumn}
+        />
+      </ThemeProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('col-rename-id')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('col-rename-id'))
+    expect(onRenameColumn).toHaveBeenCalledWith('id')
+  })
+
+  it('컬럼 삭제 콜백을 ColumnsTable에 전달한다', async () => {
+    const onDropColumn = vi.fn()
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <TableInspector
+          gateway={gateway()}
+          connectionId="c1"
+          selection={{ schema: 'public', table: 'orders' }}
+          reloadToken={0}
+          extraSections={[]}
+          onDropColumn={onDropColumn}
+        />
+      </ThemeProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('col-drop-id')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('col-drop-id'))
+    expect(onDropColumn).toHaveBeenCalledWith('id')
+  })
+
+  it('인덱스 삭제 콜백을 IndexList에 전달한다', async () => {
+    const onDropIndex = vi.fn()
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <TableInspector
+          gateway={gateway()}
+          connectionId="c1"
+          selection={{ schema: 'public', table: 'orders' }}
+          reloadToken={0}
+          extraSections={[]}
+          onDropIndex={onDropIndex}
+        />
+      </ThemeProvider>,
+    )
+    fireEvent.click(screen.getByTestId('inspector-section-indexes'))
+    await waitFor(() => expect(screen.getByTestId('index-drop-orders_pkey')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('index-drop-orders_pkey'))
+    expect(onDropIndex).toHaveBeenCalledWith('orders_pkey')
   })
 })
