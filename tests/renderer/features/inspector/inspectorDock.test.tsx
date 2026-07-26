@@ -56,4 +56,12 @@ describe('InspectorDock', () => {
     expect(screen.getByTestId('inspector-section-ai').getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByTestId('inspector-section-columns').getAttribute('aria-expanded')).toBe('false')
   })
+
+  it('grow 섹션은 접혀 있을 때는 남은 높이를 차지하지 않고, 펼쳤을 때만 차지한다', () => {
+    renderDock()
+    const section = screen.getByTestId('inspector-section-ai').parentElement as HTMLElement
+    expect(getComputedStyle(section).flexGrow).not.toBe('1')
+    fireEvent.click(screen.getByTestId('inspector-section-ai'))
+    expect(getComputedStyle(section).flexGrow).toBe('1')
+  })
 })
