@@ -363,6 +363,7 @@ export function AppShell() {
             connections={conns.connections}
             open={shell.open}
             activeId={shell.activeId}
+            visible={mainView === 'workspace'}
             gateway={gateways.operation}
             ai={gateways.ai}
             tabs={tabSets}

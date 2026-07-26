@@ -31,6 +31,8 @@ function bridgeWith(conns: unknown[]): DataconBridge {
       if (channel === 'connection:open')
         return Promise.resolve({ ok: true, value: { opened: true, capabilities: ['sql', 'schema', 'data'] } })
       if (channel === 'connection:status') return Promise.resolve({ ok: true, value: { status: 'ready' } })
+      // Audit 레일 탭이 읽는 채널. 기본값 null을 그대로 주면 AuditView가 렌더에서 죽는다.
+      if (channel === 'audit:recent') return Promise.resolve({ ok: true, value: [] })
       return Promise.resolve({ ok: true, value: null })
     }),
     on: () => () => {},
@@ -271,6 +273,31 @@ describe('AppShell', () => {
     const before = Number(gutter.getAttribute('aria-valuenow'))
     fireEvent.keyDown(gutter, { key: 'ArrowRight' })
     expect(Number(screen.getByTestId('split-sidebar').getAttribute('aria-valuenow'))).toBeGreaterThan(before)
+  })
+
+  it('Audit을 보는 동안에는 탭 단축키가 워크스페이스에 닿지 않는다', async () => {
+    // 워크스페이스는 Audit이 앞에 와도 언마운트되지 않고 display:none 레이어로
+    // 물러난다 — window에 걸린 탭 단축키 리스너는 그대로 살아 있다. 셸이
+    // 가시성을 내려 주지 않으면, Audit을 보는 사용자의 Cmd+W가 보이지도 않는
+    // 문서를 조용히 닫는다.
+    const bridge = bridgeWith([conn('a', 'prod')])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
+    fireEvent.click(within(screen.getByTestId('workspace-a')).getByTestId('doctab-new-query'))
+    await waitFor(() => expect(screen.getByTestId('doctab-query:1')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Audit' }))
+    await waitFor(() => expect(screen.getByTestId('workspace-a').closest('[hidden]')).toBeTruthy())
+
+    fireEvent.keyDown(window, { key: 'w', metaKey: true })
+
+    // 워크스페이스로 돌아오면 문서가 그대로 있어야 한다.
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByTestId('workspace-a').closest('[hidden]')).toBeNull())
+    expect(screen.getByTestId('doctab-query:1')).toBeTruthy()
   })
 
   it('연결이 없으면 트리와 메인이 모두 추가를 안내한다', async () => {

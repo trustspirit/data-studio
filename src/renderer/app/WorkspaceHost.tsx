@@ -35,6 +35,14 @@ interface WorkspaceHostProps {
   onCloseDocument: (connectionId: string, key: string) => void
   onActivateDocument: (connectionId: string, key: string) => void
   onNewQuery: (connectionId: string) => void
+  /**
+   * 워크스페이스가 실제로 화면에 있는지. 셸은 Audit이나 설정 패널이 앞에 와도
+   * 워크스페이스를 언마운트하지 않고 `display:none` 레이어에 숨겨 둔다 — 그
+   * 동안에도 탭 단축키가 살아 있으면 보이지도 않는 문서가 닫히고, dirty 탭이면
+   * 확인 다이얼로그가 숨은 레이어 안에서 떠서 보이지 않는 채로 Escape를
+   * 삼킨다. 그래서 활성 연결 여부와 별개로 이 값이 함께 참이어야 단축키가 산다.
+   */
+  visible: boolean
   /** 연결별 스키마 이름(테이블 디자이너 자동완성용). */
   schemas?: Readonly<Record<string, readonly string[]>> | undefined
   onSchemaChanged?: ((connectionId: string) => void) | undefined
@@ -65,6 +73,7 @@ export function WorkspaceHost({
   onCloseDocument,
   onActivateDocument,
   onNewQuery,
+  visible,
   schemas,
   onSchemaChanged,
   onConnectionDirtyChange,
@@ -105,7 +114,7 @@ export function WorkspaceHost({
               ai={ai}
               connectionId={c.id}
               connectionName={c.name}
-              active={!inactive}
+              active={!inactive && visible}
               capabilities={entry?.capabilities ?? []}
               engine={c.engine}
               aiAccount={entry?.aiAccount ?? 'none'}

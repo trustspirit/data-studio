@@ -66,6 +66,7 @@ const QUERY_TABS: Readonly<Record<string, TabSet>> = {
 
 interface HostOverrides {
   tabs?: Readonly<Record<string, TabSet>>
+  visible?: boolean
   onOpenDocument?: (connectionId: string, doc: unknown) => void
   onCloseDocument?: (connectionId: string, key: string) => void
   onActivateDocument?: (connectionId: string, key: string) => void
@@ -75,6 +76,7 @@ interface HostOverrides {
 function host(activeId: string, gw: OperationGateway, overrides: HostOverrides = {}) {
   const {
     tabs = QUERY_TABS,
+    visible = true,
     onOpenDocument = vi.fn(),
     onCloseDocument = vi.fn(),
     onActivateDocument = vi.fn(),
@@ -86,6 +88,7 @@ function host(activeId: string, gw: OperationGateway, overrides: HostOverrides =
         connections={CONNECTIONS}
         open={OPEN}
         activeId={activeId}
+        visible={visible}
         gateway={gw}
         tabs={tabs}
         onOpenDocument={onOpenDocument}
@@ -211,6 +214,21 @@ describe('WorkspaceHost', () => {
     expect(onCloseDocument.mock.calls.map((c) => c[0])).not.toContain('b')
   })
 
+  // 셸이 Audit이나 설정 패널을 앞에 놓으면 워크스페이스 전체가 display:none
+  // 레이어로 들어간다 — 언마운트가 아니므로 window 리스너는 그대로 살아 있다.
+  // 그 상태에서 Cmd+W가 먹히면 사용자는 보이지도 않는 탭을 닫게 된다.
+  it('워크스페이스가 숨어 있으면 탭 단축키가 죽는다', () => {
+    const onCloseDocument = vi.fn()
+    const onActivateDocument = vi.fn()
+    render(host('a', gateway(), { visible: false, onCloseDocument, onActivateDocument }))
+
+    fireEvent.keyDown(window, { key: 'w', metaKey: true })
+    fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true, altKey: true })
+
+    expect(onCloseDocument).not.toHaveBeenCalled()
+    expect(onActivateDocument).not.toHaveBeenCalled()
+  })
+
   it('열리지 않은 연결은 판을 갖지 않는다', () => {
     render(
       <ThemeProvider theme={darkTheme}>
@@ -218,6 +236,7 @@ describe('WorkspaceHost', () => {
           connections={CONNECTIONS}
           open={{ a: ready() }}
           activeId="a"
+          visible
           gateway={gateway()}
           tabs={QUERY_TABS}
           onOpenDocument={vi.fn()}
