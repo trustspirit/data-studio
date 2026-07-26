@@ -40,9 +40,14 @@ describe('ConfirmDialog', () => {
     expect(onCancel).toHaveBeenCalled()
   })
 
-  it('Escape로 취소된다', () => {
+  // document.body에서 쏜다. body는 React 루트 컨테이너의 **조상**이라 React가
+  // 붙이는 어떤 핸들러도 여기서는 불릴 수 없다 — 이 단언을 만족시킬 수 있는
+  // 것은 컴포넌트가 document에 직접 건 리스너뿐이다. 다이얼로그 안(Backdrop이나
+  // 포커스된 취소 버튼)에서 쏘면 Backdrop에 건 onKeyDown으로도 통과해 버려서,
+  // 리스너 위치가 퇴행해도 테스트가 초록으로 남는다.
+  it('다이얼로그 밖에서 눌린 Escape로도 취소된다', () => {
     const { onCancel } = renderDialog()
-    fireEvent.keyDown(screen.getByTestId('confirm-close'), { key: 'Escape' })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(onCancel).toHaveBeenCalled()
   })
 })

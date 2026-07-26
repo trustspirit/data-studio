@@ -105,10 +105,15 @@ describe('편집 중 탭 닫기', () => {
   })
 
   // 리뷰 지적(Finding 1): 다이얼로그를 여는 실제 트리거(탭의 × 컨트롤)는
-  // ConfirmDialog의 자식이 아니라 ConnectionWorkspace 안의 형제다. 클릭이 DOM
-  // 포커스를 그 트리거에 남기므로, 진짜 상호작용 경로를 재현하려면 다이얼로그
-  // 루트가 아니라 "클릭이 남긴 실제 document.activeElement"에서 Escape를
-  // 쏴야 한다 — 그래야 포커스 위치·버블링 경로를 우회하지 않는다.
+  // ConfirmDialog의 자식이 아니라 ConnectionWorkspace 안의 형제다. 포커스가
+  // 어디에 있든 Escape가 다이얼로그에 닿아야 한다.
+  //
+  // 그래서 document.body에서 쏜다. body는 React 루트 컨테이너의 **조상**이라
+  // React가 붙이는 핸들러는 여기서 절대 불리지 않는다 — 이 단언을 만족시킬 수
+  // 있는 것은 document에 직접 건 리스너뿐이다. (document.activeElement에서
+  // 쏘던 예전 판은 다이얼로그가 마운트 시 포커스를 자기 안의 취소 버튼으로
+  // 옮겨 놓기 때문에 결국 다이얼로그 **안**에서 쏘는 것과 같았고, Backdrop에
+  // 건 onKeyDown으로 되돌려도 그대로 통과했다.)
   it('실제 닫기 컨트롤을 눌러 연 다이얼로그도 Escape로 취소된다(포커스 위치와 무관하게)', async () => {
     const { onCloseDocument } = renderWorkspace()
     await waitFor(() => expect(screen.getByText('Add row')).toBeTruthy())
@@ -116,8 +121,7 @@ describe('편집 중 탭 닫기', () => {
     fireEvent.click(screen.getByTestId('doctab-close-table:public.orders'))
     expect(screen.getByTestId('confirm-close-doc')).toBeTruthy()
 
-    const active = document.activeElement ?? document.body
-    fireEvent.keyDown(active, { key: 'Escape' })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
 
     expect(onCloseDocument).not.toHaveBeenCalled()
     expect(screen.queryByTestId('confirm-close-doc')).toBeNull()
