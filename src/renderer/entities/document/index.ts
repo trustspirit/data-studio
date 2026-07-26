@@ -10,3 +10,4 @@ export {
   type Document,
   type DocumentKind,
 } from './model/document'
+export { DocumentTabBar } from './ui/DocumentTabBar'
