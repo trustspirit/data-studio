@@ -53,8 +53,20 @@ export const darkTheme = {
   // 스페이싱 스케일 — 4px 그리드.
   space: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '24px' },
   radius: { sm: '4px', md: '6px', lg: '8px' },
-  // 레이아웃 고정 치수 — 모든 사이드바/레일이 같은 폭을 공유한다.
-  size: { rail: '56px', sidebar: '240px' },
+  // 레이아웃 치수 — 문자열은 CSS에 그대로 쓰이고, 숫자는 SplitPane의 클램프에 쓰인다.
+  size: {
+    rail: '56px',
+    sidebar: '240px',
+    sidebarDefault: 240,
+    sidebarMin: 180,
+    sidebarMax: 520,
+    inspectorDefault: 280,
+    inspectorMin: 220,
+    inspectorMax: 560,
+    editorDefault: 260,
+    editorMin: 120,
+    editorMax: 720,
+  },
   density: { rowPad: '4px 12px' },
 } as const
 
