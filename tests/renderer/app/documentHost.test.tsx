@@ -48,6 +48,7 @@ function renderHost(documents: readonly Document[], activeKey: string | null) {
         engine="postgres"
         schemas={['public']}
         onOpenDocument={vi.fn()}
+        onDirtyChange={vi.fn()}
       />
     </ThemeProvider>,
   )
@@ -110,6 +111,7 @@ describe('DocumentHost', () => {
           engine="postgres"
           schemas={['public']}
           onOpenDocument={vi.fn()}
+          onDirtyChange={vi.fn()}
         />
       </ThemeProvider>,
     )
@@ -178,6 +180,7 @@ describe('DocumentHost', () => {
             engine="postgres"
             schemas={['public']}
             onOpenDocument={vi.fn()}
+            onDirtyChange={vi.fn()}
           />
         </ThemeProvider>,
       )

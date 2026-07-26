@@ -100,6 +100,7 @@ function renderHost(doc: Document, gateway: OperationGateway, engine: EngineId) 
         engine={engine}
         schemas={SCHEMAS}
         onOpenDocument={vi.fn()}
+        onDirtyChange={vi.fn()}
       />
     </ThemeProvider>,
   )

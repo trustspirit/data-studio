@@ -37,6 +37,8 @@ interface DataViewProps {
   connectionId: string
   /** 문서 자체가 대상 테이블을 확정한다 — 이 뷰는 자기 트리를 갖지 않는다. */
   selection: TableSelection
+  /** 스테이징된 편집 유무가 바뀔 때마다 알린다 — 탭 닫기 확인에 쓴다. */
+  onDirtyChange?: ((dirty: boolean) => void) | undefined
 }
 
 /**
@@ -49,7 +51,7 @@ interface SortState {
   readonly sort: BrowseSort | undefined
 }
 
-export function DataView({ gateway, connectionId, selection }: DataViewProps) {
+export function DataView({ gateway, connectionId, selection, onDirtyChange }: DataViewProps) {
   const [sortState, setSortState] = useState<SortState>({ key: '', sort: undefined })
 
   const schema = selection.schema
@@ -65,6 +67,11 @@ export function DataView({ gateway, connectionId, selection }: DataViewProps) {
 
   // 선택/정렬/연결이 바뀌면 스테이징된 편집을 버린다 — 다른 테이블로 편집이 새어나가면 안 된다.
   useEffect(() => { editor.discard() }, [connectionId, schema, table, sort?.column, sort?.direction])
+
+  // dirty 여부를 상위(문서 탭)로 올린다 — 탭을 닫을 때 이 편집이 사라진다고 경고하는 데 쓴다.
+  useEffect(() => {
+    onDirtyChange?.(editor.dirty)
+  }, [editor.dirty, onDirtyChange])
 
   const toggleSort = (column: string) => {
     setSortState((prev) => {

@@ -98,6 +98,7 @@ function mount(doc: Document, engine: EngineId | undefined, onSchemaChanged?: ()
         schemas={SCHEMAS}
         {...(onSchemaChanged !== undefined ? { onSchemaChanged } : {})}
         onOpenDocument={vi.fn()}
+        onDirtyChange={vi.fn()}
       />
     </ThemeProvider>,
   )
@@ -116,6 +117,7 @@ function mountWithSql(doc: Document, engine: EngineId, overrideSql: (sql: string
         engine={engine}
         schemas={SCHEMAS}
         onOpenDocument={vi.fn()}
+        onDirtyChange={vi.fn()}
       />
     </ThemeProvider>,
   )

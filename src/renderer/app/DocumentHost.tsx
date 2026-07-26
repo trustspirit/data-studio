@@ -83,6 +83,8 @@ interface DocumentHostProps {
   onSchemaChanged?: (() => void) | undefined
   /** ER에서 테이블을 누르면 그 테이블 문서를 연다. */
   onOpenDocument: (doc: Document) => void
+  /** 문서의 스테이징된 편집 유무가 바뀔 때마다 알린다 — 탭 닫기 확인에 쓴다. */
+  onDirtyChange: (key: string, dirty: boolean) => void
 }
 
 /**
@@ -101,6 +103,7 @@ export function DocumentHost({
   schemas,
   onSchemaChanged,
   onOpenDocument,
+  onDirtyChange,
 }: DocumentHostProps) {
   const [inspectorSize, setInspectorSize] = useState(() =>
     readPanelSize('inspector', darkTheme.size.inspectorDefault),
@@ -129,6 +132,23 @@ export function DocumentHost({
     const writer = (s: StructureSnapshot) => setStructureByDoc((prev) => ({ ...prev, [key]: s }))
     structureWriters.current.set(key, writer)
     return writer
+  }
+
+  /**
+   * 문서 키마다 신원이 고정된 dirty 리포터를 재사용한다 — 위 structureWriters와
+   * 같은 이유다. `DataView`의 onDirtyChange effect가 이 콜백을 deps에 넣으므로
+   * 매 렌더 새 화살표를 주면 그 문서가 활성이 아니어도(다른 탭이 리렌더될
+   * 때마다) effect가 다시 돈다. 키별로 하나씩만 만들어 재사용하고, 클로저가
+   * 항상 이 `key`와 `onDirtyChange`(부모가 useCallback으로 고정)만 참조하도록
+   * 한다 — 그래야 탭 A의 편집이 탭 B의 dirty 상태를 건드리지 못한다.
+   */
+  const dirtyReporters = useRef(new Map<string, (dirty: boolean) => void>())
+  const reporterFor = (key: string): ((dirty: boolean) => void) => {
+    const cached = dirtyReporters.current.get(key)
+    if (cached !== undefined) return cached
+    const fn = (dirty: boolean) => onDirtyChange(key, dirty)
+    dirtyReporters.current.set(key, fn)
+    return fn
   }
 
   const resizeInspector = (size: number) => {
@@ -186,11 +206,16 @@ export function DocumentHost({
    * `documentKey`/`documentTitle`에서 강제하는 `_exhaustive: never` 관례를
    * 그대로 따른다.
    */
-  function bodyFor(doc: Document) {
+  function bodyFor(doc: Document, key: string) {
     switch (doc.kind) {
       case 'table':
         return (
-          <DataView gateway={gateway} connectionId={connectionId} selection={{ schema: doc.schema, table: doc.table }} />
+          <DataView
+            gateway={gateway}
+            connectionId={connectionId}
+            selection={{ schema: doc.schema, table: doc.table }}
+            onDirtyChange={reporterFor(key)}
+          />
         )
       case 'query':
         return <QueryWorkspace gateway={gateway} connectionId={connectionId} engine={engine} />
@@ -313,7 +338,7 @@ export function DocumentHost({
       {documents.map((doc) => {
         const key = documentKey(doc)
         const inactive = key !== activeKey
-        const body = bodyFor(doc)
+        const body = bodyFor(doc, key)
         const inspector = inspectorFor(doc, key)
         const toolbar = toolbarFor(doc)
 
