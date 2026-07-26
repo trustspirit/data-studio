@@ -1,11 +1,31 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
 import { GatewayProvider } from '@renderer/app/GatewayProvider'
 import { buildGateways } from '@renderer/app/container'
 import { AppShell } from '@renderer/app/AppShell'
 import type { DataconBridge } from '@renderer/gateways/ipc/ipcInvoke'
+
+/**
+ * 실행 중인 Node에 실험적 전역 `localStorage`가 있으면 vitest의 jsdom 환경보다
+ * 먼저 잡혀 있어서 jsdom의 실제 구현을 가린다. jsdom window로 위임해 우회한다.
+ * (tests/renderer/features/query/queryWorkspace.test.tsx와 같은 우회.)
+ */
+const jsdomGlobal = (globalThis as { jsdom?: { window: Window } }).jsdom
+if (jsdomGlobal !== undefined) {
+  Object.defineProperty(globalThis, 'localStorage', {
+    get: () => jsdomGlobal.window.localStorage,
+    configurable: true,
+  })
+}
+
+// 패널 크기는 localStorage에 쌓인다 — 테스트마다 깨끗하게 시작하지 않으면
+// 뒤 테스트가 앞 테스트가 남긴 값을 읽어 버린다.
+beforeEach(() => {
+  window.localStorage.clear()
+  cleanup()
+})
 
 beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
@@ -273,6 +293,29 @@ describe('AppShell', () => {
     const before = Number(gutter.getAttribute('aria-valuenow'))
     fireEvent.keyDown(gutter, { key: 'ArrowRight' })
     expect(Number(screen.getByTestId('split-sidebar').getAttribute('aria-valuenow'))).toBeGreaterThan(before)
+  })
+
+  it('사이드바 폭을 조절하면 localStorage에 저장되고, 다음에 열 때 그 값으로 되돌아온다', async () => {
+    // 위 테스트는 SplitPane이 자기 값을 올린다는 것만 본다(그건 splitPane.test.tsx가
+    // 이미 지킨다). 셸이 그 값을 **저장하고 다시 읽는지**는 별개의 성질이라
+    // 따로 못박는다 — queryWorkspace의 'editor' 키 테스트와 같은 모양.
+    const bridge = bridgeWith([conn('a', 'prod')])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    const sep = screen.getByTestId('split-sidebar')
+    expect(sep.getAttribute('aria-valuenow')).toBe(String(darkTheme.size.sidebarDefault))
+
+    fireEvent.keyDown(sep, { key: 'ArrowRight' })
+    const grown = darkTheme.size.sidebarDefault + 16
+    expect(sep.getAttribute('aria-valuenow')).toBe(String(grown))
+    expect(window.localStorage.getItem('datacon.panel.sidebar')).toBe(String(grown))
+
+    // 재마운트 — 새 셸이 저장된 값을 읽어 그 폭으로 시작해야 한다.
+    cleanup()
+    const bridge2 = bridgeWith([conn('a', 'prod')])
+    wrap(bridge2)
+    await goToWorkspace(bridge2)
+    expect(screen.getByTestId('split-sidebar').getAttribute('aria-valuenow')).toBe(String(grown))
   })
 
   it('Audit을 보는 동안에는 탭 단축키가 워크스페이스에 닿지 않는다', async () => {
