@@ -76,14 +76,15 @@ export function DesignerOverlay({
           operation: { kind: 'sql', sql },
         })
         if (!outcome.ok) return failureText(outcome)
+        // 닫는 것은 TableDesigner의 몫이다 — onRun이 null을 돌려주면 그쪽에서 onClose를
+        // 부른다. 여기서 또 부르면 성공할 때마다 onClose가 두 번 불린다.
         onRan()
-        onClose()
         return null
       } catch (e) {
         return e instanceof Error ? e.message : 'unknown error'
       }
     },
-    [gateway, connectionId, onRan, onClose],
+    [gateway, connectionId, onRan],
   )
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {

@@ -77,14 +77,16 @@ describe('DesignerOverlay', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('DDL이 성공하면 onRan과 onClose가 불린다', async () => {
+  it('DDL이 성공하면 onRan이 정확히 한 번, onClose가 정확히 한 번 불린다', async () => {
+    // onClose는 두 곳에서 부를 수 있다 — DesignerOverlay의 runDdl과 TableDesigner의 run()
+    // 둘 다 성공 시 닫으려 하면 두 번 불린다. 닫는 책임은 TableDesigner 하나여야 한다.
     const g = gateway(OK)
     const { onRan, onClose } = renderOverlay(g)
     fillValidCreateForm()
     fireEvent.click(screen.getByTestId('ddl-run'))
-    await waitFor(() => expect(onRan).toHaveBeenCalled())
-    expect(onClose).toHaveBeenCalled()
-    expect(g.run).toHaveBeenCalled()
+    await waitFor(() => expect(onRan).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(g.run).toHaveBeenCalledTimes(1)
   })
 
   it('DDL이 실패하면 onRan·onClose를 부르지 않고 이유를 보여준다', async () => {
