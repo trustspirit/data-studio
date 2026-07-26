@@ -196,6 +196,21 @@ describe('WorkspaceHost', () => {
     expect(onNewQuery).toHaveBeenCalledWith('b')
   })
 
+  // 모든 연결의 워크스페이스가 동시에 마운트돼 있다(숨김이지 언마운트가 아니다).
+  // 탭 단축키는 window에 리스너를 단다 — 활성 여부로 끄지 않으면 숨은 연결의
+  // 워크스페이스까지 같은 Cmd+W에 응답해, 사용자가 보고 있지도 않은 연결의
+  // 탭이 함께 닫힌다. hidden 속성은 키보드 이벤트를 막아 주지 않는다.
+  it('탭 단축키는 활성 연결의 워크스페이스에만 닿는다', () => {
+    const onCloseDocument = vi.fn<(connectionId: string, key: string) => void>()
+    render(host('a', gateway(), { onCloseDocument }))
+
+    fireEvent.keyDown(window, { key: 'w', metaKey: true })
+
+    expect(onCloseDocument).toHaveBeenCalledWith('a', 'query:1')
+    expect(onCloseDocument).toHaveBeenCalledTimes(1)
+    expect(onCloseDocument.mock.calls.map((c) => c[0])).not.toContain('b')
+  })
+
   it('열리지 않은 연결은 판을 갖지 않는다', () => {
     render(
       <ThemeProvider theme={darkTheme}>
