@@ -92,6 +92,7 @@ function host(activeId: string, gw: OperationGateway, overrides: HostOverrides =
         onCloseDocument={onCloseDocument}
         onActivateDocument={onActivateDocument}
         onNewQuery={onNewQuery}
+        onConnectionDirtyChange={vi.fn()}
       />
     </ThemeProvider>
   )
@@ -208,6 +209,7 @@ describe('WorkspaceHost', () => {
           onCloseDocument={vi.fn()}
           onActivateDocument={vi.fn()}
           onNewQuery={vi.fn()}
+          onConnectionDirtyChange={vi.fn()}
         />
       </ThemeProvider>,
     )

@@ -108,6 +108,7 @@ function wrap(options: WrapOptions = {}) {
         onCloseDocument={onCloseDocument}
         onActivateDocument={onActivateDocument}
         onNewQuery={onNewQuery}
+        onConnectionDirtyChange={vi.fn()}
       />
     </ThemeProvider>,
   )
@@ -128,6 +129,7 @@ describe('ConnectionWorkspace', () => {
           onCloseDocument={vi.fn()}
           onActivateDocument={vi.fn()}
           onNewQuery={vi.fn()}
+          onConnectionDirtyChange={vi.fn()}
         />
       </ThemeProvider>,
     )
@@ -148,6 +150,7 @@ describe('ConnectionWorkspace', () => {
           onCloseDocument={vi.fn()}
           onActivateDocument={vi.fn()}
           onNewQuery={vi.fn()}
+          onConnectionDirtyChange={vi.fn()}
         />
       </ThemeProvider>,
     )

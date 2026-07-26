@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react'
+import { useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import { Button } from './Button'
 
@@ -45,17 +45,41 @@ interface ConfirmDialogProps {
   testId?: string | undefined
 }
 
-/** 파괴적인 동작(닫기 등) 전에 확인을 받는 모달. Escape로 취소할 수 있어야 한다. */
+/**
+ * 파괴적인 동작(닫기 등) 전에 확인을 받는 모달. Escape로 취소할 수 있어야 한다.
+ *
+ * 이 다이얼로그를 여는 트리거(탭의 × 컨트롤 등)는 이 컴포넌트의 자식이 아니라
+ * `Backdrop`의 형제다 — 클릭이 DOM 포커스를 그 트리거에 남기고, keydown은
+ * 실제 조상 체인을 따라 버블링하므로 `Backdrop`에 핸들러를 다는 것만으로는
+ * 포커스가 트리거에 남아 있는 한 Escape가 절대 여기까지 오지 않는다. 그래서
+ * (1) 마운트 시 포커스를 다이얼로그 안(취소 버튼)으로 옮기고, (2) 마운트 동안
+ * `document`에 직접 keydown 리스너를 달아 포커스 위치와 무관하게 Escape를
+ * 잡는다.
+ */
 export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel, testId }: ConfirmDialogProps) {
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') onCancel()
-  }
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  // onCancel이 매 렌더 새 함수여도(호출부가 안정화하지 않았어도) 아래 document
+  // 리스너는 마운트 때 한 번만 붙는다 — 그래서 항상 최신 onCancel을 참조하도록
+  // ref에 매 렌더 동기화해 둔다. 리스너 쪽에서 deps 없이 ref.current만 읽는다.
+  const onCancelRef = useRef(onCancel)
+  useEffect(() => {
+    onCancelRef.current = onCancel
+  }, [onCancel])
+
+  useEffect(() => {
+    cancelRef.current?.focus()
+    const onDocumentKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancelRef.current()
+    }
+    document.addEventListener('keydown', onDocumentKeyDown)
+    return () => document.removeEventListener('keydown', onDocumentKeyDown)
+  }, [])
+
   return (
     <Backdrop
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      onKeyDown={onKeyDown}
       {...(testId !== undefined ? { 'data-testid': testId } : {})}
     >
       <Card>
@@ -63,6 +87,7 @@ export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCance
         <Message>{message}</Message>
         <Actions>
           <Button
+            ref={cancelRef}
             type="button"
             variant="secondary"
             size="sm"

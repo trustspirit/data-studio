@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { useGateways } from './GatewayProvider'
 import { useConnections, useConnectionEditor } from '../features/connections'
@@ -11,7 +11,7 @@ import { ConnectionSettingsPane } from './ConnectionSettingsPane'
 import { ConnectionInvite } from './ConnectionInvite'
 import { useOpenConnections } from './model/useOpenConnections'
 import { useDocumentTabs } from './model/useDocumentTabs'
-import { EmptyState, SplitPane } from '../shared/ui'
+import { ConfirmDialog, EmptyState, SplitPane } from '../shared/ui'
 import { readPanelSize, writePanelSize } from '../shared/lib'
 import { darkTheme } from '../shared/theme'
 
@@ -138,6 +138,17 @@ export function AppShell() {
   const [sidebarSize, setSidebarSize] = useState(() =>
     readPanelSize('sidebar', darkTheme.size.sidebarDefault),
   )
+  /** 지금 스테이징된 편집을 가진 문서를 하나라도 품은 연결의 id 집합. 연결별로
+   * 독립적으로 채워진다 — 연결 A의 편집이 연결 B의 닫기/삭제 여부에 영향을
+   * 줘서는 안 된다(문서 탭 A/B가 서로의 닫기를 막지 못하는 것과 같은 불변식을
+   * 연결 단위로 한 겹 위에 되풀이한 것이다). */
+  const [dirtyConnections, setDirtyConnections] = useState<ReadonlySet<string>>(new Set())
+  /** 확인을 기다리는 중인 연결 닫기/삭제 요청. 삭제는 닫기를 먼저 하므로 같은
+   * 확인 한 번으로 두 진입점을 함께 막는다. */
+  const [pendingConnectionAction, setPendingConnectionAction] = useState<{
+    readonly id: string
+    readonly kind: 'close' | 'delete'
+  } | null>(null)
   const gateways = useGateways()
   const conns = useConnections(gateways.connection)
   const editor = useConnectionEditor(gateways.connection, conns)
@@ -168,6 +179,17 @@ export function AppShell() {
       const rest = { ...cur }
       for (const id of stale) delete rest[id]
       return rest
+    })
+    // 닫힌 연결의 dirty 표시도 함께 지운다 — 그러지 않으면 같은 id를 다시 열
+    // 일은 없더라도(연결 id는 저장된 연결 레코드에 묶인다) 죽은 표시가 계속
+    // 쌓인다. 문서 탭 쪽(ConnectionWorkspace의 dirtyKeys)은 워크스페이스 자체가
+    // 언마운트되며 자연히 사라지지만, 이 집합은 AppShell에 살아서 별도로 치운다.
+    setDirtyConnections((cur) => {
+      const stale = [...cur].filter(gone)
+      if (stale.length === 0) return cur
+      const next = new Set(cur)
+      for (const id of stale) next.delete(id)
+      return next
     })
   }, [shell.open, tabSets, forgetTabs])
 
@@ -216,11 +238,41 @@ export function AppShell() {
   const noteSchemaChanged = (id: string) => {
     setSchemaTokens((cur) => ({ ...cur, [id]: (cur[id] ?? 0) + 1 }))
   }
+  // setDirtyConnections의 함수형 업데이트만 쓰므로 deps가 없다 — WorkspaceHost가
+  // 연결 키별로 이 콜백을 캐싱해 재사용해도(참조가 이거 하나로 고정) 항상 최신
+  // setState를 가리킨다. AppShell.noteSchemas와 같은 자리에서 같은 이유로 같은
+  // 모양을 하고 있다.
+  const noteConnectionDirty = useCallback((id: string, dirty: boolean) => {
+    setDirtyConnections((cur) => {
+      if (cur.has(id) === dirty) return cur
+      const next = new Set(cur)
+      if (dirty) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
   const deleteConnection = async () => {
     const id = editor.draft.id
     // 열려 있는 연결을 그냥 지우면 풀이 남는다. 닫기가 삭제보다 먼저다.
     if (shell.open[id] !== undefined) await shell.closeConnection(id)
     await editor.remove()
+  }
+  /** 연결 행의 '연결 끊기' — dirty 문서가 있으면 확인부터 받는다. */
+  const requestCloseConnection = (id: string) => {
+    if (dirtyConnections.has(id)) {
+      setPendingConnectionAction({ id, kind: 'close' })
+      return
+    }
+    void shell.closeConnection(id)
+  }
+  /** 설정 패널의 삭제 — 삭제는 닫기를 먼저 하므로 같은 확인을 통과해야 한다. */
+  const requestDeleteConnection = () => {
+    const id = editor.draft.id
+    if (shell.open[id] !== undefined && dirtyConnections.has(id)) {
+      setPendingConnectionAction({ id, kind: 'delete' })
+      return
+    }
+    void deleteConnection()
   }
   /** 트리에서 무언가를 열 때 공통으로 하는 일 — 워크스페이스를 앞으로 가져온다. */
   const focusWorkspace = (id: string) => {
@@ -267,7 +319,7 @@ export function AppShell() {
               editor.close()
               void shell.openConnection(c.id)
             }}
-            onClose={() => void shell.closeConnection(c.id)}
+            onClose={() => requestCloseConnection(c.id)}
             onSettings={() => openSettings(c.id)}
           >
             {state === 'ready' && (
@@ -320,6 +372,7 @@ export function AppShell() {
             onNewQuery={(id) => tabs.open(id, { kind: 'query', serial: tabs.nextQuerySerial(id) })}
             schemas={schemaNames}
             onSchemaChanged={noteSchemaChanged}
+            onConnectionDirtyChange={noteConnectionDirty}
           />
         ) : (
           <EmptyState
@@ -345,10 +398,34 @@ export function AppShell() {
           editor={editor}
           listError={conns.error}
           onClose={editor.close}
-          onDelete={() => void deleteConnection()}
+          onDelete={requestDeleteConnection}
         />
       )}
       {mainView === 'audit' && <AuditView gateway={gateways.operation} />}
+      {pendingConnectionAction !== null && (
+        <ConfirmDialog
+          title="적용하지 않은 편집이 있습니다"
+          message={
+            pendingConnectionAction.kind === 'delete'
+              ? '이 연결을 삭제하면 스테이징된 변경이 모두 사라집니다.'
+              : '이 연결을 닫으면 스테이징된 변경이 모두 사라집니다.'
+          }
+          confirmLabel={pendingConnectionAction.kind === 'delete' ? '버리고 삭제' : '버리고 닫기'}
+          testId="confirm-close-connection"
+          onCancel={() => setPendingConnectionAction(null)}
+          onConfirm={() => {
+            const action = pendingConnectionAction
+            setPendingConnectionAction(null)
+            setDirtyConnections((cur) => {
+              const next = new Set(cur)
+              next.delete(action.id)
+              return next
+            })
+            if (action.kind === 'delete') void deleteConnection()
+            else void shell.closeConnection(action.id)
+          }}
+        />
+      )}
     </Content>
   )
 

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import styled from 'styled-components'
 import type { ConnectionConfig } from '../../shared/types/connection'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
@@ -37,6 +38,8 @@ interface WorkspaceHostProps {
   /** 연결별 스키마 이름(테이블 디자이너 자동완성용). */
   schemas?: Readonly<Record<string, readonly string[]>> | undefined
   onSchemaChanged?: ((connectionId: string) => void) | undefined
+  /** 연결 하나에 스테이징된 편집을 가진 문서가 하나라도 있는지 알린다 — 연결 닫기/삭제 확인에 쓴다. */
+  onConnectionDirtyChange: (connectionId: string, dirty: boolean) => void
 }
 
 /**
@@ -64,8 +67,26 @@ export function WorkspaceHost({
   onNewQuery,
   schemas,
   onSchemaChanged,
+  onConnectionDirtyChange,
 }: WorkspaceHostProps) {
   const panes = connections.filter((c) => open[c.id]?.state === 'ready')
+
+  /**
+   * 연결 키마다 신원이 고정된 dirty 리포터를 재사용한다 — `DocumentHost`의
+   * `dirtyReporters`와 같은 이유다. `ConnectionWorkspace`의 dirty-sync effect가
+   * 이 콜백을 deps에 넣으므로, 매 렌더 새 화살표를 주면(다른 연결이 리렌더될
+   * 때마다) effect가 다시 돈다. 연결 키당 하나씩만 만들어 재사용해, 연결 A의
+   * 편집 상태가 연결 B의 리포터 정체성에 영향을 주지 못하게 한다.
+   */
+  const dirtyReporters = useRef(new Map<string, (dirty: boolean) => void>())
+  const reporterFor = (connectionId: string): ((dirty: boolean) => void) => {
+    const cached = dirtyReporters.current.get(connectionId)
+    if (cached !== undefined) return cached
+    const fn = (dirty: boolean) => onConnectionDirtyChange(connectionId, dirty)
+    dirtyReporters.current.set(connectionId, fn)
+    return fn
+  }
+
   return (
     <Host>
       {panes.map((c) => {
@@ -92,6 +113,7 @@ export function WorkspaceHost({
               onCloseDocument={(key) => onCloseDocument(c.id, key)}
               onActivateDocument={(key) => onActivateDocument(c.id, key)}
               onNewQuery={() => onNewQuery(c.id)}
+              onConnectionDirtyChange={reporterFor(c.id)}
               {...(schemas !== undefined ? { schemas: schemas[c.id] ?? [] } : {})}
               {...(onSchemaChanged !== undefined
                 ? { onSchemaChanged: () => onSchemaChanged(c.id) }

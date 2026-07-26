@@ -44,6 +44,7 @@ function wrap(capabilities: readonly Capability[], tabs: TabSet) {
         onCloseDocument={vi.fn()}
         onActivateDocument={vi.fn()}
         onNewQuery={vi.fn()}
+        onConnectionDirtyChange={vi.fn()}
       />
     </ThemeProvider>,
   )

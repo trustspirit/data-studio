@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import type { AiGateway } from '../gateways/ports/AiGateway'
@@ -66,6 +66,8 @@ interface ConnectionWorkspaceProps {
   onActivateDocument: (key: string) => void
   /** 새 쿼리 문서의 번호를 셸에서 받아 온다. */
   onNewQuery: () => void
+  /** 이 연결에 스테이징된 편집을 가진 문서가 하나라도 있는지 알린다 — 연결 닫기/삭제 확인에 쓴다. */
+  onConnectionDirtyChange: (dirty: boolean) => void
 }
 
 export function ConnectionWorkspace({
@@ -83,6 +85,7 @@ export function ConnectionWorkspace({
   onCloseDocument,
   onActivateDocument,
   onNewQuery,
+  onConnectionDirtyChange,
 }: ConnectionWorkspaceProps) {
   const activeDoc = tabs.documents.find((d) => documentKey(d) === tabs.activeKey)
 
@@ -112,6 +115,15 @@ export function ConnectionWorkspace({
     }
     onCloseDocument(key)
   }
+
+  // 이 연결에 dirty 문서가 하나라도 있는지를 위(WorkspaceHost 경유 AppShell)로
+  // 올린다 — 연결 자체를 닫거나 삭제할 때 같은 확인을 걸기 위해서다. dirtyKeys는
+  // 문서별 noteDirty가 바뀔 때만 새 Set을 만들므로(값이 그대로면 이전 Set을
+  // 그대로 반환) 이 effect도 실제로 뭔가 바뀔 때만 돈다. onConnectionDirtyChange는
+  // WorkspaceHost가 연결 키별로 캐싱해 주는 안정된 콜백이라 deps에 넣어도 안전하다.
+  useEffect(() => {
+    onConnectionDirtyChange(dirtyKeys.size > 0)
+  }, [dirtyKeys, onConnectionDirtyChange])
 
   return (
     <Layout>
