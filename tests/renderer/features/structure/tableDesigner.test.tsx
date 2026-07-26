@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
 import { DocumentHost } from '@renderer/app/DocumentHost'
+import { DesignerOverlay } from '@renderer/features/structure'
 import type { Document } from '@renderer/entities/document'
 import { documentKey } from '@renderer/entities/document'
 import type { OperationGateway, OperationOutcome } from '@renderer/gateways/ports/OperationGateway'
@@ -305,13 +306,39 @@ describe('테이블 디자이너', () => {
     expect(sqlCalls(run)[0]).toContain('ADD FOREIGN KEY ("org_id")')
   })
 
-  it('sqlite에서는 FK를 추가할 수 없다 — 폼이 이슈를 띄우고 Run이 잠긴다', async () => {
-    // sqlite는 ALTER TABLE … ADD FOREIGN KEY를 지원하지 않는다. 폼이 그걸
-    // 통과시키면 엔진이 거부하는 문장을 프로덕션에 쏘게 된다.
-    const { run } = mount(USERS, 'sqlite')
+  it('sqlite에는 Add FK 버튼이 없다 — 눌러 봐야 오류 배너로 끝나는 버튼은 권하지 않는다', async () => {
+    mount(USERS, 'sqlite')
     await waitFor(() => expect(screen.getByTestId('ddl-open-index')).toBeTruthy())
+    expect(screen.queryByTestId('ddl-open-fk')).toBeNull()
+    // 다른 액션까지 같이 사라지면 게이팅이 너무 넓게 걸린 것이다.
+    expect(screen.getByTestId('ddl-open-drop-table')).toBeTruthy()
+  })
 
-    fireEvent.click(screen.getByTestId('ddl-open-fk'))
+  it('postgres에는 Add FK 버튼이 있다', async () => {
+    mount(USERS, 'postgres')
+    await waitFor(() => expect(screen.getByTestId('ddl-open-fk')).toBeTruthy())
+  })
+
+  it('sqlite로 FK 폼이 열리더라도 실행은 잠긴다 — 버튼 감추기가 유일한 방어선이면 안 된다', () => {
+    // 툴바 게이팅은 어포던스일 뿐이다. 폼 자체가 sqlite를 거부해야 다른 경로로
+    // 열려도 엔진이 거부하는 문장이 나가지 않는다.
+    const { gateway, run } = fakeGateway()
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <DesignerOverlay
+          gateway={gateway}
+          connectionId="c1"
+          dialect="sqlite"
+          mode="fk"
+          target=""
+          selection={{ schema: 'public', table: 'users' }}
+          schemas={SCHEMAS}
+          existing={{ columns: [], indexes: [] }}
+          onClose={vi.fn()}
+          onRan={vi.fn()}
+        />
+      </ThemeProvider>,
+    )
     expect(screen.getByTestId('ddl-issues').textContent).toContain('FK')
     expect(screen.getByTestId<HTMLButtonElement>('ddl-run').disabled).toBe(true)
     expect(sqlCalls(run)).toHaveLength(0)

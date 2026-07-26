@@ -9,7 +9,13 @@ import { documentKey, type Document } from '../entities/document'
 import { Button, EmptyState, SplitPane, Toolbar } from '../shared/ui'
 import { readPanelSize, writePanelSize } from '../shared/lib'
 import { InspectorDock, type InspectorSection } from '../features/inspector'
-import { DESIGNER_TABLE_ACTIONS, DesignerOverlay, TableInspector, type DesignerMode } from '../features/structure'
+import {
+  DESIGNER_TABLE_ACTIONS,
+  DesignerOverlay,
+  TableInspector,
+  supportsAddForeignKey,
+  type DesignerMode,
+} from '../features/structure'
 import { QueryWorkspace } from '../features/query'
 import { DataView } from '../features/data'
 import { ErView } from '../features/er'
@@ -265,7 +271,11 @@ export function DocumentHost({
             <Title>
               {doc.schema}.{doc.table}
             </Title>
-            {DESIGNER_TABLE_ACTIONS.map((a) => (
+            {/* 엔진이 ALTER TABLE로 FK를 못 붙이면 그 버튼은 오류 배너로만 끝난다 —
+                열리지 않는 탭을 권하지 않는 것과 같은 규칙이다. */}
+            {DESIGNER_TABLE_ACTIONS.filter(
+              (a) => a.mode !== 'fk' || supportsAddForeignKey(dialect),
+            ).map((a) => (
               <Button
                 key={a.mode}
                 type="button"

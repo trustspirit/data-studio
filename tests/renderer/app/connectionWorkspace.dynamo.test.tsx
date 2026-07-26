@@ -30,7 +30,6 @@ const gateway: OperationGateway = {
 }
 
 const ITEMS: TabSet = { documents: [{ kind: 'items' }], activeKey: 'items' }
-const NOTHING: TabSet = { documents: [], activeKey: null }
 
 function wrap(capabilities: readonly Capability[], tabs: TabSet) {
   return render(
@@ -59,10 +58,5 @@ describe('ConnectionWorkspace — dynamo', () => {
   it('열 수 있는 것이 Items 하나뿐이면 탭 줄을 감춘다', () => {
     wrap(['dynamo'], ITEMS)
     expect(screen.queryByRole('tablist')).toBeNull()
-  })
-
-  it('dynamo capability가 없으면 Items 문서가 없다', () => {
-    wrap(['sql'], NOTHING)
-    expect(screen.queryByTestId('docpane-items')).toBeNull()
   })
 })

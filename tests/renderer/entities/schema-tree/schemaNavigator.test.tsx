@@ -129,6 +129,29 @@ describe('SchemaNavigator', () => {
     expect(onOpenSchema).toHaveBeenCalledWith('public')
   })
 
+  it('ER 열기는 키보드로 닿고 키보드로 눌린다', () => {
+    // 네이티브 <button>만이 탭 순서에 들어가고 Enter/Space를 click으로 바꾼다.
+    // span[role=button]으로 두면 키보드 사용자에게는 ER을 여는 길이 아예 없다.
+    const onOpenSchema = vi.fn()
+    renderNavigator({ onOpenSchema })
+    const er = screen.getByTestId('schema-open-er-public')
+
+    expect(er.tagName).toBe('BUTTON')
+    er.focus()
+    expect(document.activeElement).toBe(er)
+    fireEvent.click(er)
+    expect(onOpenSchema).toHaveBeenCalledWith('public')
+  })
+
+  it('ER 열기는 다른 버튼 안에 들어 있지 않다', () => {
+    // 버튼 안의 버튼은 보조 기술이 하나로 합쳐 버린다 — 연결 행이 액션을
+    // 라벨의 형제로 두는 것과 같은 이유다.
+    const onOpenSchema = vi.fn()
+    renderNavigator({ onOpenSchema })
+    const er = screen.getByTestId('schema-open-er-public')
+    expect(er.parentElement?.closest('button')).toBeNull()
+  })
+
   it('ER 열기는 스키마 접기/펼치기를 겸하지 않는다', () => {
     // 스키마 행 클릭은 펼치기다 — ER 버튼이 그 위로 버블링하면 트리가 접힌다.
     const onToggle = vi.fn()

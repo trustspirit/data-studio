@@ -215,6 +215,31 @@ describe('AppShell', () => {
     expect(screen.queryByTestId('document-empty')).toBeNull()
   })
 
+  it('연결을 닫았다 다시 열면 옛 문서가 따라오지 않는다', async () => {
+    // 닫힌 연결의 탭 세트가 남으면 다시 열었을 때 사라진 테이블과 옛 초안을
+    // 그대로 들고 온다. 예전엔 useOpenConnections가 selection을 비우며 지키던
+    // 불변식이고, 지금은 셸이 shell.open에서 빠진 연결의 탭을 버리며 지킨다.
+    const bridge = bridgeWith([conn('a', 'prod')])
+    wrap(bridge)
+    await goToWorkspace(bridge)
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
+
+    fireEvent.click(within(screen.getByTestId('workspace-a')).getByTestId('doctab-new-query'))
+    await waitFor(() => expect(screen.getByTestId('doctab-query:1')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('more-a'))
+    fireEvent.click(screen.getByTestId('close-a'))
+    await waitFor(() => expect(screen.queryByTestId('workspace-a')).toBeNull())
+
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
+
+    expect(screen.queryByTestId('doctab-query:1')).toBeNull()
+    expect(within(screen.getByTestId('workspace-a')).getByTestId('document-empty')).toBeTruthy()
+  })
+
   it('비-SQL 엔진은 접속하자마자 단일 문서를 열고 탭 줄을 감춘다', async () => {
     // Redis는 열 수 있는 문서가 Keys 하나뿐이다 — 탭 줄은 크롬 낭비고,
     // 자동으로 열어 주지 않으면 접속해도 빈 화면만 남는다.

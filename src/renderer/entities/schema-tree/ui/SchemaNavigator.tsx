@@ -25,10 +25,22 @@ const Tree = styled.div<{ $inline: boolean }>`
           border-right: 1px solid ${theme.color.border};
         `}
 `
-const SchemaRow = styled.button<{ $depth: number }>`
+/**
+ * 스키마 행. 펼치기와 ER 열기는 **형제** 버튼이다 — 연결 행(`ConnectionRow`)의
+ * `Chevron`/`Label`/`Actions`와 같은 구조다. 액션을 라벨 버튼 **안에** 넣으면
+ * 키보드로는 라벨(펼치기)에만 닿아 ER을 영영 열 수 없고, 접근성 트리에서도
+ * 버튼 안의 버튼이 되어 보조 기술이 둘을 하나로 합쳐 버린다.
+ */
+const SchemaRow = styled.div`
   display: flex;
   align-items: center;
-  width: 100%;
+  &:hover {
+    background: ${({ theme }) => theme.color.rowHover};
+  }
+`
+const SchemaToggle = styled.button<{ $depth: number }>`
+  flex: 1;
+  min-width: 0;
   text-align: left;
   font: inherit;
   padding: 6px 10px 6px ${({ $depth }) => 10 + $depth * INDENT}px;
@@ -37,16 +49,18 @@ const SchemaRow = styled.button<{ $depth: number }>`
   color: ${({ theme }) => theme.color.text};
   cursor: pointer;
   font-weight: 600;
-  &:hover {
-    background: ${({ theme }) => theme.color.rowHover};
-  }
 `
-const SchemaAction = styled.span`
-  margin-left: auto;
+const SchemaAction = styled.button`
+  flex: 0 0 auto;
+  margin-right: ${({ theme }) => theme.space.xs};
   padding: 0 6px;
+  border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
+  background: transparent;
+  font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.xs};
   color: ${({ theme }) => theme.color.textFaint};
+  cursor: pointer;
   &:hover {
     background: ${({ theme }) => theme.color.rowHover};
     color: ${({ theme }) => theme.color.text};
@@ -101,19 +115,23 @@ export function SchemaNavigator({
     <Tree $inline={inline}>
       {schemas.map((s) => (
         <div key={s.name}>
-          <SchemaRow type="button" $depth={depth} onClick={() => onToggle(s.name)}>
-            {expanded[s.name] ? '▾ ' : '▸ '}
-            {s.name}
+          <SchemaRow>
+            <SchemaToggle
+              type="button"
+              $depth={depth}
+              aria-expanded={expanded[s.name] === true}
+              onClick={() => onToggle(s.name)}
+            >
+              {expanded[s.name] ? '▾ ' : '▸ '}
+              {s.name}
+            </SchemaToggle>
             {onOpenSchema !== undefined && (
               <SchemaAction
-                role="button"
+                type="button"
                 aria-label={`${s.name} ER 열기`}
                 data-testid={`schema-open-er-${s.name}`}
-                onClick={(e) => {
-                  // 스키마 행 클릭은 펼치기다 — ER 열기가 그걸 겸하면 안 된다.
-                  e.stopPropagation()
-                  onOpenSchema(s.name)
-                }}
+                // 형제 버튼이라 펼치기로 번지지 않는다 — stopPropagation이 필요 없다.
+                onClick={() => onOpenSchema(s.name)}
               >
                 ER
               </SchemaAction>
