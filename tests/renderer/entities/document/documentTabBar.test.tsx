@@ -67,6 +67,37 @@ describe('DocumentTabBar', () => {
     expect(onActivate).not.toHaveBeenCalled()
   })
 
+  it('닫기 컨트롤은 tabIndex로 포커스를 받을 수 있다', () => {
+    renderBar()
+    const closeEl = screen.getByTestId(`doctab-close-${documentKey(QUERY)}`)
+    closeEl.focus()
+    // tabIndex가 없는 span은 .focus()를 불러도 document.activeElement가 되지 않는다 —
+    // 이 단언은 tabIndex={0}이 실제로 붙어 있어야만 통과한다.
+    expect(document.activeElement).toBe(closeEl)
+  })
+
+  it('닫기의 키보드 이벤트는 상위 요소로 전파되지 않는다', () => {
+    const wrapperKeyDown = vi.fn()
+    const onActivate = vi.fn()
+    const onClose = vi.fn()
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <div onKeyDown={wrapperKeyDown}>
+          <DocumentTabBar
+            documents={[ORDERS, QUERY]}
+            activeKey={documentKey(ORDERS)}
+            onActivate={onActivate}
+            onClose={onClose}
+          />
+        </div>
+      </ThemeProvider>,
+    )
+    fireEvent.keyDown(screen.getByTestId(`doctab-close-${documentKey(QUERY)}`), { key: 'Enter' })
+    expect(onClose).toHaveBeenCalledWith(documentKey(QUERY))
+    // stopPropagation이 없으면 이 keydown이 감싸는 요소까지 버블링된다.
+    expect(wrapperKeyDown).not.toHaveBeenCalled()
+  })
+
   it('onNewQuery가 없으면 새 쿼리 버튼을 그리지 않는다', () => {
     renderBar({ onNewQuery: undefined })
     expect(screen.queryByTestId('doctab-new-query')).toBeNull()
