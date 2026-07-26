@@ -105,6 +105,7 @@ export function WorkspaceHost({
               ai={ai}
               connectionId={c.id}
               connectionName={c.name}
+              active={!inactive}
               capabilities={entry?.capabilities ?? []}
               engine={c.engine}
               aiAccount={entry?.aiAccount ?? 'none'}

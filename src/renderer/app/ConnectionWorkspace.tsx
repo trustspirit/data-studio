@@ -8,6 +8,7 @@ import type { EngineId } from '../../shared/types/connection'
 import { DocumentTabBar, canOpen, documentKey, documentTitle, showsTabBar, type Document } from '../entities/document'
 import { ConfirmDialog } from '../shared/ui'
 import type { TabSet } from './model/useDocumentTabs'
+import { useTabShortcuts } from './model/useTabShortcuts'
 import { DocumentHost } from './DocumentHost'
 
 const Layout = styled.div`
@@ -68,6 +69,8 @@ interface ConnectionWorkspaceProps {
   onNewQuery: () => void
   /** 이 연결에 스테이징된 편집을 가진 문서가 하나라도 있는지 알린다 — 연결 닫기/삭제 확인에 쓴다. */
   onConnectionDirtyChange: (dirty: boolean) => void
+  /** 활성 연결의 워크스페이스만 탭 단축키를 듣는다 — 숨은 워크스페이스는 꺼 둔다. */
+  active?: boolean | undefined
 }
 
 export function ConnectionWorkspace({
@@ -86,6 +89,7 @@ export function ConnectionWorkspace({
   onActivateDocument,
   onNewQuery,
   onConnectionDirtyChange,
+  active = true,
 }: ConnectionWorkspaceProps) {
   const activeDoc = tabs.documents.find((d) => documentKey(d) === tabs.activeKey)
 
@@ -115,6 +119,13 @@ export function ConnectionWorkspace({
     }
     onCloseDocument(key)
   }
+
+  useTabShortcuts({
+    enabled: active,
+    tabs,
+    onRequestClose: requestClose,
+    onActivate: onActivateDocument,
+  })
 
   // 이 연결에 dirty 문서가 하나라도 있는지를 위(WorkspaceHost 경유 AppShell)로
   // 올린다 — 연결 자체를 닫거나 삭제할 때 같은 확인을 걸기 위해서다. dirtyKeys는
