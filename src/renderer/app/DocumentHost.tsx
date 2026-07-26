@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { EngineId, SqlEngineId } from '../../shared/types/connection'
 import { SQL_ENGINE_IDS } from '../../shared/types/connection'
@@ -132,6 +132,18 @@ export function DocumentHost({
     writePanelSize('inspector', size)
   }
 
+  /**
+   * 활성 문서가 바뀌면 열려 있던 DDL 폼을 닫는다. `key`로 다시 마운트해도
+   * `designer.target`은 호스트 상태라 그대로 살아남는다 — 재마운트만으로는
+   * "Drop Column" 폼이 다른 테이블 위에서 컬럼 미선택 상태로 뜨는 걸 막지
+   * 못한다(선택은 비어도 미리보기 SQL은 옛 대상 그대로다). 사용자가 다른
+   * 테이블로 넘어갔다는 뜻으로 읽고 아예 닫는 것이 정직한 해석이다. `key`는
+   * 그래도 남겨 둔다 — 이 effect보다 먼저 도는 방어선이다.
+   */
+  useEffect(() => {
+    setDesigner(null)
+  }, [activeKey])
+
   const dialect = sqlDialectOf(engine)
   const aiSections: readonly InspectorSection[] =
     ai === undefined
@@ -163,92 +175,146 @@ export function DocumentHost({
   // 그래서 existing도 activeKey 몫만 읽는다. 아직 응답이 없으면 빈 구조로 보여 준다.
   const existingForDesigner = (activeKey !== null ? structureByDoc[activeKey] : undefined) ?? EMPTY_STRUCTURE
 
+  /**
+   * 문서 종류별 본문. `switch`로 두는 이유는 if/else 사슬이면 여덟 번째 종류가
+   * 추가돼도 마지막 `else`로 조용히 흘러 컴파일이 통과하기 때문이다 — 이
+   * 파일에서 그 실수를 막는 유일한 곳이 되면 안 된다. `document.ts`가 이미
+   * `documentKey`/`documentTitle`에서 강제하는 `_exhaustive: never` 관례를
+   * 그대로 따른다.
+   */
+  function bodyFor(doc: Document) {
+    switch (doc.kind) {
+      case 'table':
+        return (
+          <DataView gateway={gateway} connectionId={connectionId} selection={{ schema: doc.schema, table: doc.table }} />
+        )
+      case 'query':
+        return (
+          <QueryWorkspace
+            gateway={gateway}
+            connectionId={connectionId}
+            connectionName={connectionName}
+            engine={engine}
+          />
+        )
+      case 'er':
+        return (
+          <ErView
+            gateway={gateway}
+            connectionId={connectionId}
+            schema={doc.schema}
+            onOpenTable={(schema, table) => onOpenDocument({ kind: 'table', schema, table })}
+          />
+        )
+      case 'collection':
+        return <DocumentsView gateway={gateway} connectionId={connectionId} />
+      case 'keys':
+        return <KeyBrowserView gateway={gateway} connectionId={connectionId} />
+      case 'stream':
+        return <StreamsView gateway={gateway} connectionId={connectionId} />
+      case 'items':
+        return <DynamoView gateway={gateway} connectionId={connectionId} />
+      default: {
+        const _exhaustive: never = doc
+        return _exhaustive
+      }
+    }
+  }
+
+  /** 테이블 문서만 구조 인스펙터를 갖는다. 나머지는 AI 섹션만(있으면) 붙는다. */
+  function inspectorFor(doc: Document, key: string) {
+    switch (doc.kind) {
+      case 'table':
+        return (
+          <TableInspector
+            gateway={gateway}
+            connectionId={connectionId}
+            selection={{ schema: doc.schema, table: doc.table }}
+            reloadToken={structureToken}
+            extraSections={aiSections}
+            onStructureLoaded={noteStructureFor(key)}
+            {...(dialect !== null
+              ? {
+                  onRenameColumn: (column: string) => setDesigner({ mode: 'renameColumn', target: column }),
+                  onDropColumn: (column: string) => setDesigner({ mode: 'dropColumn', target: column }),
+                  onDropIndex: (indexName: string) => setDesigner({ mode: 'dropIndex', target: indexName }),
+                }
+              : {})}
+          />
+        )
+      case 'query':
+      case 'er':
+      case 'collection':
+      case 'keys':
+      case 'stream':
+      case 'items':
+        return aiSections.length > 0 ? <InspectorDock sections={aiSections} /> : null
+      default: {
+        const _exhaustive: never = doc
+        return _exhaustive
+      }
+    }
+  }
+
+  /** 테이블·ER 문서만 DDL 액션을 툴바에 갖는다. dialect가 없으면(비-SQL 엔진) 아무것도 없다. */
+  function toolbarFor(doc: Document) {
+    switch (doc.kind) {
+      case 'table':
+        return dialect !== null ? (
+          <Toolbar>
+            <Title>
+              {doc.schema}.{doc.table}
+            </Title>
+            {DESIGNER_TABLE_ACTIONS.map((a) => (
+              <Button
+                key={a.mode}
+                type="button"
+                variant="secondary"
+                size="sm"
+                data-testid={a.testId}
+                onClick={() => setDesigner({ mode: a.mode, target: '' })}
+              >
+                {a.label}
+              </Button>
+            ))}
+          </Toolbar>
+        ) : null
+      case 'er':
+        return dialect !== null ? (
+          <Toolbar>
+            <Title>{doc.schema}</Title>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              data-testid="ddl-open-create"
+              onClick={() => setDesigner({ mode: 'create', target: '' })}
+            >
+              New Table
+            </Button>
+          </Toolbar>
+        ) : null
+      case 'query':
+      case 'collection':
+      case 'keys':
+      case 'stream':
+      case 'items':
+        return null
+      default: {
+        const _exhaustive: never = doc
+        return _exhaustive
+      }
+    }
+  }
+
   return (
     <Host>
       {documents.map((doc) => {
         const key = documentKey(doc)
         const inactive = key !== activeKey
-        const body =
-          doc.kind === 'table' ? (
-            <DataView gateway={gateway} connectionId={connectionId} selection={{ schema: doc.schema, table: doc.table }} />
-          ) : doc.kind === 'query' ? (
-            <QueryWorkspace
-              gateway={gateway}
-              connectionId={connectionId}
-              connectionName={connectionName}
-              engine={engine}
-            />
-          ) : doc.kind === 'er' ? (
-            <ErView
-              gateway={gateway}
-              connectionId={connectionId}
-              schema={doc.schema}
-              onOpenTable={(schema, table) => onOpenDocument({ kind: 'table', schema, table })}
-            />
-          ) : doc.kind === 'collection' ? (
-            <DocumentsView gateway={gateway} connectionId={connectionId} />
-          ) : doc.kind === 'keys' ? (
-            <KeyBrowserView gateway={gateway} connectionId={connectionId} />
-          ) : doc.kind === 'stream' ? (
-            <StreamsView gateway={gateway} connectionId={connectionId} />
-          ) : (
-            <DynamoView gateway={gateway} connectionId={connectionId} />
-          )
-
-        const inspector =
-          doc.kind === 'table' ? (
-            <TableInspector
-              gateway={gateway}
-              connectionId={connectionId}
-              selection={{ schema: doc.schema, table: doc.table }}
-              reloadToken={structureToken}
-              extraSections={aiSections}
-              onStructureLoaded={noteStructureFor(key)}
-              {...(dialect !== null
-                ? {
-                    onRenameColumn: (column: string) => setDesigner({ mode: 'renameColumn', target: column }),
-                    onDropColumn: (column: string) => setDesigner({ mode: 'dropColumn', target: column }),
-                    onDropIndex: (indexName: string) => setDesigner({ mode: 'dropIndex', target: indexName }),
-                  }
-                : {})}
-            />
-          ) : aiSections.length > 0 ? (
-            <InspectorDock sections={aiSections} />
-          ) : null
-
-        const toolbar =
-          doc.kind === 'table' && dialect !== null ? (
-            <Toolbar>
-              <Title>
-                {doc.schema}.{doc.table}
-              </Title>
-              {DESIGNER_TABLE_ACTIONS.map((a) => (
-                <Button
-                  key={a.mode}
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  data-testid={a.testId}
-                  onClick={() => setDesigner({ mode: a.mode, target: '' })}
-                >
-                  {a.label}
-                </Button>
-              ))}
-            </Toolbar>
-          ) : doc.kind === 'er' && dialect !== null ? (
-            <Toolbar>
-              <Title>{doc.schema}</Title>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                data-testid="ddl-open-create"
-                onClick={() => setDesigner({ mode: 'create', target: '' })}
-              >
-                New Table
-              </Button>
-            </Toolbar>
-          ) : null
+        const body = bodyFor(doc)
+        const inspector = inspectorFor(doc, key)
+        const toolbar = toolbarFor(doc)
 
         return (
           <Pane key={key} data-testid={`docpane-${key}`} hidden={inactive} aria-hidden={inactive}>
@@ -274,9 +340,10 @@ export function DocumentHost({
       })}
       {designer !== null && dialect !== null && (
         <DesignerOverlay
-          // 열려 있는 동안 활성 탭이 바뀌면(탭 줄은 이 컴포넌트 밖에 있다) 대상을
-          // 조용히 바꾸는 대신 폼을 다시 마운트한다 — StructureView가 쓰던 것과
-          // 같은 방어다. 안 그러면 입력값은 그대로인데 대상 테이블만 바뀐다.
+          // 실제 방어는 위 useEffect(activeKey가 바뀌면 designer를 닫는다)다.
+          // 이 key는 2차 방어선이다 — StructureView가 쓰던 것과 같은 관례를
+          // 남겨서, 닫는 effect보다 먼저 렌더가 도는 경우에도 폼이 옛 대상의
+          // 입력값을 들고 새 대상 위에 뜨는 일은 없게 한다.
           key={`${designer.mode}:${activeTarget?.schema ?? ''}.${activeTarget?.table ?? ''}:${designer.target}`}
           gateway={gateway}
           connectionId={connectionId}

@@ -38,7 +38,7 @@ const ORDERS: Document = { kind: 'table', schema: 'public', table: 'orders' }
 const QUERY: Document = { kind: 'query', serial: 1 }
 
 function renderHost(documents: readonly Document[], activeKey: string | null) {
-  render(
+  return render(
     <ThemeProvider theme={darkTheme}>
       <DocumentHost
         documents={documents}
@@ -84,6 +84,38 @@ describe('DocumentHost', () => {
   it('열린 문서가 없으면 안내를 보여 준다', () => {
     renderHost([], null)
     expect(screen.getByTestId('document-empty')).toBeTruthy()
+  })
+
+  it('Host는 position: relative다 — 없으면 DDL 오버레이의 배경/시트가 컨테이너 밖으로 새어 나간다', () => {
+    renderHost([ORDERS], documentKey(ORDERS))
+    // Pane은 Host의 직계 자식이다 — Host 자체엔 testid가 없어 그 부모로 찾는다.
+    const host = screen.getByTestId(`docpane-${documentKey(ORDERS)}`).parentElement as HTMLElement
+    expect(getComputedStyle(host).position).toBe('relative')
+  })
+
+  it('활성 문서가 바뀌면 열려 있던 DDL 폼이 닫힌다', () => {
+    const { rerender } = renderHost([ORDERS, QUERY], documentKey(ORDERS))
+    fireEvent.click(screen.getByTestId('ddl-open-add-column'))
+    expect(screen.getByTestId('designer-overlay')).toBeTruthy()
+
+    // 다른 문서로 활성을 옮긴다 — key로 폼을 다시 마운트해도 target은 호스트
+    // 상태라 그대로 살아남으므로, 그것만으로는 안전해지지 않는다는 게 이
+    // 리뷰의 지적이었다. 실제 방어는 activeKey 변화에 designer를 닫는 effect다.
+    rerender(
+      <ThemeProvider theme={darkTheme}>
+        <DocumentHost
+          documents={[ORDERS, QUERY]}
+          activeKey={documentKey(QUERY)}
+          gateway={gateway()}
+          connectionId="c1"
+          connectionName="pg-dev"
+          engine="postgres"
+          schemas={['public']}
+          onOpenDocument={vi.fn()}
+        />
+      </ThemeProvider>,
+    )
+    expect(screen.queryByTestId('designer-overlay')).toBeNull()
   })
 
   it(
