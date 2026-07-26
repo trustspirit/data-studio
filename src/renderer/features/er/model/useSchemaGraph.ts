@@ -21,7 +21,11 @@ export function useSchemaGraph(
 ): SchemaGraphState {
   const [nodes, setNodes] = useState<readonly GraphNode[]>([])
   const [edges, setEdges] = useState<readonly GraphEdge[]>([])
-  const [loading, setLoading] = useState(false)
+  // 읽을 스키마가 있으면 **첫 렌더부터** 로딩 중이다. false로 시작하면 아래
+  // effect가 true로 세우기 전의 한 프레임 동안 nodes가 비어 있고 loading이
+  // false인 상태가 밖으로 나가고, ErView는 그 조합을 "테이블 없음"으로 그린다 —
+  // ER 문서를 열 때마다 빈 상태가 번쩍인다.
+  const [loading, setLoading] = useState(schema !== null)
   const [error, setError] = useState<string | null>(null)
   const latest = useRef(0)
   const mounted = useRef(true)
