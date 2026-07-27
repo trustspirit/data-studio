@@ -14,9 +14,9 @@ const Row = styled.div<{ $active: boolean }>`
   align-items: center;
   gap: 2px;
   padding-right: ${({ theme }) => theme.space.xs};
-  background: ${({ theme, $active }) => ($active ? theme.color.rowHover : 'transparent')};
+  background: ${({ theme, $active }) => ($active ? theme.color.surface.base : 'transparent')};
   &:hover {
-    background: ${({ theme }) => theme.color.rowHover};
+    background: ${({ theme }) => theme.color.surface.base};
   }
 `
 const Chevron = styled.button`
@@ -25,7 +25,7 @@ const Chevron = styled.button`
   padding: 4px 0;
   border: none;
   background: transparent;
-  color: ${({ theme }) => theme.color.textFaint};
+  color: ${({ theme }) => theme.color.fg.faint};
   font: inherit;
   cursor: pointer;
 `
@@ -43,7 +43,7 @@ const Label = styled.button`
   padding: 4px 0;
   border: none;
   background: transparent;
-  color: ${({ theme }) => theme.color.text};
+  color: ${({ theme }) => theme.color.fg.primary};
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -55,12 +55,12 @@ const Dot = styled.span<{ $state: ConnectionRowState }>`
   border-radius: 50%;
   background: ${({ theme, $state }) =>
     $state === 'ready'
-      ? theme.color.green
+      ? theme.color.intent.success
       : $state === 'error'
-        ? theme.color.red
+        ? theme.color.intent.danger
         : $state === 'connecting'
-          ? theme.color.orange
-          : theme.color.textFaint};
+          ? theme.color.intent.warning
+          : theme.color.fg.faint};
 `
 const Name = styled.span`
   flex: 1;
@@ -71,8 +71,8 @@ const Name = styled.span`
 `
 const EngineBadge = styled.span`
   flex: 0 0 auto;
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.fg.faint};
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Actions = styled.span`
   display: flex;
@@ -88,22 +88,22 @@ const Actions = styled.span`
 const Connect = styled.button`
   flex: 0 0 auto;
   padding: 1px 8px;
-  border: 1px solid ${({ theme }) => theme.color.border};
+  border: 1px solid ${({ theme }) => theme.color.borders.strong};
   border-radius: ${({ theme }) => theme.radius.sm};
-  background: ${({ theme }) => theme.color.panel};
-  color: ${({ theme }) => theme.color.text};
+  background: ${({ theme }) => theme.color.surface.panel};
+  color: ${({ theme }) => theme.color.fg.primary};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  font-size: ${({ theme }) => theme.fontSize.label};
   cursor: pointer;
   &:hover {
-    border-color: ${({ theme }) => theme.color.accent};
-    background: ${({ theme }) => theme.color.rowHover};
+    border-color: ${({ theme }) => theme.color.intent.accent};
+    background: ${({ theme }) => theme.color.surface.base};
   }
 `
 const RowError = styled.div`
   padding: 2px ${({ theme }) => theme.space.sm} 6px 26px;
-  color: ${({ theme }) => theme.color.red};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.intent.danger};
+  font-size: ${({ theme }) => theme.fontSize.label};
   word-break: break-word;
 `
 const Children = styled.div`

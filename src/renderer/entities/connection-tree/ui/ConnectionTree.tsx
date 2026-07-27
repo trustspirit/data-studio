@@ -3,15 +3,15 @@ import styled from 'styled-components'
 import { Sidebar } from '../../../shared/ui'
 
 const Wrap = styled(Sidebar)`
-  color: ${({ theme }) => theme.color.text};
+  color: ${({ theme }) => theme.color.fg.primary};
 `
 const Header = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.space.sm};
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.xs} ${theme.space.sm} ${theme.space.md}`};
-  color: ${({ theme }) => theme.color.textDim};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.fg.dim};
+  font-size: ${({ theme }) => theme.fontSize.label};
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -26,20 +26,20 @@ const AddButton = styled.button`
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   background: transparent;
-  color: ${({ theme }) => theme.color.textDim};
+  color: ${({ theme }) => theme.color.fg.dim};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: 15px;
+  font-size: ${({ theme }) => theme.fontSize.heading};
   line-height: 1;
   cursor: pointer;
   &:hover {
-    background: ${({ theme }) => theme.color.panel};
-    color: ${({ theme }) => theme.color.text};
+    background: ${({ theme }) => theme.color.surface.panel};
+    color: ${({ theme }) => theme.color.fg.primary};
   }
 `
 const Empty = styled.div`
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.fg.faint};
+  font-size: ${({ theme }) => theme.fontSize.label};
   line-height: 1.5;
 `
 

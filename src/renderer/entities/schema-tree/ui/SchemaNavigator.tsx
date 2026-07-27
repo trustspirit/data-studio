@@ -8,7 +8,7 @@ const INDENT = 14
 const Tree = styled.div<{ $inline: boolean }>`
   min-height: 0;
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   /* 자기 폭·배경·보더는 "사이드바 그 자체"로 쓰일 때만 갖는다. 다른 트리 안에
      중첩되면 바깥 사이드바가 이미 그것들을 갖고 있다. */
   ${({ $inline, theme }) =>
@@ -21,8 +21,8 @@ const Tree = styled.div<{ $inline: boolean }>`
           flex: 0 0 ${theme.size.sidebar};
           width: ${theme.size.sidebar};
           overflow: auto;
-          background: ${theme.color.sidebar};
-          border-right: 1px solid ${theme.color.border};
+          background: ${theme.color.surface.base};
+          border-right: 1px solid ${theme.color.borders.strong};
         `}
 `
 /**
@@ -35,7 +35,7 @@ const SchemaRow = styled.div`
   display: flex;
   align-items: center;
   &:hover {
-    background: ${({ theme }) => theme.color.rowHover};
+    background: ${({ theme }) => theme.color.surface.base};
   }
 `
 const SchemaToggle = styled.button<{ $depth: number }>`
@@ -46,7 +46,7 @@ const SchemaToggle = styled.button<{ $depth: number }>`
   padding: 6px 10px 6px ${({ $depth }) => 10 + $depth * INDENT}px;
   border: none;
   background: transparent;
-  color: ${({ theme }) => theme.color.text};
+  color: ${({ theme }) => theme.color.fg.primary};
   cursor: pointer;
   font-weight: 600;
 `
@@ -58,12 +58,12 @@ const SchemaAction = styled.button`
   border-radius: ${({ theme }) => theme.radius.sm};
   background: transparent;
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.xs};
-  color: ${({ theme }) => theme.color.textFaint};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  color: ${({ theme }) => theme.color.fg.faint};
   cursor: pointer;
   &:hover {
-    background: ${({ theme }) => theme.color.rowHover};
-    color: ${({ theme }) => theme.color.text};
+    background: ${({ theme }) => theme.color.surface.base};
+    color: ${({ theme }) => theme.color.fg.primary};
   }
 `
 const TableRow = styled.button<{ $active: boolean; $depth: number }>`
@@ -74,11 +74,11 @@ const TableRow = styled.button<{ $active: boolean; $depth: number }>`
   padding: 4px 10px 4px ${({ $depth }) => 24 + $depth * INDENT}px;
   border: none;
   cursor: pointer;
-  color: ${({ theme, $active }) => ($active ? theme.color.text : theme.color.textDim)};
-  background: ${({ theme, $active }) => ($active ? theme.color.rowHover : 'transparent')};
+  color: ${({ theme, $active }) => ($active ? theme.color.fg.primary : theme.color.fg.dim)};
+  background: ${({ theme, $active }) => ($active ? theme.color.surface.base : 'transparent')};
   &:hover {
-    background: ${({ theme }) => theme.color.rowHover};
-    color: ${({ theme }) => theme.color.text};
+    background: ${({ theme }) => theme.color.surface.base};
+    color: ${({ theme }) => theme.color.fg.primary};
   }
 `
 
