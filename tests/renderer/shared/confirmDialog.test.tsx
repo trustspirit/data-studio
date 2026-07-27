@@ -50,4 +50,23 @@ describe('ConfirmDialog', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(onCancel).toHaveBeenCalled()
   })
+
+  // 파괴적 확인 다이얼로그는 배경 클릭으로 닫히지 않아야 한다 — 스친 클릭이
+  // 취소로 읽히면 사용자는 자기가 무엇을 했는지 모른다. Dialog 자체의
+  // dismissOnBackdrop 메커니즘은 dialog.test.tsx가 이미 검증하지만, 그
+  // 테스트는 프로퍼티를 직접 넘겨 메커니즘만 증명할 뿐 ConfirmDialog가
+  // 실제로 그 프로퍼티를 넘기는지는 증명하지 않는다. 여기서 그걸 고정한다.
+  it('배경을 클릭해도 닫히지 않는다', () => {
+    const { onCancel } = renderDialog()
+    fireEvent.click(screen.getByTestId('confirm-close'))
+    expect(onCancel).not.toHaveBeenCalled()
+  })
+
+  // 마운트 시 포커스는 취소 버튼에 있어야 한다 — 파괴적 동작(확인 버튼)에
+  // 자동 포커스가 가면 엔터 한 번으로 의도치 않게 삭제/버리기가 실행될 수
+  // 있다. initialFocusRef가 취소 버튼을 계속 가리키는지 여기서 고정한다.
+  it('마운트 시 포커스가 취소 버튼에 있다', () => {
+    renderDialog()
+    expect(document.activeElement).toBe(screen.getByTestId('confirm-close-cancel'))
+  })
 })
