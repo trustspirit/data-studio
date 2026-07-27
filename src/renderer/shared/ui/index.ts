@@ -14,3 +14,4 @@ export { ConfirmDialog } from './ConfirmDialog'
 // feature 슬라이스(structure·ai)들이 함께 쓰므로 어느 한 feature의 소유물이 될 수 없다.
 export { InspectorDock, type InspectorSection } from './InspectorDock'
 export { SegmentedGroup, type SegmentItem } from './SegmentedGroup'
+export { Badge } from './Badge'
