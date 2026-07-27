@@ -70,6 +70,10 @@ export const darkTheme = {
       warning: 'rgba(255, 159, 10, 0.13)',
       danger: 'rgba(255, 69, 58, 0.13)',
     },
+    /** 은은한 테두리. intentSoft의 0.13은 면에는 맞지만 1px 선으로는 거의 안 보인다. */
+    intentBorder: {
+      danger: 'rgba(255, 69, 58, 0.35)',
+    },
     /** 의미색의 hover 변형. intent는 "의미 넷"이라는 불변식을 지켜야 하므로 분리한다. */
     intentHover: {
       accent: '#2b95ff',

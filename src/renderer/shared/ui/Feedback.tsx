@@ -8,7 +8,7 @@ export const ErrorBanner = styled.div.attrs({ role: 'alert' })`
   margin: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
   padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
   border-radius: ${({ theme }) => theme.radius.md};
-  border: 1px solid ${({ theme }) => theme.color.intent.danger};
+  border: 1px solid ${({ theme }) => theme.color.intentBorder.danger};
   background: ${({ theme }) => theme.color.intentSoft.danger};
   color: ${({ theme }) => theme.color.intent.danger};
   font-family: ${({ theme }) => theme.font.ui};

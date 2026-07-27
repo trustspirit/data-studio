@@ -23,8 +23,7 @@ const Header = styled.button`
   width: 100%;
   text-align: left;
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.heading};
-  font-weight: ${({ theme }) => theme.fontWeight.semibold};
+  font-size: ${({ theme }) => theme.fontSize.label};
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
