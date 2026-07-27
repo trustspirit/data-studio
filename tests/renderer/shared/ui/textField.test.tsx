@@ -18,10 +18,10 @@ function wrap(error?: string) {
 }
 
 describe('TextField', () => {
-  it('기본 상태에 테두리 색이 없다 — 폼에 입력이 여럿일 때 테두리가 소음이 된다', () => {
+  it('쉬는 상태에도 테두리가 보인다 — 채움만으로는 컨테이너와 1.12:1이라 경계가 사라진다', () => {
     wrap()
     const style = getComputedStyle(screen.getByLabelText('호스트'))
-    expect(style.borderColor).toBe('transparent')
+    expect(style.borderColor).toBe('rgb(61, 61, 74)')
     expect(style.backgroundColor).toBe('rgb(25, 25, 32)')
   })
 

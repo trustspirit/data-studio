@@ -8,9 +8,10 @@ export const controlCss = css`
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.color.surface.base};
   color: ${({ theme }) => theme.color.fg.primary};
-  /* 테두리는 자리를 잡되 색을 두지 않는다 — 포커스에서만 나타나므로
-     레이아웃이 흔들리지 않는다. */
-  border: 1px solid transparent;
+  /* 채움만으로는 안 보인다 — 필드면(#191920)과 컨테이너 surface.panel(#23232c)의
+     대비가 1.12:1이라 쉬는 상태에서 경계가 사라진다. 상시 테두리로 1.46:1을 만든다.
+     자리는 늘 차지하므로 포커스·오류로 색만 바뀌고 레이아웃은 안 움직인다. */
+  border: 1px solid ${({ theme }) => theme.color.borders.strong};
 
   &:focus {
     outline: none;
