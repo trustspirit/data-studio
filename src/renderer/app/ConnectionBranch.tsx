@@ -5,8 +5,8 @@ import { SchemaNavigator, useSchemaTree, type TableSelection } from '../entities
 
 const BranchError = styled.div`
   padding: 2px ${({ theme }) => theme.space.sm} 6px 26px;
-  color: ${({ theme }) => theme.color.red};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.intent.danger};
+  font-size: ${({ theme }) => theme.fontSize.label};
   word-break: break-word;
 `
 

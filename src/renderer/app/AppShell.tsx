@@ -20,8 +20,8 @@ const Layout = styled.div`
   grid-template-columns: ${({ theme }) => `${theme.size.rail} 1fr`};
   height: 100%;
   min-height: 0;
-  background: ${({ theme }) => theme.color.winBg};
-  color: ${({ theme }) => theme.color.text};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.fg.primary};
 `
 const Rail = styled.div`
   display: flex;
@@ -29,8 +29,8 @@ const Rail = styled.div`
   align-items: center;
   gap: ${({ theme }) => theme.space.xs};
   padding: ${({ theme }) => theme.space.sm} 0;
-  background: ${({ theme }) => theme.color.toolbar};
-  border-right: 1px solid ${({ theme }) => theme.color.border};
+  background: ${({ theme }) => theme.color.surface.panel};
+  border-right: 1px solid ${({ theme }) => theme.color.borders.strong};
   overflow: hidden;
 `
 const RailButton = styled.button<{ $active: boolean }>`
@@ -44,10 +44,10 @@ const RailButton = styled.button<{ $active: boolean }>`
   border: none;
   border-radius: ${({ theme }) => theme.radius.md};
   cursor: pointer;
-  color: ${({ theme, $active }) => ($active ? theme.color.text : theme.color.textDim)};
-  background: ${({ theme, $active }) => ($active ? theme.color.panel : 'transparent')};
+  color: ${({ theme, $active }) => ($active ? theme.color.fg.primary : theme.color.fg.dim)};
+  background: ${({ theme, $active }) => ($active ? theme.color.surface.panel : 'transparent')};
   &:hover {
-    color: ${({ theme }) => theme.color.text};
+    color: ${({ theme }) => theme.color.fg.primary};
   }
   /* 활성 탭 표시 — 레일 왼쪽 가장자리의 액센트 바 */
   &::before {
@@ -58,7 +58,7 @@ const RailButton = styled.button<{ $active: boolean }>`
     bottom: 8px;
     width: 2px;
     border-radius: 1px;
-    background: ${({ theme, $active }) => ($active ? theme.color.accent : 'transparent')};
+    background: ${({ theme, $active }) => ($active ? theme.color.intent.accent : 'transparent')};
   }
 `
 

@@ -53,8 +53,8 @@ const Body = styled.div`
 `
 const Title = styled.span`
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.color.textDim};
+  font-size: ${({ theme }) => theme.fontSize.body};
+  color: ${({ theme }) => theme.color.fg.dim};
   margin-right: auto;
 `
 
