@@ -42,4 +42,19 @@ describe('디자인 토큰 불변식', () => {
     // selected는 알파 틴트여야 한다. 불투명 hex면 표면 계단과 경쟁한다.
     expect(darkTheme.color.row.selected).toMatch(/^rgba\(/)
   })
+
+  it('어떤 row.* 값도 어떤 surface.* 값과 같지 않다', () => {
+    // 계단만 지키면 충분하지 않다. row.hover가 surface.base와 바이트 단위로
+    // 같아지면 사이드바 위 행의 hover·활성 표시가 통째로 사라진다.
+    const surfaces = new Set<string>(Object.values(darkTheme.color.surface))
+    const collisions = Object.entries(darkTheme.color.row).filter(([, v]) => surfaces.has(v))
+    expect(collisions).toEqual([])
+  })
+
+  it('hover·selected는 알파 틴트다 — 어느 표면 위에서든 한 단 들어올린다', () => {
+    // staged·line은 특정 표면 위에만 놓이는 면/선이라 불투명이어도 된다.
+    // 컨테이너를 가리지 않고 "들어올려야" 하는 것은 hover와 selected뿐이다.
+    expect(darkTheme.color.row.hover).toMatch(/^rgba\(/)
+    expect(darkTheme.color.row.selected).toMatch(/^rgba\(/)
+  })
 })

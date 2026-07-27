@@ -34,8 +34,9 @@ const Tree = styled.div<{ $inline: boolean }>`
 const SchemaRow = styled.div`
   display: flex;
   align-items: center;
+  /* 트리는 surface.base인 사이드바 위에 놓인다 — 상태는 틴트로만 준다. */
   &:hover {
-    background: ${({ theme }) => theme.color.surface.base};
+    background: ${({ theme }) => theme.color.row.hover};
   }
 `
 const SchemaToggle = styled.button<{ $depth: number }>`
@@ -62,7 +63,7 @@ const SchemaAction = styled.button`
   color: ${({ theme }) => theme.color.text.faint};
   cursor: pointer;
   &:hover {
-    background: ${({ theme }) => theme.color.surface.base};
+    background: ${({ theme }) => theme.color.row.hover};
     color: ${({ theme }) => theme.color.text.primary};
   }
 `
@@ -75,9 +76,10 @@ const TableRow = styled.button<{ $active: boolean; $depth: number }>`
   border: none;
   cursor: pointer;
   color: ${({ theme, $active }) => ($active ? theme.color.text.primary : theme.color.text.dim)};
-  background: ${({ theme, $active }) => ($active ? theme.color.surface.base : 'transparent')};
+  background: ${({ theme, $active }) => ($active ? theme.color.row.selected : 'transparent')};
   &:hover {
-    background: ${({ theme }) => theme.color.surface.base};
+    background: ${({ theme, $active }) =>
+      $active ? theme.color.row.selected : theme.color.row.hover};
     color: ${({ theme }) => theme.color.text.primary};
   }
 `

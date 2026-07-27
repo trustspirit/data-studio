@@ -14,9 +14,14 @@ const Row = styled.div<{ $active: boolean }>`
   align-items: center;
   gap: 2px;
   padding-right: ${({ theme }) => theme.space.xs};
-  background: ${({ theme, $active }) => ($active ? theme.color.surface.base : 'transparent')};
+  /* 상태색은 표면 계단이 아니라 틴트다 — 사이드바가 이미 surface.base라서
+     불투명 값을 쓰면 컨테이너와 같은 색이 되어 선택 표시가 사라진다. 활성은
+     강조 틴트라 중립 hover와도 구별된다(이름은 늘 text.primary라 글자로는
+     구별할 단서가 없다). */
+  background: ${({ theme, $active }) => ($active ? theme.color.row.selected : 'transparent')};
   &:hover {
-    background: ${({ theme }) => theme.color.surface.base};
+    background: ${({ theme, $active }) =>
+      $active ? theme.color.row.selected : theme.color.row.hover};
   }
 `
 const Chevron = styled.button`

@@ -13,9 +13,11 @@ const Row = styled.button<{ $active: boolean }>`
   border: none;
   cursor: pointer;
   color: ${({ theme, $active }) => ($active ? theme.color.text.primary : theme.color.text.dim)};
-  background: ${({ theme, $active }) => ($active ? theme.color.surface.base : 'transparent')};
+  /* 행 상태는 틴트로만 준다 — 리스트가 어느 표면 위에 놓이든 한 단 들어올린다. */
+  background: ${({ theme, $active }) => ($active ? theme.color.row.selected : 'transparent')};
   &:hover {
-    background: ${({ theme }) => theme.color.surface.base};
+    background: ${({ theme, $active }) =>
+      $active ? theme.color.row.selected : theme.color.row.hover};
     color: ${({ theme }) => theme.color.text.primary};
   }
 `
