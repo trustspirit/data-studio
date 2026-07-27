@@ -26,6 +26,10 @@ describe('renderCell', () => {
   it('빈 문자열은 NULL로 렌더하지 않는다', () => {
     const { container } = wrap(renderCell({ t: 'str', v: '' }))
     expect(container.textContent).toBe('')
+    // textContent === ''는 str 렌더러 삭제와 fallback('' 반환)이 우연히 같은 결과를 내
+    // 무의미해질 수 있다 — NULL 글자가 없다는 것까지 확인해야 빈 문자열과 NULL의
+    // 구별(DB 의미론의 핵심)을 실제로 검증한다.
+    expect(screen.queryByText('NULL')).toBeNull()
   })
 
   it('숫자는 등폭으로 렌더한다 — 자릿수가 세로로 맞아야 크기 차이가 보인다', () => {

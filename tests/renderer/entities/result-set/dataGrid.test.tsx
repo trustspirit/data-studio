@@ -37,6 +37,19 @@ describe('DataGrid', () => {
     expect(screen.getByText('name')).toBeTruthy()
   })
 
+  it('행 높이는 28px로 고정되고 셀의 세로 패딩은 0이다 — density.rowPad가 나중에 올라가도 그리드는 슬롯을 넘지 않는다', () => {
+    const { container } = wrap(<DataGrid columns={columns} rows={rows(3)} />)
+    const cell = container.querySelector('[data-cell]') as HTMLElement
+    const row = cell.parentElement as HTMLElement
+    // Row 자체의 높이가 못 박혀 있어야 한다 — 내용이 늘어도 슬롯이 넓어지지 않는다.
+    expect(getComputedStyle(row).height).toBe('28px')
+    // Cell의 세로 패딩이 0이어야 한다 — density.rowPad의 세로 성분이 그리드에 닿지 않는다는
+    // 증거. rowPad를 되살리면(4px든, Task 14의 6px든) 여기서 반드시 깨진다.
+    const cellStyle = getComputedStyle(cell)
+    expect(cellStyle.paddingTop).toBe('0px')
+    expect(cellStyle.paddingBottom).toBe('0px')
+  })
+
   it('큰 행 집합에서 전량을 DOM에 만들지 않는다 (가상화)', () => {
     const { container } = wrap(<DataGrid columns={columns} rows={rows(5000)} />)
     // 셀에 data-cell 속성을 달아 렌더된 셀 수를 센다. 5000행 x 2열 = 10000셀이면 가상화 실패.
