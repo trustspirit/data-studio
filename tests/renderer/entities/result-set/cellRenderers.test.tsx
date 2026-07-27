@@ -20,7 +20,10 @@ describe('renderCell', () => {
     const el = screen.getByText('NULL')
     const style = getComputedStyle(el)
     expect(style.fontStyle).toBe('italic')
-    expect(style.color).toBe('rgb(74, 74, 86)')
+    // NULL은 데이터다 — 비활성 컨트롤이 아니라서 WCAG 면제가 적용되지 않는다.
+    // text.disabled(2.17:1)로 내려가면 읽을 수 없다.
+    expect(style.color).toBe('rgb(110, 110, 124)') // text.faint
+    expect(style.color).not.toBe('rgb(74, 74, 86)') // text.disabled
   })
 
   it('빈 문자열은 NULL로 렌더하지 않는다', () => {
