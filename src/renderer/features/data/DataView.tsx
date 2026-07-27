@@ -13,8 +13,8 @@ const Layout = styled.div`
   display: flex;
   height: 100%;
   min-height: 0;
-  background: ${({ theme }) => theme.color.winBg};
-  color: ${({ theme }) => theme.color.text};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.fg.primary};
 `
 const Right = styled.div`
   display: flex;
@@ -27,8 +27,8 @@ const Spacer = styled.span`
   flex: 1;
 `
 const EditHint = styled.span`
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.fg.faint};
+  font-size: ${({ theme }) => theme.fontSize.label};
   white-space: nowrap;
 `
 

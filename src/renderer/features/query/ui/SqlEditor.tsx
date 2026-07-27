@@ -18,24 +18,24 @@ import { SQL_SNIPPETS } from '../model/sqlLang'
 const Host = styled.div`
   flex: 1;
   min-height: 0;
-  border: 1px solid ${({ theme }) => theme.color.border};
+  border: 1px solid ${({ theme }) => theme.color.borders.strong};
   border-radius: ${({ theme }) => theme.radius.md};
   overflow: hidden;
   & .cm-editor {
     height: 100%;
-    background: ${({ theme }) => theme.color.gridBg};
-    color: ${({ theme }) => theme.color.text};
+    background: ${({ theme }) => theme.color.surface.bg};
+    color: ${({ theme }) => theme.color.fg.primary};
     font-family: ${({ theme }) => theme.font.mono};
-    font-size: ${({ theme }) => theme.fontSize.md};
+    font-size: ${({ theme }) => theme.fontSize.body};
   }
   & .cm-scroller {
     overflow: auto;
   }
   & .cm-content {
-    caret-color: ${({ theme }) => theme.color.accent};
+    caret-color: ${({ theme }) => theme.color.intent.accent};
   }
   & .cm-cursor {
-    border-left-color: ${({ theme }) => theme.color.accent};
+    border-left-color: ${({ theme }) => theme.color.intent.accent};
   }
   & .cm-selectionBackground,
   & .cm-editor.cm-focused .cm-selectionBackground {
@@ -43,36 +43,36 @@ const Host = styled.div`
   }
   /* 자동완성 툴팁 — 다크 테마에 맞춘다(CodeMirror 기본은 라이트). */
   & .cm-tooltip {
-    background: ${({ theme }) => theme.color.panel};
-    border: 1px solid ${({ theme }) => theme.color.border};
+    background: ${({ theme }) => theme.color.surface.panel};
+    border: 1px solid ${({ theme }) => theme.color.borders.strong};
     border-radius: ${({ theme }) => theme.radius.md};
-    color: ${({ theme }) => theme.color.text};
+    color: ${({ theme }) => theme.color.fg.primary};
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     overflow: hidden;
   }
   & .cm-tooltip.cm-tooltip-autocomplete > ul {
     font-family: ${({ theme }) => theme.font.mono};
-    font-size: ${({ theme }) => theme.fontSize.sm};
+    font-size: ${({ theme }) => theme.fontSize.body};
     max-height: 220px;
   }
   & .cm-tooltip.cm-tooltip-autocomplete > ul > li {
     padding: 3px 8px;
-    color: ${({ theme }) => theme.color.textDim};
+    color: ${({ theme }) => theme.color.fg.dim};
   }
   & .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
-    background: ${({ theme }) => theme.color.accent};
-    color: ${({ theme }) => theme.color.onAccent};
+    background: ${({ theme }) => theme.color.intent.accent};
+    color: ${({ theme }) => theme.color.intent.onAccent};
   }
   & .cm-completionMatchedText {
     text-decoration: none;
-    color: ${({ theme }) => theme.color.accent};
+    color: ${({ theme }) => theme.color.intent.accent};
     font-weight: 600;
   }
   & li[aria-selected] .cm-completionMatchedText {
-    color: ${({ theme }) => theme.color.onAccent};
+    color: ${({ theme }) => theme.color.intent.onAccent};
   }
   & .cm-completionDetail {
-    color: ${({ theme }) => theme.color.textFaint};
+    color: ${({ theme }) => theme.color.fg.faint};
     font-style: normal;
     margin-left: ${({ theme }) => theme.space.sm};
   }

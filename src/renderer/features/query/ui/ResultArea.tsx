@@ -9,7 +9,7 @@ const Wrap = styled.div`
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border-top: 1px solid ${({ theme }) => theme.color.borderSoft};
+  border-top: 1px solid ${({ theme }) => theme.color.borders.soft};
 `
 
 interface Props {

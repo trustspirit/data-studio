@@ -5,21 +5,21 @@ const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
+  font-size: ${({ theme }) => theme.fontSize.body};
   th, td {
     text-align: left;
     padding: 4px 10px;
-    border-bottom: 1px solid ${({ theme }) => theme.color.borderSoft};
+    border-bottom: 1px solid ${({ theme }) => theme.color.borders.soft};
   }
   th {
-    color: ${({ theme }) => theme.color.textDim};
+    color: ${({ theme }) => theme.color.fg.dim};
     font-weight: 600;
   }
 `
 const Empty = styled.div`
   padding: 6px 10px;
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: 12px;
+  color: ${({ theme }) => theme.color.fg.faint};
+  font-size: ${({ theme }) => theme.fontSize.body};
 `
 
 export function ForeignKeyList({ foreignKeys }: { foreignKeys: readonly ForeignKeyInfo[] }) {

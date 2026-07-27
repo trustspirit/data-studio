@@ -12,7 +12,7 @@ const Wrap = styled.div`
   position: relative;
   height: 100%;
   overflow: hidden;
-  background: ${({ theme }) => theme.color.winBg};
+  background: ${({ theme }) => theme.color.surface.bg};
 `
 const Overlay = styled.div`
   position: absolute;
@@ -90,7 +90,7 @@ export function ErCanvas({ graph, onOpenTable }: Props) {
         onMouseMove={onMouseMove}
         onMouseUp={endDrag}
         onMouseLeave={endDrag}
-        style={{ display: 'block', color: theme.color.textDim }}
+        style={{ display: 'block', color: theme.color.fg.dim }}
       >
         <defs>
           <marker id="er-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
@@ -117,11 +117,11 @@ export function ErCanvas({ graph, onOpenTable }: Props) {
                 width={pn.width}
                 height={pn.height}
                 rx={4}
-                fill={theme.color.panel}
-                stroke={theme.color.border}
+                fill={theme.color.surface.panel}
+                stroke={theme.color.borders.strong}
               />
-              <line x1={0} y1={ER_HEADER_H} x2={pn.width} y2={ER_HEADER_H} stroke={theme.color.border} />
-              <text x={8} y={ER_HEADER_H / 2} dominantBaseline="middle" fontWeight={600} fill={theme.color.text} fontSize={13}>
+              <line x1={0} y1={ER_HEADER_H} x2={pn.width} y2={ER_HEADER_H} stroke={theme.color.borders.strong} />
+              <text x={8} y={ER_HEADER_H / 2} dominantBaseline="middle" fontWeight={600} fill={theme.color.fg.primary} fontSize={13}>
                 {pn.node.table}
               </text>
               {pn.node.columns.map((c, ci) => (
@@ -131,7 +131,7 @@ export function ErCanvas({ graph, onOpenTable }: Props) {
                   y={ER_HEADER_H + ER_ROW_H * ci + ER_ROW_H / 2}
                   dominantBaseline="middle"
                   fontSize={12}
-                  fill={theme.color.text}
+                  fill={theme.color.fg.primary}
                 >
                   {c.isPrimaryKey ? '🔑 ' : c.isForeignKey ? 'FK ' : ''}
                   {c.name} {c.type}
