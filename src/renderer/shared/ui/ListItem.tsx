@@ -8,15 +8,15 @@ const Row = styled.button<{ $active: boolean }>`
   width: 100%;
   text-align: left;
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   padding: ${({ theme }) => theme.density.rowPad};
   border: none;
   cursor: pointer;
-  color: ${({ theme, $active }) => ($active ? theme.color.text : theme.color.textDim)};
-  background: ${({ theme, $active }) => ($active ? theme.color.rowHover : 'transparent')};
+  color: ${({ theme, $active }) => ($active ? theme.color.fg.primary : theme.color.fg.dim)};
+  background: ${({ theme, $active }) => ($active ? theme.color.surface.base : 'transparent')};
   &:hover {
-    background: ${({ theme }) => theme.color.rowHover};
-    color: ${({ theme }) => theme.color.text};
+    background: ${({ theme }) => theme.color.surface.base};
+    color: ${({ theme }) => theme.color.fg.primary};
   }
 `
 

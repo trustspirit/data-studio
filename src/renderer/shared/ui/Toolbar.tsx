@@ -10,10 +10,10 @@ export const Toolbar = styled.div`
   gap: ${({ theme }) => theme.space.sm};
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.md}`};
   min-height: 37px;
-  border-bottom: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.toolbar};
+  border-bottom: 1px solid ${({ theme }) => theme.color.borders.strong};
+  background: ${({ theme }) => theme.color.surface.panel};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.color.textDim};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  color: ${({ theme }) => theme.color.fg.dim};
 `
 Toolbar.displayName = 'Toolbar'

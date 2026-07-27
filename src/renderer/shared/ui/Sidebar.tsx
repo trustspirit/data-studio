@@ -11,9 +11,9 @@ export const Sidebar = styled.div`
   width: ${({ theme }) => theme.size.sidebar};
   min-height: 0;
   overflow: auto;
-  background: ${({ theme }) => theme.color.sidebar};
-  border-right: 1px solid ${({ theme }) => theme.color.border};
+  background: ${({ theme }) => theme.color.surface.base};
+  border-right: 1px solid ${({ theme }) => theme.color.borders.strong};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
 `
 Sidebar.displayName = 'Sidebar'

@@ -8,11 +8,11 @@ export const ErrorBanner = styled.div.attrs({ role: 'alert' })`
   margin: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
   padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
   border-radius: ${({ theme }) => theme.radius.md};
-  border: 1px solid ${({ theme }) => theme.color.dangerBorder};
-  background: ${({ theme }) => theme.color.dangerBg};
-  color: ${({ theme }) => theme.color.red};
+  border: 1px solid ${({ theme }) => theme.color.intent.danger};
+  background: ${({ theme }) => theme.color.intentSoft.danger};
+  color: ${({ theme }) => theme.color.intent.danger};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.md};
+  font-size: ${({ theme }) => theme.fontSize.body};
   /* Postgres는 DETAIL·HINT를 여러 줄로 붙여 보낸다. 줄바꿈을 접으면 읽을 수 없다. */
   white-space: pre-wrap;
   word-break: break-word;
@@ -22,9 +22,9 @@ ErrorBanner.displayName = 'ErrorBanner'
 /** 빈 상태·안내 문구. 콘텐츠 영역 안에서 낮은 대비로 조용히 표시한다. */
 export const Notice = styled.div`
   padding: ${({ theme }) => theme.space.lg};
-  color: ${({ theme }) => theme.color.textDim};
+  color: ${({ theme }) => theme.color.fg.dim};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.md};
+  font-size: ${({ theme }) => theme.fontSize.body};
 `
 Notice.displayName = 'Notice'
 
@@ -41,12 +41,12 @@ const EmptyWrap = styled.div`
   text-align: center;
 `
 const EmptyTitle = styled.div`
-  color: ${({ theme }) => theme.color.textDim};
-  font-size: ${({ theme }) => theme.fontSize.md};
+  color: ${({ theme }) => theme.color.fg.dim};
+  font-size: ${({ theme }) => theme.fontSize.body};
 `
 const EmptyHint = styled.div`
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.color.fg.faint};
+  font-size: ${({ theme }) => theme.fontSize.body};
 `
 
 /**

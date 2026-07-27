@@ -11,15 +11,15 @@ const Trigger = styled.button`
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   background: transparent;
-  color: ${({ theme }) => theme.color.textDim};
+  color: ${({ theme }) => theme.color.fg.dim};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.md};
+  font-size: ${({ theme }) => theme.fontSize.body};
   line-height: 1;
   cursor: pointer;
   &:hover,
   &[aria-expanded='true'] {
-    background: ${({ theme }) => theme.color.rowHover};
-    color: ${({ theme }) => theme.color.text};
+    background: ${({ theme }) => theme.color.surface.base};
+    color: ${({ theme }) => theme.color.fg.primary};
   }
 `
 const Menu = styled.div<{ $pos: { top: number; left: number } | null }>`
@@ -29,9 +29,9 @@ const Menu = styled.div<{ $pos: { top: number; left: number } | null }>`
   flex-direction: column;
   min-width: 132px;
   padding: ${({ theme }) => theme.space.xs} 0;
-  border: 1px solid ${({ theme }) => theme.color.border};
+  border: 1px solid ${({ theme }) => theme.color.borders.strong};
   border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.panel};
+  background: ${({ theme }) => theme.color.surface.panel};
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   top: ${({ $pos }) => $pos?.top ?? 0}px;
   left: ${({ $pos }) => $pos?.left ?? 0}px;
@@ -42,15 +42,15 @@ const Item = styled.button<{ $danger: boolean }>`
   padding: 5px ${({ theme }) => theme.space.md};
   border: none;
   background: transparent;
-  color: ${({ theme, $danger }) => ($danger ? theme.color.red : theme.color.text)};
+  color: ${({ theme, $danger }) => ($danger ? theme.color.intent.danger : theme.color.fg.primary)};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
   &:hover:not(:disabled),
   &:focus-visible {
-    background: ${({ theme }) => theme.color.rowHover};
+    background: ${({ theme }) => theme.color.surface.base};
   }
   &:disabled {
     opacity: 0.5;
