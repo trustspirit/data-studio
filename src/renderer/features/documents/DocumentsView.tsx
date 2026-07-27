@@ -11,8 +11,8 @@ const Layout = styled.div`
   display: flex;
   height: 100%;
   min-height: 0;
-  background: ${({ theme }) => theme.color.winBg};
-  color: ${({ theme }) => theme.color.text};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.fg.primary};
 `
 const Right = styled.div`
   display: flex;
@@ -29,12 +29,12 @@ const FilterInput = styled.textarea`
   min-height: 32px;
   resize: vertical;
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   padding: 6px 8px;
   border-radius: ${({ theme }) => theme.radius.md};
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.gridBg};
-  color: ${({ theme }) => theme.color.text};
+  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.fg.primary};
 `
 const Results = styled.div`
   flex: 1;
@@ -45,10 +45,10 @@ const Doc = styled.pre`
   margin: 0 0 ${({ theme }) => theme.space.sm} 0;
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
   border-radius: ${({ theme }) => theme.radius.md};
-  border: 1px solid ${({ theme }) => theme.color.borderSoft};
-  background: ${({ theme }) => theme.color.panel};
+  border: 1px solid ${({ theme }) => theme.color.borders.soft};
+  background: ${({ theme }) => theme.color.surface.panel};
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   white-space: pre-wrap;
   word-break: break-word;
 `

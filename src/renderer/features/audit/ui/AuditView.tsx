@@ -8,8 +8,8 @@ const Layout = styled.div`
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: ${({ theme }) => theme.color.winBg};
-  color: ${({ theme }) => theme.color.text};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.fg.primary};
   font-family: ${({ theme }) => theme.font.ui};
 `
 const Bar = styled.div`
@@ -17,17 +17,17 @@ const Bar = styled.div`
   align-items: center;
   gap: ${({ theme }) => theme.space.sm};
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  border-bottom: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.toolbar};
+  border-bottom: 1px solid ${({ theme }) => theme.color.borders.strong};
+  background: ${({ theme }) => theme.color.surface.panel};
 `
 const BarTitle = styled.h2`
   margin: 0;
-  font-size: ${({ theme }) => theme.fontSize.md};
+  font-size: ${({ theme }) => theme.fontSize.heading};
   font-weight: 600;
 `
 const Count = styled.span`
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.color.fg.faint};
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Spacer = styled.span`
   margin-left: auto;
@@ -40,22 +40,22 @@ const Scroll = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
 `
 const Th = styled.th`
   position: sticky;
   top: 0;
   text-align: left;
   padding: ${({ theme }) => theme.density.rowPad};
-  background: ${({ theme }) => theme.color.gridHeader};
-  border-bottom: 1px solid ${({ theme }) => theme.color.border};
-  color: ${({ theme }) => theme.color.textDim};
+  background: ${({ theme }) => theme.color.surface.base};
+  border-bottom: 1px solid ${({ theme }) => theme.color.borders.strong};
+  color: ${({ theme }) => theme.color.fg.dim};
   font-weight: 600;
   white-space: nowrap;
 `
 const Td = styled.td`
   padding: ${({ theme }) => theme.density.rowPad};
-  border-bottom: 1px solid ${({ theme }) => theme.color.borderSoft};
+  border-bottom: 1px solid ${({ theme }) => theme.color.borders.soft};
   vertical-align: top;
   white-space: nowrap;
 `
@@ -69,21 +69,21 @@ const Statement = styled(Td)`
 const ActorBadge = styled.span<{ $ai: boolean }>`
   padding: 1px 8px;
   border-radius: 999px;
-  font-size: ${({ theme }) => theme.fontSize.xs};
-  border: 1px solid ${({ theme }) => theme.color.border};
-  color: ${({ theme, $ai }) => ($ai ? theme.color.purple : theme.color.textDim)};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  color: ${({ theme, $ai }) => ($ai ? theme.color.label.purple : theme.color.fg.dim)};
 `
 const Outcome = styled.span<{ $tone: 'ok' | 'bad' | 'warn' | 'dim' }>`
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  font-size: ${({ theme }) => theme.fontSize.label};
   font-weight: 600;
   color: ${({ theme, $tone }) =>
     $tone === 'ok'
-      ? theme.color.green
+      ? theme.color.intent.success
       : $tone === 'bad'
-        ? theme.color.red
+        ? theme.color.intent.danger
         : $tone === 'warn'
-          ? theme.color.orange
-          : theme.color.textDim};
+          ? theme.color.intent.warning
+          : theme.color.fg.dim};
 `
 
 function toneOf(outcome: string): 'ok' | 'bad' | 'warn' | 'dim' {

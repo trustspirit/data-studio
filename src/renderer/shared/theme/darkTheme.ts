@@ -111,7 +111,7 @@ export const darkTheme = {
   fontWeight: { regular: 400, medium: 500, semibold: 600 },
   // 스페이싱 스케일 — 4px 그리드.
   space: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '24px' },
-  radius: { sm: '4px', md: '6px', lg: '8px' },
+  radius: { sm: '4px', md: '6px', lg: '10px' },
   // 레이아웃 치수 — 문자열은 CSS에 그대로 쓰이고, 숫자는 SplitPane의 클램프에 쓰인다.
   size: {
     rail: '56px',

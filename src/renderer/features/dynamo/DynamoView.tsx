@@ -9,8 +9,8 @@ const Layout = styled.div`
   display: flex;
   height: 100%;
   min-height: 0;
-  background: ${({ theme }) => theme.color.winBg};
-  color: ${({ theme }) => theme.color.text};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.fg.primary};
 `
 const Left = styled(Sidebar)`
   overflow: hidden;
@@ -19,7 +19,7 @@ const TableList = styled.div`
   flex: 1;
   overflow: auto;
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
 `
 const Right = styled.div`
   display: flex;
@@ -34,12 +34,12 @@ const Editor = styled.textarea`
   resize: none;
   height: 48px;
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
   border-radius: ${({ theme }) => theme.radius.md};
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.gridBg};
-  color: ${({ theme }) => theme.color.text};
+  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.fg.primary};
 `
 const Rows = styled.div`
   flex: 1;
@@ -49,9 +49,9 @@ const Rows = styled.div`
 const ItemRow = styled.pre`
   margin: 0 0 ${({ theme }) => theme.space.xs} 0;
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  border-bottom: 1px solid ${({ theme }) => theme.color.border};
+  border-bottom: 1px solid ${({ theme }) => theme.color.borders.strong};
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   white-space: pre-wrap;
   word-break: break-word;
 `
