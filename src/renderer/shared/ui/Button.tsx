@@ -55,7 +55,16 @@ export const Button = styled.button<{ variant?: Variant; size?: Size }>`
   transition: background 0.12s ease;
   ${({ size = 'md' }) => sizes[size]}
   ${({ variant = 'primary' }) => variants[variant]}
+  /*
+   * 비활성은 변형과 무관하게 같은 중립 판이 된다. 글자만 흐리면 primary는 강조색
+   * 채움을 그대로 지닌 채 읽을 수 없는 라벨이 되고, ghost는 배경도 테두리도 없어
+   * 빈 공간과 구별되지 않는다 — DataView의 되돌리기·저장과 AI 보내기 버튼은
+   * **정지 상태가 곧 비활성**이라 이것이 평소 화면이다. 테두리는 판이 컨테이너와
+   * 같은 단에 놓여도 컨트롤의 경계를 남긴다.
+   */
   &:disabled {
+    background: ${({ theme }) => theme.color.surface.base};
+    border-color: ${({ theme }) => theme.color.border.soft};
     color: ${({ theme }) => theme.color.text.disabled};
     cursor: default;
   }
