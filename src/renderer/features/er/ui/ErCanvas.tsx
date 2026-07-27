@@ -14,12 +14,23 @@ const Wrap = styled.div`
   overflow: hidden;
   background: ${({ theme }) => theme.color.surface.bg};
 `
+/**
+ * 확대·축소 조작판. 어포던스는 버튼이 아니라 **떠 있는 판**이 갖는다 — 자동 맞춤이
+ * 테이블 노드를 화면 전체에 흩뿌리므로 이 판은 surface.panel 노드 채움과
+ * text.primary 노드 제목 위에 겹칠 수 있다. 캔버스 위에서 판을 배경에서 떼어
+ * 놓는 것은 테두리뿐이다. 버튼은 ghost로 남긴다(변형을 건드리면 34개 호출처에
+ * 전부 번진다).
+ */
 const Overlay = styled.div`
   position: absolute;
   top: ${({ theme }) => theme.space.sm};
   right: ${({ theme }) => theme.space.sm};
   display: flex;
   gap: ${({ theme }) => theme.space.xs};
+  padding: ${({ theme }) => theme.space.xs};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.color.surface.panel};
   z-index: 1;
 `
 
