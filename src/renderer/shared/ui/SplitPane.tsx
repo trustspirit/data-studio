@@ -39,7 +39,7 @@ const Gutter = styled.div<{ $dir: 'row' | 'column' }>`
   &::after {
     content: '';
     position: absolute;
-    background: ${({ theme }) => theme.color.borders.strong};
+    background: ${({ theme }) => theme.color.border.strong};
     ${({ $dir }) =>
       $dir === 'row'
         ? `top: 0; bottom: 0; left: ${(GUTTER - 1) / 2}px; width: 1px;`

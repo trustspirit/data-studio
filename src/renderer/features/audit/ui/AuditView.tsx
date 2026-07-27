@@ -9,7 +9,7 @@ const Layout = styled.div`
   height: 100%;
   min-height: 0;
   background: ${({ theme }) => theme.color.surface.bg};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
   font-family: ${({ theme }) => theme.font.ui};
 `
 const Bar = styled.div`
@@ -17,7 +17,7 @@ const Bar = styled.div`
   align-items: center;
   gap: ${({ theme }) => theme.space.sm};
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  border-bottom: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.strong};
   background: ${({ theme }) => theme.color.surface.panel};
 `
 const BarTitle = styled.h2`
@@ -26,7 +26,7 @@ const BarTitle = styled.h2`
   font-weight: 600;
 `
 const Count = styled.span`
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
   font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Spacer = styled.span`
@@ -48,14 +48,14 @@ const Th = styled.th`
   text-align: left;
   padding: ${({ theme }) => theme.density.rowPad};
   background: ${({ theme }) => theme.color.surface.base};
-  border-bottom: 1px solid ${({ theme }) => theme.color.borders.strong};
-  color: ${({ theme }) => theme.color.fg.dim};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.strong};
+  color: ${({ theme }) => theme.color.text.dim};
   font-weight: 600;
   white-space: nowrap;
 `
 const Td = styled.td`
   padding: ${({ theme }) => theme.density.rowPad};
-  border-bottom: 1px solid ${({ theme }) => theme.color.borders.soft};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
   vertical-align: top;
   white-space: nowrap;
 `
@@ -70,8 +70,8 @@ const ActorBadge = styled.span<{ $ai: boolean }>`
   padding: 1px 8px;
   border-radius: 999px;
   font-size: ${({ theme }) => theme.fontSize.label};
-  border: 1px solid ${({ theme }) => theme.color.borders.strong};
-  color: ${({ theme, $ai }) => ($ai ? theme.color.label.purple : theme.color.fg.dim)};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
+  color: ${({ theme, $ai }) => ($ai ? theme.color.label.purple : theme.color.text.dim)};
 `
 const Outcome = styled.span<{ $tone: 'ok' | 'bad' | 'warn' | 'dim' }>`
   font-size: ${({ theme }) => theme.fontSize.label};
@@ -83,7 +83,7 @@ const Outcome = styled.span<{ $tone: 'ok' | 'bad' | 'warn' | 'dim' }>`
         ? theme.color.intent.danger
         : $tone === 'warn'
           ? theme.color.intent.warning
-          : theme.color.fg.dim};
+          : theme.color.text.dim};
 `
 
 function toneOf(outcome: string): 'ok' | 'bad' | 'warn' | 'dim' {
@@ -113,7 +113,7 @@ export function AuditView({ gateway }: AuditViewProps) {
         <Spacer />
         <Button
           type="button"
-          variant="secondary"
+          variant="ghost"
           size="sm"
           data-testid="audit-refresh"
           disabled={log.loading}

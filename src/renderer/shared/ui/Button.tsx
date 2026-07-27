@@ -1,6 +1,6 @@
 import styled, { css } from 'styled-components'
 
-type Variant = 'primary' | 'ghost' | 'danger' | 'secondary'
+type Variant = 'primary' | 'ghost' | 'danger'
 type Size = 'sm' | 'md'
 
 const variants = {
@@ -17,11 +17,11 @@ const variants = {
   // 늘어설 때 테두리가 그만큼 늘어나면 주요 동작이 묻힌다.
   ghost: css`
     background: transparent;
-    color: ${({ theme }) => theme.color.fg.dim};
+    color: ${({ theme }) => theme.color.text.dim};
     border-color: transparent;
     &:hover:not(:disabled) {
       background: ${({ theme }) => theme.color.surface.base};
-      color: ${({ theme }) => theme.color.fg.primary};
+      color: ${({ theme }) => theme.color.text.primary};
     }
   `,
   // 채우지 않는다 — 채운 빨강은 시선을 먼저 끌어 습관적 클릭을 부른다.
@@ -34,8 +34,6 @@ const variants = {
     }
   `,
 } as const
-// 이관 기간 별칭. Task 14에서 제거한다.
-const resolved = { ...variants, secondary: variants.ghost } as const
 
 const sizes = {
   sm: css`
@@ -56,9 +54,9 @@ export const Button = styled.button<{ variant?: Variant; size?: Size }>`
   white-space: nowrap;
   transition: background 0.12s ease;
   ${({ size = 'md' }) => sizes[size]}
-  ${({ variant = 'primary' }) => resolved[variant]}
+  ${({ variant = 'primary' }) => variants[variant]}
   &:disabled {
-    color: ${({ theme }) => theme.color.fg.disabled};
+    color: ${({ theme }) => theme.color.text.disabled};
     cursor: default;
   }
 `

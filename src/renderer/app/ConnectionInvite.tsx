@@ -22,13 +22,13 @@ const Name = styled.h2`
   margin: 0;
   font-size: ${({ theme }) => theme.fontSize.title};
   font-weight: 600;
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Target = styled.p`
   margin: 0;
   font-family: ${({ theme }) => theme.font.mono};
   font-size: ${({ theme }) => theme.fontSize.label};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   word-break: break-all;
 `
 const Row = styled.div`
@@ -82,7 +82,7 @@ export function ConnectionInvite({
           </Button>
           <Button
             type="button"
-            variant="secondary"
+            variant="ghost"
             data-testid={`invite-settings-${connection.id}`}
             onClick={onSettings}
           >

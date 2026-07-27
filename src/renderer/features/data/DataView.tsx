@@ -14,7 +14,7 @@ const Layout = styled.div`
   height: 100%;
   min-height: 0;
   background: ${({ theme }) => theme.color.surface.bg};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Right = styled.div`
   display: flex;
@@ -27,7 +27,7 @@ const Spacer = styled.span`
   flex: 1;
 `
 const EditHint = styled.span`
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
   font-size: ${({ theme }) => theme.fontSize.label};
   white-space: nowrap;
 `
@@ -101,9 +101,9 @@ export function DataView({ gateway, connectionId, selection, onDirtyChange }: Da
               <Spacer />
               <EditHint>셀을 두 번 누르거나 Enter로 편집</EditHint>
               <span>{editor.changeCount} changes</span>
-              <Button variant="secondary" size="sm" onClick={editor.addRow}>Add row</Button>
-              <Button variant="secondary" size="sm" disabled={!editor.dirty} onClick={editor.discard}>Discard</Button>
-              <Button variant="secondary" size="sm" disabled={!editor.dirty} onClick={handleSave}>Save</Button>
+              <Button variant="ghost" size="sm" onClick={editor.addRow}>Add row</Button>
+              <Button variant="ghost" size="sm" disabled={!editor.dirty} onClick={editor.discard}>Discard</Button>
+              <Button variant="ghost" size="sm" disabled={!editor.dirty} onClick={handleSave}>Save</Button>
             </Toolbar>
           ) : (
             <Notice>PK 없음 — 편집 불가</Notice>

@@ -3,19 +3,19 @@ import styled from 'styled-components'
 import type { WireValue } from '../../../../shared/types/wire'
 
 const Null = styled.span`
-  color: ${({ theme }) => theme.color.fg.disabled};
+  color: ${({ theme }) => theme.color.text.disabled};
   font-style: italic;
 `
 const Mono = styled.span`
   font-family: ${({ theme }) => theme.font.mono};
 `
 const Badge = styled.span`
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   font-family: ${({ theme }) => theme.font.mono};
   font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Note = styled.span`
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
   margin-left: 6px;
   font-size: ${({ theme }) => theme.fontSize.label};
 `

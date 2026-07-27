@@ -43,7 +43,7 @@ const Wrap = styled.div`
 const Title = styled.h3`
   margin: 0;
   font-size: ${({ theme }) => theme.fontSize.heading};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const FieldRow = styled.div`
   display: flex;
@@ -53,7 +53,7 @@ const FieldRow = styled.div`
 `
 const Label = styled.label`
   font-size: ${({ theme }) => theme.fontSize.label};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.space.xs};
@@ -75,7 +75,7 @@ const AddRow = styled.div`
 `
 const Check = styled.label`
   font-size: ${({ theme }) => theme.fontSize.label};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -99,7 +99,7 @@ const Danger = styled.div`
   border: 1px solid ${({ theme }) => theme.color.intent.danger};
   border-radius: ${({ theme }) => theme.radius.sm};
   font-size: ${({ theme }) => theme.fontSize.body};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 
   code {
     font-family: ${({ theme }) => theme.font.mono};
@@ -480,7 +480,7 @@ export function TableDesigner({
                 </Check>
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   disabled={columns.length === 1}
                   onClick={() => setColumns((cols) => cols.filter((x) => x.key !== c.key))}
@@ -497,7 +497,7 @@ export function TableDesigner({
             <AddRow>
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
                 size="sm"
                 data-testid="ddl-add-id"
                 disabled={hasIdColumn}
@@ -513,7 +513,7 @@ export function TableDesigner({
               </Button>
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
                 size="sm"
                 data-testid="ddl-add-column"
                 onClick={() => setColumns((cols) => [...cols, emptyColumn()])}
@@ -778,7 +778,7 @@ export function TableDesigner({
         >
           {busy ? '실행 중…' : 'Run SQL'}
         </Button>
-        <Button type="button" variant="secondary" data-testid="ddl-cancel" onClick={onClose}>
+        <Button type="button" variant="ghost" data-testid="ddl-cancel" onClick={onClose}>
           Cancel
         </Button>
       </Actions>

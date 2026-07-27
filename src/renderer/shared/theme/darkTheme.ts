@@ -4,34 +4,6 @@
  */
 export const darkTheme = {
   color: {
-    winBg: '#1a1a1e',
-    titlebar: '#26262b',
-    toolbar: '#202024',
-    sidebar: '#1c1c20',
-    panel: '#212127',
-    gridBg: '#1a1a1f',
-    gridHeader: '#232329',
-    rowHover: '#26262e',
-    rowAlt: '#1e1e23',
-    border: '#33333b',
-    borderSoft: '#2a2a31',
-    text: '#e7e7ec',
-    textDim: '#9a9aa4',
-    textFaint: '#63636d',
-    accent: '#0a84ff',
-    green: '#30d158',
-    orange: '#ff9f0a',
-    red: '#ff453a',
-    purple: '#bf5af2',
-    pink: '#ff7ab2',
-    teal: '#40c8e0',
-    yellow: '#ffd60a',
-    blue: '#5e9eff',
-    onAccent: '#ffffff',
-    onDanger: '#ffffff',
-    dangerBg: 'rgba(255, 69, 58, 0.12)',
-    dangerBorder: 'rgba(255, 69, 58, 0.35)',
-
     /** 표면 4단 계단. 명도 17.3 → 27.3 → 38.0 → 50.7 (폭 13.1%). */
     surface: {
       bg: '#101014',
@@ -45,14 +17,13 @@ export const darkTheme = {
       staged: '#1e1e26',
       line: '#1e1e26',
     },
-    /** 이관 기간용 이름. Task 14에서 구 text/textDim/textFaint를 지우며 text로 승격한다. */
-    fg: {
+    text: {
       primary: '#f2f2f6',
       dim: '#a5a5b2',
       faint: '#6e6e7c',
       disabled: '#4a4a56',
     },
-    borders: {
+    border: {
       strong: '#3d3d4a',
       soft: '#2a2a34',
     },
@@ -99,7 +70,7 @@ export const darkTheme = {
     ident: '#c8d3f5',
     number: '#f78c6c',
     type: '#ffcb6b',
-    comment: '#6b7089',
+    comment: '#787d96',
     punct: '#a6a6b0',
   },
   font: {
@@ -107,7 +78,7 @@ export const darkTheme = {
     mono: "ui-monospace, 'SF Mono', Menlo, monospace",
   },
   // 타이포 스케일 — 컴포넌트별 임의 font-size 대신 이 세 단계만 쓴다.
-  fontSize: { xs: '11px', sm: '12px', md: '13px', label: '11px', body: '13px', heading: '15px', title: '20px' },
+  fontSize: { label: '11px', body: '13px', heading: '15px', title: '20px' },
   fontWeight: { regular: 400, medium: 500, semibold: 600 },
   // 스페이싱 스케일 — 4px 그리드.
   space: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '24px' },
@@ -126,7 +97,7 @@ export const darkTheme = {
     editorMin: 120,
     editorMax: 720,
   },
-  density: { rowPad: '4px 12px', rowHeight: '28px', controlHeight: '28px', controlPad: '5px 10px' },
+  density: { rowPad: '6px 12px', rowHeight: '28px', controlHeight: '28px', controlPad: '5px 10px' },
 } as const
 
 export type AppTheme = typeof darkTheme

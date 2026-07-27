@@ -10,10 +10,10 @@ const Table = styled.table`
   th, td {
     text-align: left;
     padding: 4px 10px;
-    border-bottom: 1px solid ${({ theme }) => theme.color.borders.soft};
+    border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
   }
   th {
-    color: ${({ theme }) => theme.color.fg.dim};
+    color: ${({ theme }) => theme.color.text.dim};
     font-weight: 600;
   }
 `
@@ -61,7 +61,7 @@ export function ColumnsTable({ columns, onRename, onDrop }: ColumnsTableProps) {
                 {onRename !== undefined && (
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
                     data-testid={`col-rename-${c.name}`}
                     onClick={() => onRename(c.name)}
@@ -72,7 +72,7 @@ export function ColumnsTable({ columns, onRename, onDrop }: ColumnsTableProps) {
                 {onDrop !== undefined && (
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
                     data-testid={`col-drop-${c.name}`}
                     onClick={() => onDrop(c.name)}

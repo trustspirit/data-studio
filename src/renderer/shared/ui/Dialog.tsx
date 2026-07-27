@@ -16,7 +16,7 @@ const Panel = styled.div`
   min-width: 320px;
   max-width: 520px;
   background: ${({ theme }) => theme.color.surface.raised};
-  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
   border-radius: ${({ theme }) => theme.radius.lg};
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7);
   overflow: hidden;
@@ -26,13 +26,13 @@ const Head = styled.div`
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.heading};
   font-weight: ${({ theme }) => theme.fontWeight.semibold};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Body = styled.div`
   padding: ${({ theme }) => `0 ${theme.space.lg} ${theme.space.md}`};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.body};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   line-height: 1.6;
 `
 const Foot = styled.div`
@@ -41,7 +41,7 @@ const Foot = styled.div`
   justify-content: flex-end;
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.lg}`};
   background: ${({ theme }) => theme.color.surface.panel};
-  border-top: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-top: 1px solid ${({ theme }) => theme.color.border.strong};
 `
 
 interface DialogProps {

@@ -22,7 +22,7 @@ const Sheet = styled.div`
   display: flex;
   flex-direction: column;
   background: ${({ theme }) => theme.color.surface.panel};
-  border-left: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-left: 1px solid ${({ theme }) => theme.color.border.strong};
   z-index: 2;
   overflow: hidden;
 `

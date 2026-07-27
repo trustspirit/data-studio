@@ -9,10 +9,10 @@ const NewQuery = styled.button`
   border: none;
   border-radius: ${({ theme }) => theme.radius.md};
   cursor: pointer;
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   background: transparent;
   &:hover {
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 

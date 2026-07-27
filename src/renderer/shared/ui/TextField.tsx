@@ -9,7 +9,7 @@ const Wrap = styled.label`
   font-family: ${({ theme }) => theme.font.ui};
 `
 const Caption = styled.span`
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Input = styled.input<{ $invalid: boolean }>`

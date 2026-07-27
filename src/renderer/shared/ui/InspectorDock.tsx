@@ -7,7 +7,7 @@ const Dock = styled.div`
   height: 100%;
   min-height: 0;
   background: ${({ theme }) => theme.color.surface.panel};
-  border-left: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-left: 1px solid ${({ theme }) => theme.color.border.strong};
   overflow: hidden;
 `
 const Section = styled.div<{ $grow: boolean }>`
@@ -28,12 +28,12 @@ const Header = styled.button`
   letter-spacing: 0.04em;
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
   border: none;
-  border-bottom: 1px solid ${({ theme }) => theme.color.borders.soft};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
   background: transparent;
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   cursor: pointer;
   &:hover {
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 const Body = styled.div<{ $grow: boolean }>`

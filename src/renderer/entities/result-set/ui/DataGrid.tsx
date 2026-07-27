@@ -22,8 +22,8 @@ const HeaderRow = styled.div`
   position: sticky;
   top: 0;
   background: ${({ theme }) => theme.color.surface.base};
-  border-bottom: 1px solid ${({ theme }) => theme.color.borders.strong};
-  color: ${({ theme }) => theme.color.fg.dim};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.strong};
+  color: ${({ theme }) => theme.color.text.dim};
   font-size: ${({ theme }) => theme.fontSize.label};
   letter-spacing: 0.3px;
 `
@@ -64,16 +64,16 @@ const CellInput = styled.input`
   font: inherit;
   background: ${({ theme }) => theme.color.surface.bg};
   color: inherit;
-  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
 `
 const NullButton = styled.button`
   flex: 0 0 auto;
   margin-left: 2px;
   font: inherit;
   cursor: pointer;
-  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
   background: ${({ theme }) => theme.color.surface.base};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
 `
 const DeleteToggleCell = styled.div`
   flex: 0 0 28px;

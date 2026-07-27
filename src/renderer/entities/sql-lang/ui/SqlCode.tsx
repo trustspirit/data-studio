@@ -12,10 +12,10 @@ import { sqlTokenCss, tokenizeSql } from '../model/sqlTokens'
 const Pre = styled.pre`
   margin: 0;
   padding: ${({ theme }) => theme.space.sm};
-  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.color.surface.bg};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
   font-family: ${({ theme }) => theme.font.mono};
   font-size: ${({ theme }) => theme.fontSize.body};
   white-space: pre-wrap;

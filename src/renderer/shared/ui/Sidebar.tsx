@@ -12,7 +12,7 @@ export const Sidebar = styled.div`
   min-height: 0;
   overflow: auto;
   background: ${({ theme }) => theme.color.surface.base};
-  border-right: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-right: 1px solid ${({ theme }) => theme.color.border.strong};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.body};
 `

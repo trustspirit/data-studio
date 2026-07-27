@@ -21,7 +21,7 @@ const Layout = styled.div`
   height: 100%;
   min-height: 0;
   background: ${({ theme }) => theme.color.surface.bg};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Rail = styled.div`
   display: flex;
@@ -30,7 +30,7 @@ const Rail = styled.div`
   gap: ${({ theme }) => theme.space.xs};
   padding: ${({ theme }) => theme.space.sm} 0;
   background: ${({ theme }) => theme.color.surface.panel};
-  border-right: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-right: 1px solid ${({ theme }) => theme.color.border.strong};
   overflow: hidden;
 `
 const RailButton = styled.button<{ $active: boolean }>`
@@ -44,10 +44,10 @@ const RailButton = styled.button<{ $active: boolean }>`
   border: none;
   border-radius: ${({ theme }) => theme.radius.md};
   cursor: pointer;
-  color: ${({ theme, $active }) => ($active ? theme.color.fg.primary : theme.color.fg.dim)};
+  color: ${({ theme, $active }) => ($active ? theme.color.text.primary : theme.color.text.dim)};
   background: ${({ theme, $active }) => ($active ? theme.color.surface.panel : 'transparent')};
   &:hover {
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
   /* 활성 탭 표시 — 레일 왼쪽 가장자리의 액센트 바 */
   &::before {

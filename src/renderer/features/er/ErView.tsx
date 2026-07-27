@@ -12,12 +12,12 @@ const Layout = styled.div`
   height: 100%;
   min-height: 0;
   background: ${({ theme }) => theme.color.surface.bg};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Dim = styled.span`
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.label};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
 `
 const Body = styled.div`
   flex: 1;

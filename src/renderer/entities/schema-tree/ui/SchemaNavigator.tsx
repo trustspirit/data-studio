@@ -22,7 +22,7 @@ const Tree = styled.div<{ $inline: boolean }>`
           width: ${theme.size.sidebar};
           overflow: auto;
           background: ${theme.color.surface.base};
-          border-right: 1px solid ${theme.color.borders.strong};
+          border-right: 1px solid ${theme.color.border.strong};
         `}
 `
 /**
@@ -46,7 +46,7 @@ const SchemaToggle = styled.button<{ $depth: number }>`
   padding: 6px 10px 6px ${({ $depth }) => 10 + $depth * INDENT}px;
   border: none;
   background: transparent;
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
   cursor: pointer;
   font-weight: 600;
 `
@@ -59,11 +59,11 @@ const SchemaAction = styled.button`
   background: transparent;
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.label};
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
   cursor: pointer;
   &:hover {
     background: ${({ theme }) => theme.color.surface.base};
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 const TableRow = styled.button<{ $active: boolean; $depth: number }>`
@@ -74,11 +74,11 @@ const TableRow = styled.button<{ $active: boolean; $depth: number }>`
   padding: 4px 10px 4px ${({ $depth }) => 24 + $depth * INDENT}px;
   border: none;
   cursor: pointer;
-  color: ${({ theme, $active }) => ($active ? theme.color.fg.primary : theme.color.fg.dim)};
+  color: ${({ theme, $active }) => ($active ? theme.color.text.primary : theme.color.text.dim)};
   background: ${({ theme, $active }) => ($active ? theme.color.surface.base : 'transparent')};
   &:hover {
     background: ${({ theme }) => theme.color.surface.base};
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 

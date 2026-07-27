@@ -11,7 +11,7 @@ const Trigger = styled.button`
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   background: transparent;
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.body};
   line-height: 1;
@@ -19,7 +19,7 @@ const Trigger = styled.button`
   &:hover,
   &[aria-expanded='true'] {
     background: ${({ theme }) => theme.color.surface.base};
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 const Menu = styled.div<{ $pos: { top: number; left: number } | null }>`
@@ -29,7 +29,7 @@ const Menu = styled.div<{ $pos: { top: number; left: number } | null }>`
   flex-direction: column;
   min-width: 132px;
   padding: ${({ theme }) => theme.space.xs} 0;
-  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.color.surface.panel};
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
@@ -42,7 +42,7 @@ const Item = styled.button<{ $danger: boolean }>`
   padding: 5px ${({ theme }) => theme.space.md};
   border: none;
   background: transparent;
-  color: ${({ theme, $danger }) => ($danger ? theme.color.intent.danger : theme.color.fg.primary)};
+  color: ${({ theme, $danger }) => ($danger ? theme.color.intent.danger : theme.color.text.primary)};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.body};
   text-align: left;

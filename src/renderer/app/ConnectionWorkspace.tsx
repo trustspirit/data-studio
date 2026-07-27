@@ -24,9 +24,9 @@ const StatusBar = styled.div`
   gap: ${({ theme }) => theme.space.md};
   padding: 0 ${({ theme }) => theme.space.md};
   height: 22px;
-  border-top: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-top: 1px solid ${({ theme }) => theme.color.border.strong};
   background: ${({ theme }) => theme.color.surface.panel};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.label};
 `
@@ -39,7 +39,7 @@ const StatusDot = styled.span`
 `
 const StatusRight = styled.span`
   margin-left: auto;
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
 `
 const AiAccountBadge = styled.span<{ $tone: 'ok' | 'warn' }>`
   color: ${({ theme, $tone }) => ($tone === 'ok' ? theme.color.intent.success : theme.color.intent.warning)};

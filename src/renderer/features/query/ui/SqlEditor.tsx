@@ -18,13 +18,13 @@ import { SQL_SNIPPETS } from '../model/sqlLang'
 const Host = styled.div`
   flex: 1;
   min-height: 0;
-  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
   border-radius: ${({ theme }) => theme.radius.md};
   overflow: hidden;
   & .cm-editor {
     height: 100%;
     background: ${({ theme }) => theme.color.surface.bg};
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
     font-family: ${({ theme }) => theme.font.mono};
     font-size: ${({ theme }) => theme.fontSize.body};
   }
@@ -44,9 +44,9 @@ const Host = styled.div`
   /* 자동완성 툴팁 — 다크 테마에 맞춘다(CodeMirror 기본은 라이트). */
   & .cm-tooltip {
     background: ${({ theme }) => theme.color.surface.panel};
-    border: 1px solid ${({ theme }) => theme.color.borders.strong};
+    border: 1px solid ${({ theme }) => theme.color.border.strong};
     border-radius: ${({ theme }) => theme.radius.md};
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     overflow: hidden;
   }
@@ -57,7 +57,7 @@ const Host = styled.div`
   }
   & .cm-tooltip.cm-tooltip-autocomplete > ul > li {
     padding: 3px 8px;
-    color: ${({ theme }) => theme.color.fg.dim};
+    color: ${({ theme }) => theme.color.text.dim};
   }
   & .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
     background: ${({ theme }) => theme.color.intent.accent};
@@ -72,7 +72,7 @@ const Host = styled.div`
     color: ${({ theme }) => theme.color.intent.onAccent};
   }
   & .cm-completionDetail {
-    color: ${({ theme }) => theme.color.fg.faint};
+    color: ${({ theme }) => theme.color.text.faint};
     font-style: normal;
     margin-left: ${({ theme }) => theme.space.sm};
   }

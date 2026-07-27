@@ -6,7 +6,7 @@ const Strip = styled.div`
   align-items: stretch;
   gap: ${({ theme }) => theme.space.xs};
   padding: 0 ${({ theme }) => theme.space.sm};
-  border-bottom: 1px solid ${({ theme }) => theme.color.borders.soft};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
   background: ${({ theme }) => theme.color.surface.bg};
 `
 /** 탭 하나의 묶음. role="presentation"이라 tablist가 소유하는 것은 tab뿐이다. */
@@ -29,13 +29,13 @@ const Tab = styled.button`
   border: 0;
   cursor: pointer;
   white-space: nowrap;
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
 
   &[aria-selected='true'] {
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
   &:hover {
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 const Close = styled.button`
@@ -49,7 +49,7 @@ const Close = styled.button`
   cursor: pointer;
   /* 자리는 늘 차지하되 활성·hover에서만 보인다 — 폭이 흔들리면 안 된다. */
   opacity: 0;
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
 
   ${Slot}[data-active='true'] &,
   ${Slot}:hover & {
@@ -59,7 +59,7 @@ const Close = styled.button`
   &:focus-visible {
     opacity: 1;
     background: ${({ theme }) => theme.color.surface.base};
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 const Dirty = styled.span`

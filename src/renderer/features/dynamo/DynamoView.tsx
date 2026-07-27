@@ -10,7 +10,7 @@ const Layout = styled.div`
   height: 100%;
   min-height: 0;
   background: ${({ theme }) => theme.color.surface.bg};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Left = styled(Sidebar)`
   overflow: hidden;
@@ -37,9 +37,9 @@ const Editor = styled.textarea`
   font-size: ${({ theme }) => theme.fontSize.body};
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
   border-radius: ${({ theme }) => theme.radius.md};
-  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
   background: ${({ theme }) => theme.color.surface.bg};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Rows = styled.div`
   flex: 1;
@@ -49,7 +49,7 @@ const Rows = styled.div`
 const ItemRow = styled.pre`
   margin: 0 0 ${({ theme }) => theme.space.xs} 0;
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  border-bottom: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.strong};
   font-family: ${({ theme }) => theme.font.mono};
   font-size: ${({ theme }) => theme.fontSize.body};
   white-space: pre-wrap;
@@ -104,7 +104,7 @@ export function DynamoView({ gateway, connectionId }: DynamoViewProps) {
             </ListItem>
           ))}
           {tables.hasMore && (
-            <Button variant="secondary" size="sm" onClick={() => void tables.loadMore()}>Load more</Button>
+            <Button variant="ghost" size="sm" onClick={() => void tables.loadMore()}>Load more</Button>
           )}
         </TableList>
       </Left>
@@ -116,7 +116,7 @@ export function DynamoView({ gateway, connectionId }: DynamoViewProps) {
             value={statement}
             onChange={(e) => setStatement(e.target.value)}
           />
-          <Button variant="secondary" size="sm" disabled={statement.trim() === ''} onClick={runStatement}>
+          <Button variant="ghost" size="sm" disabled={statement.trim() === ''} onClick={runStatement}>
             Run
           </Button>
         </Toolbar>
@@ -131,7 +131,7 @@ export function DynamoView({ gateway, connectionId }: DynamoViewProps) {
               <ItemRow key={i}>{row[0]?.t === 'json' ? prettify(row[0].v) : ''}</ItemRow>
             ))}
             {data.hasMore && (
-              <Button variant="secondary" size="sm" onClick={() => void data.loadMore()}>Load more</Button>
+              <Button variant="ghost" size="sm" onClick={() => void data.loadMore()}>Load more</Button>
             )}
           </Rows>
         )}

@@ -71,13 +71,13 @@ export function ErCanvas({ graph, onOpenTable }: Props) {
   return (
     <Wrap ref={wrapRef}>
       <Overlay>
-        <Button variant="secondary" size="sm" aria-label="zoom in" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.2))}>
+        <Button variant="ghost" size="sm" aria-label="zoom in" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.2))}>
           +
         </Button>
-        <Button variant="secondary" size="sm" aria-label="zoom out" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z * 0.8))}>
+        <Button variant="ghost" size="sm" aria-label="zoom out" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z * 0.8))}>
           −
         </Button>
-        <Button variant="secondary" size="sm" onClick={fit}>
+        <Button variant="ghost" size="sm" onClick={fit}>
           Fit
         </Button>
       </Overlay>
@@ -90,7 +90,7 @@ export function ErCanvas({ graph, onOpenTable }: Props) {
         onMouseMove={onMouseMove}
         onMouseUp={endDrag}
         onMouseLeave={endDrag}
-        style={{ display: 'block', color: theme.color.fg.dim }}
+        style={{ display: 'block', color: theme.color.text.dim }}
       >
         <defs>
           <marker id="er-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
@@ -118,10 +118,10 @@ export function ErCanvas({ graph, onOpenTable }: Props) {
                 height={pn.height}
                 rx={4}
                 fill={theme.color.surface.panel}
-                stroke={theme.color.borders.strong}
+                stroke={theme.color.border.strong}
               />
-              <line x1={0} y1={ER_HEADER_H} x2={pn.width} y2={ER_HEADER_H} stroke={theme.color.borders.strong} />
-              <text x={8} y={ER_HEADER_H / 2} dominantBaseline="middle" fontWeight={600} fill={theme.color.fg.primary} fontSize={13}>
+              <line x1={0} y1={ER_HEADER_H} x2={pn.width} y2={ER_HEADER_H} stroke={theme.color.border.strong} />
+              <text x={8} y={ER_HEADER_H / 2} dominantBaseline="middle" fontWeight={600} fill={theme.color.text.primary} fontSize={13}>
                 {pn.node.table}
               </text>
               {pn.node.columns.map((c, ci) => (
@@ -131,7 +131,7 @@ export function ErCanvas({ graph, onOpenTable }: Props) {
                   y={ER_HEADER_H + ER_ROW_H * ci + ER_ROW_H / 2}
                   dominantBaseline="middle"
                   fontSize={12}
-                  fill={theme.color.fg.primary}
+                  fill={theme.color.text.primary}
                 >
                   {c.isPrimaryKey ? '🔑 ' : c.isForeignKey ? 'FK ' : ''}
                   {c.name} {c.type}

@@ -2,7 +2,7 @@ import styled from 'styled-components'
 
 const Group = styled.div`
   display: inline-flex;
-  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
   border-radius: ${({ theme }) => theme.radius.md};
   overflow: hidden;
 `
@@ -11,9 +11,9 @@ const Segment = styled.button<{ $active: boolean }>`
   font-size: ${({ theme }) => theme.fontSize.body};
   padding: ${({ theme }) => theme.density.controlPad};
   border: 0;
-  border-right: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-right: 1px solid ${({ theme }) => theme.color.border.strong};
   background: ${({ theme, $active }) => ($active ? theme.color.surface.raised : 'transparent')};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   cursor: pointer;
   white-space: nowrap;
 
@@ -22,10 +22,10 @@ const Segment = styled.button<{ $active: boolean }>`
   }
   &:hover:not([aria-disabled='true']) {
     background: ${({ theme }) => theme.color.surface.base};
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
   &[aria-disabled='true'] {
-    color: ${({ theme }) => theme.color.fg.disabled};
+    color: ${({ theme }) => theme.color.text.disabled};
     cursor: default;
   }
 `

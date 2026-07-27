@@ -22,7 +22,7 @@ ErrorBanner.displayName = 'ErrorBanner'
 /** 빈 상태·안내 문구. 콘텐츠 영역 안에서 낮은 대비로 조용히 표시한다. */
 export const Notice = styled.div`
   padding: ${({ theme }) => theme.space.lg};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.body};
 `
@@ -41,11 +41,11 @@ const EmptyWrap = styled.div`
   text-align: center;
 `
 const EmptyTitle = styled.div`
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   font-size: ${({ theme }) => theme.fontSize.body};
 `
 const EmptyHint = styled.div`
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
   font-size: ${({ theme }) => theme.fontSize.body};
 `
 

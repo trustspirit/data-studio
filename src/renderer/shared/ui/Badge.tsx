@@ -8,7 +8,7 @@ function background(theme: DefaultTheme, tone: Tone): string {
   return theme.color.intentSoft[tone]
 }
 function foreground(theme: DefaultTheme, tone: Tone): string {
-  if (tone === 'neutral') return theme.color.fg.dim
+  if (tone === 'neutral') return theme.color.text.dim
   return theme.color.intent[tone]
 }
 

@@ -12,11 +12,11 @@ const Row = styled.button<{ $active: boolean }>`
   padding: ${({ theme }) => theme.density.rowPad};
   border: none;
   cursor: pointer;
-  color: ${({ theme, $active }) => ($active ? theme.color.fg.primary : theme.color.fg.dim)};
+  color: ${({ theme, $active }) => ($active ? theme.color.text.primary : theme.color.text.dim)};
   background: ${({ theme, $active }) => ($active ? theme.color.surface.base : 'transparent')};
   &:hover {
     background: ${({ theme }) => theme.color.surface.base};
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 

@@ -25,7 +25,7 @@ const Chevron = styled.button`
   padding: 4px 0;
   border: none;
   background: transparent;
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
   font: inherit;
   cursor: pointer;
 `
@@ -43,7 +43,7 @@ const Label = styled.button`
   padding: 4px 0;
   border: none;
   background: transparent;
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -60,7 +60,7 @@ const Dot = styled.span<{ $state: ConnectionRowState }>`
         ? theme.color.intent.danger
         : $state === 'connecting'
           ? theme.color.intent.warning
-          : theme.color.fg.faint};
+          : theme.color.text.faint};
 `
 const Name = styled.span`
   flex: 1;
@@ -71,7 +71,7 @@ const Name = styled.span`
 `
 const EngineBadge = styled.span`
   flex: 0 0 auto;
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
   font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Actions = styled.span`
@@ -88,10 +88,10 @@ const Actions = styled.span`
 const Connect = styled.button`
   flex: 0 0 auto;
   padding: 1px 8px;
-  border: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
   border-radius: ${({ theme }) => theme.radius.sm};
   background: ${({ theme }) => theme.color.surface.panel};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.label};
   cursor: pointer;

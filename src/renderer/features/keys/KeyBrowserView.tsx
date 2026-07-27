@@ -10,7 +10,7 @@ const Layout = styled.div`
   height: 100%;
   min-height: 0;
   background: ${({ theme }) => theme.color.surface.bg};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Left = styled(Sidebar)`
   overflow: hidden;
@@ -34,7 +34,7 @@ const KeyName = styled.span`
   white-space: nowrap;
 `
 const KeyType = styled.span`
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
   font-family: ${({ theme }) => theme.font.mono};
   font-size: ${({ theme }) => theme.fontSize.label};
 `
@@ -47,10 +47,10 @@ const Right = styled.div`
 `
 const Meta = styled.div`
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  border-bottom: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.strong};
   font-family: ${({ theme }) => theme.font.mono};
   font-size: ${({ theme }) => theme.fontSize.label};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
 `
 const Value = styled.pre`
   flex: 1;
@@ -108,7 +108,7 @@ export function KeyBrowserView({ gateway, connectionId }: KeyBrowserViewProps) {
             onChange={(e) => setMatch(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') keys.run(match) }}
           />
-          <Button variant="secondary" size="sm" onClick={() => keys.run(match)}>Run</Button>
+          <Button variant="ghost" size="sm" onClick={() => keys.run(match)}>Run</Button>
         </Toolbar>
         {keys.error !== null && <ErrorBanner>{keys.error}</ErrorBanner>}
         <KeyList>
@@ -120,7 +120,7 @@ export function KeyBrowserView({ gateway, connectionId }: KeyBrowserViewProps) {
             </ListItem>
           ))}
           {keys.hasMore && (
-            <Button variant="secondary" size="sm" onClick={() => void keys.loadMore()}>Load more</Button>
+            <Button variant="ghost" size="sm" onClick={() => void keys.loadMore()}>Load more</Button>
           )}
         </KeyList>
       </Left>

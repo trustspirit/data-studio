@@ -10,7 +10,7 @@ const Layout = styled.div`
   height: 100%;
   min-height: 0;
   background: ${({ theme }) => theme.color.surface.bg};
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Right = styled.div`
   display: flex;
@@ -86,11 +86,11 @@ export function StreamsView({ gateway, connectionId }: StreamsViewProps) {
             <option value="earliest">earliest</option>
           </FromSelect>
           {sub.running ? (
-            <Button variant="secondary" size="sm" onClick={() => void sub.stop()}>Stop</Button>
+            <Button variant="ghost" size="sm" onClick={() => void sub.stop()}>Stop</Button>
           ) : (
-            <Button variant="secondary" size="sm" disabled={selected === null} onClick={() => selected !== null && sub.start(selected, from)}>Start</Button>
+            <Button variant="ghost" size="sm" disabled={selected === null} onClick={() => selected !== null && sub.start(selected, from)}>Start</Button>
           )}
-          <Button variant="secondary" size="sm" onClick={sub.clear}>Clear</Button>
+          <Button variant="ghost" size="sm" onClick={sub.clear}>Clear</Button>
           {sub.dropped > 0 && <Dropped>{sub.dropped} dropped</Dropped>}
         </Toolbar>
         {topics.error !== null && <ErrorBanner>{topics.error}</ErrorBanner>}

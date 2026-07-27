@@ -15,11 +15,11 @@ const Header = styled.div`
   align-items: center;
   gap: ${({ theme }) => theme.space.md};
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
-  border-bottom: 1px solid ${({ theme }) => theme.color.borders.strong};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.strong};
   background: ${({ theme }) => theme.color.surface.panel};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.label};
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
 `
 const Title = styled.span`
   flex: 1;
@@ -29,12 +29,12 @@ const CloseButton = styled.button`
   border: none;
   border-radius: ${({ theme }) => theme.radius.md};
   background: transparent;
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   font: inherit;
   cursor: pointer;
   &:hover {
     background: ${({ theme }) => theme.color.surface.panel};
-    color: ${({ theme }) => theme.color.fg.primary};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 

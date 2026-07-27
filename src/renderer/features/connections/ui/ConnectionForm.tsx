@@ -22,18 +22,18 @@ const FormTitle = styled.h2`
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.heading};
   font-weight: 600;
-  color: ${({ theme }) => theme.color.fg.primary};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const SectionLabel = styled.div`
   margin-top: ${({ theme }) => theme.space.xs};
   padding-top: ${({ theme }) => theme.space.md};
-  border-top: 1px solid ${({ theme }) => theme.color.borders.soft};
+  border-top: 1px solid ${({ theme }) => theme.color.border.soft};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.label};
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: ${({ theme }) => theme.color.fg.faint};
+  color: ${({ theme }) => theme.color.text.faint};
 `
 const Row = styled.div`
   display: flex;
@@ -48,7 +48,7 @@ const Actions = styled.div`
   gap: ${({ theme }) => theme.space.sm};
   margin-top: ${({ theme }) => theme.space.xs};
   padding-top: ${({ theme }) => theme.space.md};
-  border-top: 1px solid ${({ theme }) => theme.color.borders.soft};
+  border-top: 1px solid ${({ theme }) => theme.color.border.soft};
 `
 const Warn = styled.div`
   color: ${({ theme }) => theme.color.intent.warning};
@@ -56,7 +56,7 @@ const Warn = styled.div`
   font-size: ${({ theme }) => theme.fontSize.body};
 `
 const Hint = styled.div`
-  color: ${({ theme }) => theme.color.fg.dim};
+  color: ${({ theme }) => theme.color.text.dim};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.body};
 `
@@ -174,7 +174,7 @@ export function ConnectionForm({
             onValueChange={(database) => onChange({ database })}
             {...errorProp(errors, 'database')}
           />
-          <Button variant="secondary" onClick={onBrowseFile}>
+          <Button variant="ghost" onClick={onBrowseFile}>
             Browse…
           </Button>
         </Row>
@@ -243,12 +243,12 @@ export function ConnectionForm({
               <Button variant="danger" onClick={onDelete}>
                 Confirm delete
               </Button>
-              <Button variant="secondary" onClick={() => setConfirming(false)}>
+              <Button variant="ghost" onClick={() => setConfirming(false)}>
                 Cancel
               </Button>
             </>
           ) : (
-            <Button variant="secondary" onClick={() => setConfirming(true)}>
+            <Button variant="ghost" onClick={() => setConfirming(true)}>
               Delete
             </Button>
           ))}
