@@ -3,21 +3,21 @@ import styled from 'styled-components'
 import type { WireValue } from '../../../../shared/types/wire'
 
 const Null = styled.span`
-  color: ${({ theme }) => theme.color.textFaint};
+  color: ${({ theme }) => theme.color.fg.disabled};
   font-style: italic;
 `
 const Mono = styled.span`
   font-family: ${({ theme }) => theme.font.mono};
 `
 const Badge = styled.span`
-  color: ${({ theme }) => theme.color.textDim};
+  color: ${({ theme }) => theme.color.fg.dim};
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: 11px;
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Note = styled.span`
-  color: ${({ theme }) => theme.color.textFaint};
+  color: ${({ theme }) => theme.color.fg.faint};
   margin-left: 6px;
-  font-size: 11px;
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 
 /** WireValue.t → 렌더러. 새 타입은 여기 한 줄 등록으로 끝난다(OCP). */
