@@ -28,7 +28,9 @@ const AddButton = styled.button`
   background: transparent;
   color: ${({ theme }) => theme.color.fg.dim};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.heading};
+  /* 글리프는 본문 텍스트가 아니지만 아이콘 전용 크기 토큰이 아직 없다. heading은
+     쓰지 않는다 — 진짜 제목을 위해 그 값을 조정하면 이 아이콘이 딸려 움직인다. */
+  font-size: ${({ theme }) => theme.fontSize.body};
   line-height: 1;
   cursor: pointer;
   &:hover {
