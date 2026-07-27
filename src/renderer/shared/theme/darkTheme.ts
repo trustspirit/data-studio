@@ -70,6 +70,10 @@ export const darkTheme = {
       warning: 'rgba(255, 159, 10, 0.13)',
       danger: 'rgba(255, 69, 58, 0.13)',
     },
+    /** 의미색의 hover 변형. intent는 "의미 넷"이라는 불변식을 지켜야 하므로 분리한다. */
+    intentHover: {
+      accent: '#2b95ff',
+    },
     /** 연결 라벨 전용. 의미 전달이 아니라 사용자가 고르는 구분색이다. */
     label: {
       blue: '#5e9eff',
