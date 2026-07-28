@@ -9,8 +9,8 @@ const Layout = styled.div`
   display: flex;
   height: 100%;
   min-height: 0;
-  background: ${({ theme }) => theme.color.winBg};
-  color: ${({ theme }) => theme.color.text};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Right = styled.div`
   display: flex;
@@ -20,14 +20,14 @@ const Right = styled.div`
   min-height: 0;
 `
 const FromSelect = styled(NativeSelect)`
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   padding: 4px 6px;
 `
 const Dropped = styled.span`
   margin-left: auto;
-  color: ${({ theme }) => theme.color.red};
+  color: ${({ theme }) => theme.color.intent.danger};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Rows = styled.div`
   flex: 1;
@@ -37,7 +37,7 @@ const Rows = styled.div`
 const MsgRow = styled.pre`
   margin: 0 0 ${({ theme }) => theme.space.xs} 0;
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   white-space: pre-wrap;
   word-break: break-word;
 `
@@ -86,11 +86,11 @@ export function StreamsView({ gateway, connectionId }: StreamsViewProps) {
             <option value="earliest">earliest</option>
           </FromSelect>
           {sub.running ? (
-            <Button variant="secondary" size="sm" onClick={() => void sub.stop()}>Stop</Button>
+            <Button variant="ghost" size="sm" onClick={() => void sub.stop()}>Stop</Button>
           ) : (
-            <Button variant="secondary" size="sm" disabled={selected === null} onClick={() => selected !== null && sub.start(selected, from)}>Start</Button>
+            <Button variant="ghost" size="sm" disabled={selected === null} onClick={() => selected !== null && sub.start(selected, from)}>Start</Button>
           )}
-          <Button variant="secondary" size="sm" onClick={sub.clear}>Clear</Button>
+          <Button variant="ghost" size="sm" onClick={sub.clear}>Clear</Button>
           {sub.dropped > 0 && <Dropped>{sub.dropped} dropped</Dropped>}
         </Toolbar>
         {topics.error !== null && <ErrorBanner>{topics.error}</ErrorBanner>}

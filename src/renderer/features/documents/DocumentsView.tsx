@@ -11,8 +11,8 @@ const Layout = styled.div`
   display: flex;
   height: 100%;
   min-height: 0;
-  background: ${({ theme }) => theme.color.winBg};
-  color: ${({ theme }) => theme.color.text};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Right = styled.div`
   display: flex;
@@ -29,12 +29,12 @@ const FilterInput = styled.textarea`
   min-height: 32px;
   resize: vertical;
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   padding: 6px 8px;
   border-radius: ${({ theme }) => theme.radius.md};
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.gridBg};
-  color: ${({ theme }) => theme.color.text};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Results = styled.div`
   flex: 1;
@@ -45,10 +45,10 @@ const Doc = styled.pre`
   margin: 0 0 ${({ theme }) => theme.space.sm} 0;
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
   border-radius: ${({ theme }) => theme.radius.md};
-  border: 1px solid ${({ theme }) => theme.color.borderSoft};
-  background: ${({ theme }) => theme.color.panel};
+  border: 1px solid ${({ theme }) => theme.color.border.soft};
+  background: ${({ theme }) => theme.color.surface.panel};
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.body};
   white-space: pre-wrap;
   word-break: break-word;
 `
@@ -101,7 +101,7 @@ export function DocumentsView({ gateway, connectionId }: DocumentsViewProps) {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
-          <Button variant="secondary" size="sm" disabled={selected === null} onClick={handleRun}>
+          <Button variant="ghost" size="sm" disabled={selected === null} onClick={handleRun}>
             Run
           </Button>
         </FilterBar>
@@ -122,7 +122,7 @@ export function DocumentsView({ gateway, connectionId }: DocumentsViewProps) {
               return <Doc key={i}>{text}</Doc>
             })}
             {data.hasMore && (
-              <Button variant="secondary" size="sm" onClick={() => void data.loadMore()}>
+              <Button variant="ghost" size="sm" onClick={() => void data.loadMore()}>
                 Load more
               </Button>
             )}

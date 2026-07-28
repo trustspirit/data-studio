@@ -71,4 +71,14 @@ describe('ErCanvas', () => {
     fireEvent.mouseMove(svg, { clientX: 160, clientY: 130 })
     expect(vp.getAttribute('transform')).not.toBe(before)
   })
+
+  it('줌 조작판이 캔버스 위에서 판과 테두리를 갖는다', () => {
+    // 버튼은 ghost라 투명하다. 자동 맞춤이 노드를 화면 전체에 흩뿌리므로 조작판이
+    // 노드 채움 위에 겹칠 수 있고, 그때 판을 배경에서 떼어 놓는 것은 이것뿐이다.
+    wrap()
+    const overlay = screen.getByLabelText('zoom in').parentElement as HTMLElement
+    const style = getComputedStyle(overlay)
+    expect(style.backgroundColor).toBe('rgb(35, 35, 44)') // surface.panel
+    expect(style.borderColor).toBe('rgb(61, 61, 74)') // border.strong
+  })
 })

@@ -3,15 +3,15 @@ import styled from 'styled-components'
 import { Sidebar } from '../../../shared/ui'
 
 const Wrap = styled(Sidebar)`
-  color: ${({ theme }) => theme.color.text};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Header = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.space.sm};
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.xs} ${theme.space.sm} ${theme.space.md}`};
-  color: ${({ theme }) => theme.color.textDim};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.text.dim};
+  font-size: ${({ theme }) => theme.fontSize.label};
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -26,20 +26,22 @@ const AddButton = styled.button`
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   background: transparent;
-  color: ${({ theme }) => theme.color.textDim};
+  color: ${({ theme }) => theme.color.text.dim};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: 15px;
+  /* 글리프는 본문 텍스트가 아니지만 아이콘 전용 크기 토큰이 아직 없다. heading은
+     쓰지 않는다 — 진짜 제목을 위해 그 값을 조정하면 이 아이콘이 딸려 움직인다. */
+  font-size: ${({ theme }) => theme.fontSize.body};
   line-height: 1;
   cursor: pointer;
   &:hover {
-    background: ${({ theme }) => theme.color.panel};
-    color: ${({ theme }) => theme.color.text};
+    background: ${({ theme }) => theme.color.surface.panel};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 const Empty = styled.div`
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.text.faint};
+  font-size: ${({ theme }) => theme.fontSize.label};
   line-height: 1.5;
 `
 

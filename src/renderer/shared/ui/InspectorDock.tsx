@@ -6,8 +6,8 @@ const Dock = styled.div`
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: ${({ theme }) => theme.color.panel};
-  border-left: 1px solid ${({ theme }) => theme.color.border};
+  background: ${({ theme }) => theme.color.surface.panel};
+  border-left: 1px solid ${({ theme }) => theme.color.border.strong};
   overflow: hidden;
 `
 const Section = styled.div<{ $grow: boolean }>`
@@ -23,17 +23,17 @@ const Header = styled.button`
   width: 100%;
   text-align: left;
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  font-size: ${({ theme }) => theme.fontSize.label};
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
   border: none;
-  border-bottom: 1px solid ${({ theme }) => theme.color.borderSoft};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
   background: transparent;
-  color: ${({ theme }) => theme.color.textDim};
+  color: ${({ theme }) => theme.color.text.dim};
   cursor: pointer;
   &:hover {
-    color: ${({ theme }) => theme.color.text};
+    color: ${({ theme }) => theme.color.text.primary};
   }
 `
 const Body = styled.div<{ $grow: boolean }>`

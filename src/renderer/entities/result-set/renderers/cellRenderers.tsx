@@ -2,22 +2,27 @@ import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import type { WireValue } from '../../../../shared/types/wire'
 
+/**
+ * NULL은 비활성 컨트롤이 아니라 **데이터**다. WCAG의 비활성 요소 면제가 적용되지
+ * 않으므로 text.disabled(2.17:1)로는 읽을 수 없다. faint까지만 낮춘다 — 값이
+ * 없다는 것은 기울임과 대문자가 이미 말한다.
+ */
 const Null = styled.span`
-  color: ${({ theme }) => theme.color.textFaint};
+  color: ${({ theme }) => theme.color.text.faint};
   font-style: italic;
 `
 const Mono = styled.span`
   font-family: ${({ theme }) => theme.font.mono};
 `
 const Badge = styled.span`
-  color: ${({ theme }) => theme.color.textDim};
+  color: ${({ theme }) => theme.color.text.dim};
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: 11px;
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Note = styled.span`
-  color: ${({ theme }) => theme.color.textFaint};
+  color: ${({ theme }) => theme.color.text.faint};
   margin-left: 6px;
-  font-size: 11px;
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 
 /** WireValue.t → 렌더러. 새 타입은 여기 한 줄 등록으로 끝난다(OCP). */

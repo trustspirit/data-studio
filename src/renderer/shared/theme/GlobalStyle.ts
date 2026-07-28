@@ -15,10 +15,10 @@ export const GlobalStyle = createGlobalStyle`
   body {
     margin: 0;
     overflow: hidden;
-    background: ${({ theme }) => theme.color.winBg};
-    color: ${({ theme }) => theme.color.text};
+    background: ${({ theme }) => theme.color.surface.bg};
+    color: ${({ theme }) => theme.color.text.primary};
     font-family: ${({ theme }) => theme.font.ui};
-    font-size: ${({ theme }) => theme.fontSize.md};
+    font-size: ${({ theme }) => theme.fontSize.body};
     -webkit-font-smoothing: antialiased;
   }
   ::-webkit-scrollbar {
@@ -26,20 +26,20 @@ export const GlobalStyle = createGlobalStyle`
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: ${({ theme }) => theme.color.border};
+    background: ${({ theme }) => theme.color.border.strong};
     border-radius: 5px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: ${({ theme }) => theme.color.textFaint};
+    background: ${({ theme }) => theme.color.text.faint};
     background-clip: content-box;
   }
   ::-webkit-scrollbar-corner {
     background: transparent;
   }
   :focus-visible {
-    outline: 2px solid ${({ theme }) => theme.color.accent};
+    outline: 2px solid ${({ theme }) => theme.color.intent.accent};
     outline-offset: -2px;
   }
 `

@@ -53,8 +53,8 @@ const Body = styled.div`
 `
 const Title = styled.span`
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.color.textDim};
+  font-size: ${({ theme }) => theme.fontSize.body};
+  color: ${({ theme }) => theme.color.text.dim};
   margin-right: auto;
 `
 
@@ -294,7 +294,7 @@ export function DocumentHost({
               <Button
                 key={a.mode}
                 type="button"
-                variant="secondary"
+                variant="ghost"
                 size="sm"
                 data-testid={a.testId}
                 onClick={() => setDesigner({ mode: a.mode, target: '' })}
@@ -310,7 +310,7 @@ export function DocumentHost({
             <Title>{doc.schema}</Title>
             <Button
               type="button"
-              variant="secondary"
+              variant="ghost"
               size="sm"
               data-testid="ddl-open-create"
               onClick={() => setDesigner({ mode: 'create', target: '' })}

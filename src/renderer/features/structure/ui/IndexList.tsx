@@ -6,22 +6,22 @@ const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: 12px;
+  font-size: ${({ theme }) => theme.fontSize.body};
   th, td {
     text-align: left;
     padding: 4px 10px;
-    border-bottom: 1px solid ${({ theme }) => theme.color.borderSoft};
+    border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
   }
   th {
-    color: ${({ theme }) => theme.color.textDim};
+    color: ${({ theme }) => theme.color.text.dim};
     font-weight: 600;
   }
 `
 
 const Empty = styled.div`
   padding: 6px 10px;
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: 12px;
+  color: ${({ theme }) => theme.color.text.faint};
+  font-size: ${({ theme }) => theme.fontSize.body};
 `
 
 const RowActions = styled.td`
@@ -59,7 +59,7 @@ export function IndexList({
               <RowActions>
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   data-testid={`index-drop-${i.name}`}
                   onClick={() => onDrop(i.name)}

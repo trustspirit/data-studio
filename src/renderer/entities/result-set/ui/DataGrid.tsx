@@ -6,26 +6,32 @@ import type { WireValue } from '@shared/types/wire'
 import type { BrowseSort } from '@shared/types/operation'
 import { renderCell } from '../renderers'
 
+// theme.density.rowHeight와 같은 값이어야 한다. 가상화가 숫자를 요구하므로
+// 문자열 토큰을 그대로 쓸 수 없어 여기서 한 번 못 박는다.
 const ROW_HEIGHT = 28
 
 const Scroll = styled.div`
   overflow: auto;
   height: 100%;
-  background: ${({ theme }) => theme.color.gridBg};
+  background: ${({ theme }) => theme.color.surface.bg};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: 13px;
+  font-size: ${({ theme }) => theme.fontSize.body};
 `
 const HeaderRow = styled.div`
   display: flex;
   position: sticky;
   top: 0;
-  background: ${({ theme }) => theme.color.gridHeader};
-  border-bottom: 1px solid ${({ theme }) => theme.color.border};
-  color: ${({ theme }) => theme.color.textDim};
+  background: ${({ theme }) => theme.color.surface.base};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.strong};
+  color: ${({ theme }) => theme.color.text.dim};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  letter-spacing: 0.3px;
 `
 const HeaderCell = styled.div`
   flex: 1 0 120px;
-  padding: ${({ theme }) => theme.density.rowPad};
+  display: flex;
+  align-items: center;
+  padding: 0 ${({ theme }) => theme.space.md};
   font-weight: 600;
 `
 // $modified: 아직 적용되지 않은 스테이징 값을 보여주는 셀. 서버 값과 구분되지 않으면
@@ -33,20 +39,22 @@ const HeaderCell = styled.div`
 // box-shadow(레이아웃에 영향 없음)로 표시해 가상화 행 높이를 흔들지 않는다.
 const Cell = styled.div<{ $modified: boolean; $editable: boolean }>`
   flex: 1 0 120px;
-  padding: ${({ theme }) => theme.density.rowPad};
+  display: flex;
+  align-items: center;
+  padding: 0 ${({ theme }) => theme.space.md};
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  background: ${({ theme, $modified }) => ($modified ? theme.color.rowAlt : 'transparent')};
-  box-shadow: ${({ theme, $modified }) => ($modified ? `inset 2px 0 0 ${theme.color.accent}` : 'none')};
+  background: ${({ theme, $modified }) => ($modified ? theme.color.row.staged : 'transparent')};
+  box-shadow: ${({ theme, $modified }) => ($modified ? `inset 2px 0 0 ${theme.color.intent.accent}` : 'none')};
   cursor: ${({ $editable }) => ($editable ? 'text' : 'inherit')};
 
   &[data-editable]:hover {
-    background: ${({ theme }) => theme.color.rowHover};
+    background: ${({ theme }) => theme.color.row.hover};
   }
 
   &[data-editable]:focus-visible {
-    outline: 1px solid ${({ theme }) => theme.color.accent};
+    outline: 1px solid ${({ theme }) => theme.color.intent.accent};
     outline-offset: -1px;
   }
 `
@@ -54,24 +62,46 @@ const CellInput = styled.input`
   width: 100%;
   box-sizing: border-box;
   font: inherit;
-  background: ${({ theme }) => theme.color.gridBg};
+  background: ${({ theme }) => theme.color.surface.bg};
   color: inherit;
-  border: 1px solid ${({ theme }) => theme.color.border};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
 `
 const NullButton = styled.button`
   flex: 0 0 auto;
   margin-left: 2px;
   font: inherit;
   cursor: pointer;
-  border: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.gridHeader};
-  color: ${({ theme }) => theme.color.textDim};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
+  background: ${({ theme }) => theme.color.surface.base};
+  color: ${({ theme }) => theme.color.text.dim};
 `
 const DeleteToggleCell = styled.div`
   flex: 0 0 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+`
+/**
+ * 가상화 행. 높이를 ROW_HEIGHT로 **고정**한다 — 이 값은 배치 간격이기도 하므로,
+ * 내용이 정하게 두면 폰트나 패딩이 커질 때 행이 슬롯을 넘어 겹친다.
+ * 셀은 세로 중앙 정렬하고 가로 패딩만 받는다.
+ */
+const Row = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  height: ${ROW_HEIGHT}px;
+  border-bottom: 1px solid ${({ theme }) => theme.color.row.line};
+
+  &:hover {
+    background: ${({ theme }) => theme.color.row.hover};
+  }
+  &[data-deleted='true'] {
+    opacity: 0.4;
+    text-decoration: line-through;
+  }
 `
 
 export interface EditingProps {
@@ -156,18 +186,10 @@ export function DataGrid({
           // 행 단위로 한 번만 꺼낸다 — 셀마다 전체 edits를 훑으면 가상화 이득이 사라진다.
           const rowEdits = editing?.edits.get(rowIndex)
           return (
-            <div
+            <Row
               key={item.key}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                transform: `translateY(${item.start}px)`,
-                display: 'flex',
-                opacity: deleted ? 0.4 : undefined,
-                textDecoration: deleted ? 'line-through' : undefined,
-              }}
+              data-deleted={deleted}
+              style={{ transform: `translateY(${item.start}px)` }}
             >
               {editing !== undefined && (
                 <DeleteToggleCell>
@@ -199,7 +221,6 @@ export function DataGrid({
                       data-cell
                       $modified={staged !== undefined}
                       $editable={false}
-                      style={{ display: 'flex', alignItems: 'center' }}
                     >
                       <CellInput
                         autoFocus
@@ -265,7 +286,7 @@ export function DataGrid({
                   </Cell>
                 )
               })}
-            </div>
+            </Row>
           )
         })}
       </div>
@@ -284,7 +305,6 @@ export function DataGrid({
                     data-cell
                     $modified={false}
                     $editable={false}
-                    style={{ display: 'flex', alignItems: 'center' }}
                   >
                     <CellInput
                       aria-label={`새 행 ${i} ${c.name}`}

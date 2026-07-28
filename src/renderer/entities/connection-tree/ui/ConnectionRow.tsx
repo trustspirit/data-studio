@@ -14,9 +14,14 @@ const Row = styled.div<{ $active: boolean }>`
   align-items: center;
   gap: 2px;
   padding-right: ${({ theme }) => theme.space.xs};
-  background: ${({ theme, $active }) => ($active ? theme.color.rowHover : 'transparent')};
+  /* 상태색은 표면 계단이 아니라 틴트다 — 사이드바가 이미 surface.base라서
+     불투명 값을 쓰면 컨테이너와 같은 색이 되어 선택 표시가 사라진다. 활성은
+     강조 틴트라 중립 hover와도 구별된다(이름은 늘 text.primary라 글자로는
+     구별할 단서가 없다). */
+  background: ${({ theme, $active }) => ($active ? theme.color.row.selected : 'transparent')};
   &:hover {
-    background: ${({ theme }) => theme.color.rowHover};
+    background: ${({ theme, $active }) =>
+      $active ? theme.color.row.selected : theme.color.row.hover};
   }
 `
 const Chevron = styled.button`
@@ -25,7 +30,7 @@ const Chevron = styled.button`
   padding: 4px 0;
   border: none;
   background: transparent;
-  color: ${({ theme }) => theme.color.textFaint};
+  color: ${({ theme }) => theme.color.text.faint};
   font: inherit;
   cursor: pointer;
 `
@@ -43,7 +48,7 @@ const Label = styled.button`
   padding: 4px 0;
   border: none;
   background: transparent;
-  color: ${({ theme }) => theme.color.text};
+  color: ${({ theme }) => theme.color.text.primary};
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -55,12 +60,12 @@ const Dot = styled.span<{ $state: ConnectionRowState }>`
   border-radius: 50%;
   background: ${({ theme, $state }) =>
     $state === 'ready'
-      ? theme.color.green
+      ? theme.color.intent.success
       : $state === 'error'
-        ? theme.color.red
+        ? theme.color.intent.danger
         : $state === 'connecting'
-          ? theme.color.orange
-          : theme.color.textFaint};
+          ? theme.color.intent.warning
+          : theme.color.text.faint};
 `
 const Name = styled.span`
   flex: 1;
@@ -71,8 +76,8 @@ const Name = styled.span`
 `
 const EngineBadge = styled.span`
   flex: 0 0 auto;
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.text.faint};
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Actions = styled.span`
   display: flex;
@@ -88,22 +93,22 @@ const Actions = styled.span`
 const Connect = styled.button`
   flex: 0 0 auto;
   padding: 1px 8px;
-  border: 1px solid ${({ theme }) => theme.color.border};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
   border-radius: ${({ theme }) => theme.radius.sm};
-  background: ${({ theme }) => theme.color.panel};
-  color: ${({ theme }) => theme.color.text};
+  background: ${({ theme }) => theme.color.surface.panel};
+  color: ${({ theme }) => theme.color.text.primary};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  font-size: ${({ theme }) => theme.fontSize.label};
   cursor: pointer;
   &:hover {
-    border-color: ${({ theme }) => theme.color.accent};
-    background: ${({ theme }) => theme.color.rowHover};
+    border-color: ${({ theme }) => theme.color.intent.accent};
+    background: ${({ theme }) => theme.color.surface.base};
   }
 `
 const RowError = styled.div`
   padding: 2px ${({ theme }) => theme.space.sm} 6px 26px;
-  color: ${({ theme }) => theme.color.red};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.intent.danger};
+  font-size: ${({ theme }) => theme.fontSize.label};
   word-break: break-word;
 `
 const Children = styled.div`

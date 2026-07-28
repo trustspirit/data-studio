@@ -8,7 +8,7 @@ const Pane = styled.div`
   flex-direction: column;
   min-height: 0;
   overflow: auto;
-  background: ${({ theme }) => theme.color.winBg};
+  background: ${({ theme }) => theme.color.surface.bg};
 `
 const Body = styled.div`
   display: flex;
@@ -20,15 +20,15 @@ const Body = styled.div`
 `
 const Name = styled.h2`
   margin: 0;
-  font-size: 20px;
+  font-size: ${({ theme }) => theme.fontSize.title};
   font-weight: 600;
-  color: ${({ theme }) => theme.color.text};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const Target = styled.p`
   margin: 0;
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.color.textDim};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  color: ${({ theme }) => theme.color.text.dim};
   word-break: break-all;
 `
 const Row = styled.div`
@@ -82,7 +82,7 @@ export function ConnectionInvite({
           </Button>
           <Button
             type="button"
-            variant="secondary"
+            variant="ghost"
             data-testid={`invite-settings-${connection.id}`}
             onClick={onSettings}
           >

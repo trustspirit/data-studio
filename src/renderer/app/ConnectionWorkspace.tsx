@@ -24,25 +24,25 @@ const StatusBar = styled.div`
   gap: ${({ theme }) => theme.space.md};
   padding: 0 ${({ theme }) => theme.space.md};
   height: 22px;
-  border-top: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.titlebar};
-  color: ${({ theme }) => theme.color.textDim};
+  border-top: 1px solid ${({ theme }) => theme.color.border.strong};
+  background: ${({ theme }) => theme.color.surface.panel};
+  color: ${({ theme }) => theme.color.text.dim};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 const StatusDot = styled.span`
   display: inline-block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: ${({ theme }) => theme.color.green};
+  background: ${({ theme }) => theme.color.intent.success};
 `
 const StatusRight = styled.span`
   margin-left: auto;
-  color: ${({ theme }) => theme.color.textFaint};
+  color: ${({ theme }) => theme.color.text.faint};
 `
 const AiAccountBadge = styled.span<{ $tone: 'ok' | 'warn' }>`
-  color: ${({ theme, $tone }) => ($tone === 'ok' ? theme.color.green : theme.color.orange)};
+  color: ${({ theme, $tone }) => ($tone === 'ok' ? theme.color.intent.success : theme.color.intent.warning)};
 `
 
 interface ConnectionWorkspaceProps {

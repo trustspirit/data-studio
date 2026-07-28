@@ -8,16 +8,16 @@ const Wrap = styled.label`
   font-family: ${({ theme }) => theme.font.ui};
 `
 const Caption = styled.span`
-  color: ${({ theme }) => theme.color.textDim};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.color.text.dim};
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Field = styled.select<{ $invalid: boolean }>`
   ${controlCss}
-  ${({ theme, $invalid }) => ($invalid ? `border-color: ${theme.color.red};` : '')}
+  ${({ theme, $invalid }) => ($invalid ? `border-color: ${theme.color.intent.danger};` : '')}
 `
 const Err = styled.span`
-  color: ${({ theme }) => theme.color.red};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.color.intent.danger};
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 
 interface Option {

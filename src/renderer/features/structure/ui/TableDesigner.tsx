@@ -42,8 +42,8 @@ const Wrap = styled.div`
 `
 const Title = styled.h3`
   margin: 0;
-  font-size: ${({ theme }) => theme.fontSize.md};
-  color: ${({ theme }) => theme.color.text};
+  font-size: ${({ theme }) => theme.fontSize.heading};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const FieldRow = styled.div`
   display: flex;
@@ -52,8 +52,8 @@ const FieldRow = styled.div`
   flex-wrap: wrap;
 `
 const Label = styled.label`
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.color.textDim};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  color: ${({ theme }) => theme.color.text.dim};
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.space.xs};
@@ -74,8 +74,8 @@ const AddRow = styled.div`
   gap: ${({ theme }) => theme.space.xs};
 `
 const Check = styled.label`
-  font-size: ${({ theme }) => theme.fontSize.xs};
-  color: ${({ theme }) => theme.color.textDim};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  color: ${({ theme }) => theme.color.text.dim};
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -84,8 +84,8 @@ const Check = styled.label`
 const IssueList = styled.ul`
   margin: 0;
   padding-left: ${({ theme }) => theme.space.lg};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.color.orange};
+  font-size: ${({ theme }) => theme.fontSize.body};
+  color: ${({ theme }) => theme.color.intent.warning};
 `
 const Actions = styled.div`
   display: flex;
@@ -96,14 +96,14 @@ const Danger = styled.div`
   flex-direction: column;
   gap: ${({ theme }) => theme.space.xs};
   padding: ${({ theme }) => theme.space.sm};
-  border: 1px solid ${({ theme }) => theme.color.red};
+  border: 1px solid ${({ theme }) => theme.color.intent.danger};
   border-radius: ${({ theme }) => theme.radius.sm};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.color.text};
+  font-size: ${({ theme }) => theme.fontSize.body};
+  color: ${({ theme }) => theme.color.text.primary};
 
   code {
     font-family: ${({ theme }) => theme.font.mono};
-    color: ${({ theme }) => theme.color.orange};
+    color: ${({ theme }) => theme.color.intent.warning};
   }
 `
 
@@ -480,7 +480,7 @@ export function TableDesigner({
                 </Check>
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   disabled={columns.length === 1}
                   onClick={() => setColumns((cols) => cols.filter((x) => x.key !== c.key))}
@@ -497,7 +497,7 @@ export function TableDesigner({
             <AddRow>
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
                 size="sm"
                 data-testid="ddl-add-id"
                 disabled={hasIdColumn}
@@ -513,7 +513,7 @@ export function TableDesigner({
               </Button>
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
                 size="sm"
                 data-testid="ddl-add-column"
                 onClick={() => setColumns((cols) => [...cols, emptyColumn()])}
@@ -778,7 +778,7 @@ export function TableDesigner({
         >
           {busy ? '실행 중…' : 'Run SQL'}
         </Button>
-        <Button type="button" variant="secondary" data-testid="ddl-cancel" onClick={onClose}>
+        <Button type="button" variant="ghost" data-testid="ddl-cancel" onClick={onClose}>
           Cancel
         </Button>
       </Actions>

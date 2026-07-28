@@ -7,16 +7,22 @@ import { darkTheme, ThemeProvider } from '@renderer/shared/theme'
 describe('darkTheme', () => {
   it('스펙의 핵심 토큰 값을 담는다', () => {
     // 이 값들이 틀리면 디자인 시스템 전체가 어긋난다.
-    expect(darkTheme.color.accent).toBe('#0a84ff')
-    expect(darkTheme.color.winBg).toBe('#1a1a1e')
-    expect(darkTheme.color.red).toBe('#ff453a')
+    expect(darkTheme.color.surface.bg).toBe('#101014')
+    expect(darkTheme.color.surface.base).toBe('#191920')
+    expect(darkTheme.color.surface.panel).toBe('#23232c')
+    expect(darkTheme.color.surface.raised).toBe('#2f2f3a')
+    expect(darkTheme.fontSize.label).toBe('11px')
+    expect(darkTheme.fontSize.body).toBe('13px')
+    expect(darkTheme.fontSize.heading).toBe('15px')
+    expect(darkTheme.fontSize.title).toBe('20px')
+    expect(darkTheme.color.intent.accent).toBe('#0a84ff')
     expect(darkTheme.syntax.keyword).toBe('#ff7ab2')
-    expect(darkTheme.density.rowPad).toBe('4px 12px')
+    expect(darkTheme.density.rowPad).toBe('6px 12px')
   })
 
   it('ThemeProvider가 styled 컴포넌트에 토큰을 주입한다', () => {
     const Box = styled.div`
-      color: ${({ theme }) => theme.color.accent};
+      color: ${({ theme }) => theme.color.intent.accent};
     `
     const { container } = render(
       <ThemeProvider theme={darkTheme}>

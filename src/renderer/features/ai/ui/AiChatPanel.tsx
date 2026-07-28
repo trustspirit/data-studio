@@ -12,8 +12,8 @@ const Panel = styled.div`
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  border-left: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.sidebar};
+  border-left: 1px solid ${({ theme }) => theme.color.border.strong};
+  background: ${({ theme }) => theme.color.surface.base};
   font-family: ${({ theme }) => theme.font.ui};
 `
 const Header = styled.div`
@@ -21,15 +21,15 @@ const Header = styled.div`
   align-items: center;
   gap: ${({ theme }) => theme.space.sm};
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
-  border-bottom: 1px solid ${({ theme }) => theme.color.border};
-  background: ${({ theme }) => theme.color.toolbar};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.strong};
+  background: ${({ theme }) => theme.color.surface.panel};
 `
 const Title = styled.span`
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-size: ${({ theme }) => theme.fontSize.label};
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: ${({ theme }) => theme.color.textDim};
+  color: ${({ theme }) => theme.color.text.dim};
   margin-right: auto;
 `
 const Messages = styled.div`
@@ -46,17 +46,17 @@ const UserMsg = styled.div`
   max-width: 90%;
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
   border-radius: ${({ theme }) => theme.radius.lg};
-  background: ${({ theme }) => theme.color.panel};
-  border: 1px solid ${({ theme }) => theme.color.borderSoft};
-  color: ${({ theme }) => theme.color.text};
-  font-size: ${({ theme }) => theme.fontSize.md};
+  background: ${({ theme }) => theme.color.surface.panel};
+  border: 1px solid ${({ theme }) => theme.color.border.soft};
+  color: ${({ theme }) => theme.color.text.primary};
+  font-size: ${({ theme }) => theme.fontSize.body};
   white-space: pre-wrap;
   word-break: break-word;
 `
 const AssistantMsg = styled.div`
   align-self: stretch;
-  color: ${({ theme }) => theme.color.text};
-  font-size: ${({ theme }) => theme.fontSize.md};
+  color: ${({ theme }) => theme.color.text.primary};
+  font-size: ${({ theme }) => theme.fontSize.body};
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
@@ -69,9 +69,9 @@ const ToolChips = styled.div`
 `
 const ToolChip = styled.span`
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.xs};
-  color: ${({ theme }) => theme.color.teal};
-  border: 1px solid ${({ theme }) => theme.color.borderSoft};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  color: ${({ theme }) => theme.color.label.teal};
+  border: 1px solid ${({ theme }) => theme.color.border.soft};
   border-radius: 999px;
   padding: 1px 8px;
 `
@@ -80,7 +80,7 @@ const StreamDot = styled.span`
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: ${({ theme }) => theme.color.accent};
+  background: ${({ theme }) => theme.color.intent.accent};
   animation: aiPulse 1s ease-in-out infinite;
   @keyframes aiPulse {
     50% {
@@ -90,26 +90,26 @@ const StreamDot = styled.span`
 `
 const ProposalCard = styled.div`
   margin: 0 ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.sm};
-  border: 1px solid ${({ theme }) => theme.color.orange};
+  border: 1px solid ${({ theme }) => theme.color.intent.warning};
   border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.panel};
+  background: ${({ theme }) => theme.color.surface.panel};
   overflow: hidden;
 `
 const ProposalHead = styled.div`
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
-  font-size: ${({ theme }) => theme.fontSize.xs};
+  font-size: ${({ theme }) => theme.fontSize.label};
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: ${({ theme }) => theme.color.orange};
+  color: ${({ theme }) => theme.color.intent.warning};
 `
 const ProposalSql = styled.pre`
   margin: 0;
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.color.text};
-  background: ${({ theme }) => theme.color.gridBg};
+  font-size: ${({ theme }) => theme.fontSize.body};
+  color: ${({ theme }) => theme.color.text.primary};
+  background: ${({ theme }) => theme.color.surface.bg};
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 140px;
@@ -117,40 +117,40 @@ const ProposalSql = styled.pre`
 `
 const ProposalMeta = styled.div`
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
-  font-size: ${({ theme }) => theme.fontSize.xs};
-  color: ${({ theme }) => theme.color.textDim};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  color: ${({ theme }) => theme.color.text.dim};
 `
 const ProposalActions = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: ${({ theme }) => theme.space.xs};
   padding: ${({ theme }) => theme.space.xs} ${({ theme }) => theme.space.sm};
-  border-top: 1px solid ${({ theme }) => theme.color.borderSoft};
+  border-top: 1px solid ${({ theme }) => theme.color.border.soft};
 `
 const OutcomeNote = styled.div`
   margin: 0 ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.xs};
-  font-size: ${({ theme }) => theme.fontSize.xs};
-  color: ${({ theme }) => theme.color.green};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  color: ${({ theme }) => theme.color.intent.success};
 `
 const InputRow = styled.div`
   display: flex;
   align-items: flex-end;
   gap: ${({ theme }) => theme.space.xs};
   padding: ${({ theme }) => theme.space.sm};
-  border-top: 1px solid ${({ theme }) => theme.color.border};
+  border-top: 1px solid ${({ theme }) => theme.color.border.strong};
 `
 const ChatInput = styled.textarea`
   flex: 1;
   min-width: 0;
   resize: none;
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.md};
+  font-size: ${({ theme }) => theme.fontSize.body};
   line-height: 1.4;
   padding: 6px 8px;
   border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.gridBg};
-  color: ${({ theme }) => theme.color.text};
-  border: 1px solid ${({ theme }) => theme.color.border};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.text.primary};
+  border: 1px solid ${({ theme }) => theme.color.border.strong};
 `
 const KeySetup = styled.div`
   display: flex;
@@ -158,11 +158,11 @@ const KeySetup = styled.div`
   gap: ${({ theme }) => theme.space.xs};
   margin: ${({ theme }) => theme.space.sm};
   padding: ${({ theme }) => theme.space.sm};
-  border: 1px solid ${({ theme }) => theme.color.borderSoft};
+  border: 1px solid ${({ theme }) => theme.color.border.soft};
   border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.panel};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.color.textDim};
+  background: ${({ theme }) => theme.color.surface.panel};
+  font-size: ${({ theme }) => theme.fontSize.body};
+  color: ${({ theme }) => theme.color.text.dim};
 `
 const KeyRow = styled.div`
   display: flex;
@@ -170,8 +170,8 @@ const KeyRow = styled.div`
 `
 const Hint = styled.div`
   padding: ${({ theme }) => theme.space.lg};
-  color: ${({ theme }) => theme.color.textFaint};
-  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.color.text.faint};
+  font-size: ${({ theme }) => theme.fontSize.body};
   text-align: center;
 `
 
@@ -231,7 +231,7 @@ export function AiChatPanel({ ai, operation, connectionId }: AiChatPanelProps) {
         {keys.status?.[chat.provider] === true && (
           <Button
             size="sm"
-            variant="secondary"
+            variant="ghost"
             onClick={() => void keys.removeKey(chat.provider)}
             title="저장된 API 키 삭제"
           >
@@ -305,7 +305,7 @@ export function AiChatPanel({ ai, operation, connectionId }: AiChatPanelProps) {
           <ProposalActions>
             <Button
               size="sm"
-              variant="secondary"
+              variant="ghost"
               disabled={proposals.busyId !== null}
               onClick={() => void proposals.reject(p)}
             >
@@ -343,7 +343,7 @@ export function AiChatPanel({ ai, operation, connectionId }: AiChatPanelProps) {
           }}
         />
         {chat.streaming ? (
-          <Button size="sm" variant="secondary" onClick={chat.cancel}>
+          <Button size="sm" variant="ghost" onClick={chat.cancel}>
             중지
           </Button>
         ) : (

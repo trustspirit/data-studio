@@ -15,8 +15,8 @@ const Layout = styled.div`
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: ${({ theme }) => theme.color.winBg};
-  color: ${({ theme }) => theme.color.text};
+  background: ${({ theme }) => theme.color.surface.bg};
+  color: ${({ theme }) => theme.color.text.primary};
 `
 const EditorPane = styled.div`
   min-height: 0;
@@ -83,7 +83,7 @@ export function QueryWorkspace({ gateway, connectionId, engine }: Props) {
           <>
             <RunBar>
               {q.running ? (
-                <Button variant="secondary" size="sm" data-testid="query-cancel" onClick={q.cancel}>
+                <Button variant="ghost" size="sm" data-testid="query-cancel" onClick={q.cancel}>
                   Cancel
                 </Button>
               ) : (

@@ -116,6 +116,23 @@ describe('ConnectionRow', () => {
     expect(screen.getByText('public')).toBeTruthy()
   })
 
+  it('활성 행이 사이드바 표면과 다른 배경을 갖는다 — 지금 무엇을 보는지 알 수 있어야 한다', () => {
+    // 이름은 활성 여부와 무관하게 늘 text.primary라 글자로는 단서가 없다.
+    // 배경이 유일한 신호이므로 사이드바(surface.base)와 같아지면 표시가 사라진다.
+    const { unmount } = wrap(row({}, { active: true }))
+    const activeBg = getComputedStyle(screen.getByTestId('conn-a').parentElement as HTMLElement)
+      .backgroundColor
+    unmount()
+
+    wrap(row({}, { active: false }))
+    const idleBg = getComputedStyle(screen.getByTestId('conn-a').parentElement as HTMLElement)
+      .backgroundColor
+
+    expect(activeBg).not.toBe(idleBg)
+    expect(activeBg).not.toBe('rgb(25, 25, 32)') // darkTheme.color.surface.base
+    expect(activeBg).toBe('rgba(10, 132, 255, 0.16)') // darkTheme.color.row.selected
+  })
+
   it('메뉴의 설정 항목이 onSettings를 부른다', () => {
     const onSettings = vi.fn()
     wrap(row({ onSettings }))

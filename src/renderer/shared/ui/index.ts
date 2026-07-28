@@ -10,6 +10,10 @@ export { ErrorBanner, Notice, EmptyState } from './Feedback'
 export { Input, NativeSelect } from './controls'
 export { SplitPane, type SplitPaneProps } from './SplitPane'
 export { ConfirmDialog } from './ConfirmDialog'
+export { Dialog } from './Dialog'
 // 접이식 섹션을 쌓는 순수 표현 컴포넌트. 도메인 지식이 없어서 shared에 산다 —
 // feature 슬라이스(structure·ai)들이 함께 쓰므로 어느 한 feature의 소유물이 될 수 없다.
 export { InspectorDock, type InspectorSection } from './InspectorDock'
+export { SegmentedGroup, type SegmentItem } from './SegmentedGroup'
+export { Badge } from './Badge'
+export { TabStrip, type TabDescriptor } from './TabStrip'
