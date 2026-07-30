@@ -199,4 +199,14 @@ describe('SchemaNavigator', () => {
     // 한 단계 더 들어갔으니 스키마 행이 더 들여써진다.
     expect(getComputedStyle(screen.getByText(/public/)).paddingLeft).not.toBe(topSchemaPad)
   })
+
+  it('스키마 펼침 표시가 글리프가 아니라 아이콘이고, 이름 텍스트는 그대로다', () => {
+    // 사용자가 직접 지목한 지점이다: 11–13px로 그린 ▸는 실제 획이 6px 남짓이라
+    // 획 굵기를 조절할 수 없다. 아이콘은 stroke-width를 갖는다.
+    renderNavigator()
+    const toggle = screen.getByText(/public/).closest('button') as HTMLElement
+    // SVG는 textContent에 아무것도 기여하지 않는다 — 글리프가 남아 있으면 '▾ public'이다.
+    expect(toggle.textContent).toBe('public')
+    expect(toggle.querySelector('svg')).not.toBeNull()
+  })
 })

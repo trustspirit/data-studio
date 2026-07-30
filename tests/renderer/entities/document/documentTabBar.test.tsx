@@ -98,4 +98,13 @@ describe('DocumentTabBar', () => {
     fireEvent.click(screen.getByTestId('doctab-new-query'))
     expect(onNewQuery).toHaveBeenCalled()
   })
+
+  it('새 쿼리 버튼은 아이콘만 갖고 이름은 aria-label이 진다', () => {
+    // 이것도 사용자가 지목한 지점이다. 글자 ＋를 지우면서 이름이 사라지면 안 된다.
+    renderBar()
+    const button = screen.getByTestId('doctab-new-query')
+    expect(button.getAttribute('aria-label')).toBe('새 쿼리')
+    expect(button.textContent).toBe('')
+    expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+  })
 })

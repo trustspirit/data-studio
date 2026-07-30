@@ -1,11 +1,12 @@
 import styled from 'styled-components'
-import { TabStrip, type TabDescriptor } from '../../../shared/ui'
+import { Icon, TabStrip, type TabDescriptor } from '../../../shared/ui'
 import { documentKey, documentTitle, type Document } from '../model/document'
 
 const NewQuery = styled.button`
-  font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.body};
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 ${({ theme }) => theme.space.sm};
   border: none;
   border-radius: ${({ theme }) => theme.radius.md};
   cursor: pointer;
@@ -40,7 +41,7 @@ export function DocumentTabBar({ documents, activeKey, onActivate, onClose, onNe
         ? {
             trailing: (
               <NewQuery type="button" data-testid="doctab-new-query" aria-label="새 쿼리" onClick={onNewQuery}>
-                ＋
+                <Icon name="plus" size="lg" />
               </NewQuery>
             ),
           }
