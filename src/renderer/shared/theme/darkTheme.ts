@@ -94,8 +94,13 @@ export const darkTheme = {
     ui: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
     mono: "ui-monospace, 'SF Mono', Menlo, monospace",
   },
-  // 타이포 스케일 — 컴포넌트별 임의 font-size 대신 이 세 단계만 쓴다.
-  fontSize: { label: '11px', body: '13px', heading: '15px', title: '20px' },
+  // 타이포 스케일 — 컴포넌트별 임의 font-size 대신 이 네 단계만 쓴다.
+  // 값은 관대한 쪽으로 잡는다: 앞 시스템의 11–20px는 구조는 맞았지만 주요 작업
+  // 화면(DataView·QueryWorkspace·ErView) 어디에도 13px을 넘는 글자가 없어
+  // 위계가 위계로 읽히지 않았다. heading·title의 상향 폭이 큰 것은 의도다 —
+  // 이 둘의 사용처는 진짜 제목 다섯 곳뿐이고, 상단이 상단으로 보이려면
+  // 본문과의 거리가 필요하다.
+  fontSize: { label: '14px', body: '16px', heading: '24px', title: '32px' },
   fontWeight: { regular: 400, medium: 500, semibold: 600 },
   // 스페이싱 스케일 — 4px 그리드.
   space: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '24px' },

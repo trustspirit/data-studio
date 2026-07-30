@@ -25,6 +25,6 @@ describe('Badge', () => {
 
   it('라벨 크기로 렌더한다', () => {
     wrap(<Badge tone="warning">UNIQUE</Badge>)
-    expect(getComputedStyle(screen.getByText('UNIQUE')).fontSize).toBe('11px')
+    expect(getComputedStyle(screen.getByText('UNIQUE')).fontSize).toBe('14px')
   })
 })
