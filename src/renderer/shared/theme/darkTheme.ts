@@ -119,7 +119,21 @@ export const darkTheme = {
     editorMin: 120,
     editorMax: 720,
   },
-  density: { rowPad: '6px 12px', rowHeight: '28px', controlHeight: '28px', controlPad: '5px 10px' },
+  /**
+   * 밀도. `controlHeight`는 **반드시 소비돼야 하는 토큰**이다 — 컨트롤이 높이를
+   * 명시하지 않으면 높이가 패딩과 글자 크기에서 우연히 나오고, 한 툴바 안에서
+   * 두세 가지 높이가 섞인다(이전 상태: sm ≈ 19px, md ≈ 25px).
+   *
+   * `controlPad`가 가로 전용인 것도 같은 이유다. 세로 성분이 남아 있으면
+   * 높이 고정과 경쟁한다.
+   */
+  density: {
+    rowPad: '6px 12px',
+    rowHeight: '28px',
+    controlHeight: '44px',
+    controlHeightSm: '32px',
+    controlPad: '0 16px',
+  },
 } as const
 
 export type AppTheme = typeof darkTheme

@@ -56,4 +56,37 @@ describe('Button', () => {
     expect(style.borderColor).toBe('rgb(255, 69, 58)')
     expect(style.color).toBe('rgb(255, 69, 58)')
   })
+
+  it('md 버튼의 높이는 controlHeight로 고정되고 세로 패딩은 0이다', () => {
+    // 높이가 패딩과 글자 크기에서 우연히 나오면 한 툴바 안에서 크기가 섞인다.
+    // 그리드 행에 이미 있는 가드와 같은 형태다 — 높이를 명시하고, 세로 패딩이
+    // 그 높이와 경쟁하지 못하게 0으로 못 박는다.
+    wrap(<Button>적용</Button>)
+    const style = getComputedStyle(screen.getByText('적용'))
+    expect(style.height).toBe(darkTheme.density.controlHeight)
+    expect(style.paddingTop).toBe('0px')
+    expect(style.paddingBottom).toBe('0px')
+  })
+
+  it('sm 버튼은 controlHeightSm으로 서고, 그래도 조준 가능한 크기다', () => {
+    // 이전의 sm은 약 19px로 사실상 읽히지 않았다.
+    wrap(<Button size="sm">삭제</Button>)
+    const style = getComputedStyle(screen.getByText('삭제'))
+    expect(style.height).toBe(darkTheme.density.controlHeightSm)
+    expect(parseInt(style.height, 10)).toBeGreaterThanOrEqual(32)
+    expect(style.paddingTop).toBe('0px')
+  })
+
+  it('두 크기가 가로 패딩을 공유한다 — 크기 차이는 높이만으로 낸다', () => {
+    wrap(
+      <>
+        <Button>하나</Button>
+        <Button size="sm">둘</Button>
+      </>,
+    )
+    const md = getComputedStyle(screen.getByText('하나'))
+    const sm = getComputedStyle(screen.getByText('둘'))
+    expect(sm.paddingLeft).toBe(md.paddingLeft)
+    expect(md.paddingLeft).toBe('16px')
+  })
 })

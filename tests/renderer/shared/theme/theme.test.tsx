@@ -18,6 +18,9 @@ describe('darkTheme', () => {
     expect(darkTheme.color.intent.accent).toBe('#0a84ff')
     expect(darkTheme.syntax.keyword).toBe('#ff7ab2')
     expect(darkTheme.density.rowPad).toBe('6px 12px')
+    expect(darkTheme.density.controlHeight).toBe('44px')
+    expect(darkTheme.density.controlHeightSm).toBe('32px')
+    expect(darkTheme.density.controlPad).toBe('0 16px')
   })
 
   it('ThemeProvider가 styled 컴포넌트에 토큰을 주입한다', () => {
