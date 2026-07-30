@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { Sidebar } from '../../../shared/ui'
+import { Icon, Sidebar } from '../../../shared/ui'
 
 const Wrap = styled(Sidebar)`
   color: ${({ theme }) => theme.color.text.primary};
@@ -20,6 +20,9 @@ const Title = styled.span`
   flex: 1;
 `
 const AddButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 22px;
   height: 22px;
   padding: 0;
@@ -27,11 +30,6 @@ const AddButton = styled.button`
   border-radius: ${({ theme }) => theme.radius.sm};
   background: transparent;
   color: ${({ theme }) => theme.color.text.dim};
-  font-family: ${({ theme }) => theme.font.ui};
-  /* 글리프는 본문 텍스트가 아니지만 아이콘 전용 크기 토큰이 아직 없다. heading은
-     쓰지 않는다 — 진짜 제목을 위해 그 값을 조정하면 이 아이콘이 딸려 움직인다. */
-  font-size: ${({ theme }) => theme.fontSize.body};
-  line-height: 1;
   cursor: pointer;
   &:hover {
     background: ${({ theme }) => theme.color.surface.panel};
@@ -61,7 +59,7 @@ export function ConnectionTree({ isEmpty, onNew, children }: ConnectionTreeProps
       <Header>
         <Title>Connections</Title>
         <AddButton type="button" aria-label="새 연결" title="새 연결" onClick={onNew}>
-          +
+          <Icon name="plus" />
         </AddButton>
       </Header>
       {isEmpty ? <Empty>연결이 없습니다 — 위의 +로 추가하세요.</Empty> : children}

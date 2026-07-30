@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
+import { ThemeProvider, darkTheme, type AppTheme } from '@renderer/shared/theme'
 import { Icon } from '@renderer/shared/ui'
 
 function wrap(ui: React.ReactElement) {
@@ -33,6 +33,36 @@ describe('Icon', () => {
     const [sm, lg] = Array.from(container.querySelectorAll('svg'))
     expect(sm?.getAttribute('width')).toBe(darkTheme.size.iconSm)
     expect(lg?.getAttribute('width')).toBe(darkTheme.size.iconLg)
+  })
+
+  it('sm이 fontSize 토큰이 아니라 진짜 size.iconSm을 읽는다 — 값이 우연히 같은 darkTheme만으로는 못 잡는 회귀다', () => {
+    // darkTheme에서는 size.iconSm과 fontSize.label이 둘 다 14px라 우연히 같다
+    // (결함 아님, 위 코멘트 참고). 그래서 sm 크기를 fontSize.label에서 읽어 오는
+    // 회귀가 있어도 darkTheme으로 렌더하면 폭 값이 똑같이 나와 들키지 않는다.
+    // size 토큰군과 fontSize 토큰군이 서로 겹치지 않도록 바꾼 테마로 렌더해,
+    // 세 크기 모두 자기 몫의 size 토큰만 읽고 어떤 fontSize 토큰도 우연히
+    // 대신할 수 없음을 확정적으로 확인한다.
+    // AppTheme은 darkTheme을 `as const`로 고정한 타입이라 필드 값이 리터럴로
+    // 못박혀 있다 — 다른 값을 넣으려면 타입 검사를 우회해야 한다. 런타임에
+    // ThemeProvider에 전달되는 순수 데이터일 뿐이라 여기서는 안전하다.
+    const probeTheme = {
+      ...darkTheme,
+      size: { ...darkTheme.size, iconSm: '11px', icon: '19px', iconLg: '29px' },
+      fontSize: { ...darkTheme.fontSize, label: '41px', body: '42px', heading: '43px', title: '44px' },
+    } as unknown as AppTheme
+    const { container } = render(
+      <ThemeProvider theme={probeTheme}>
+        <Icon name="plus" size="sm" />
+        <Icon name="plus" />
+        <Icon name="plus" size="lg" />
+      </ThemeProvider>,
+    )
+    const [sm, md, lg] = Array.from(container.querySelectorAll('svg'))
+    const widths = [sm?.getAttribute('width'), md?.getAttribute('width'), lg?.getAttribute('width')]
+    expect(widths).toEqual(['11px', '19px', '29px'])
+    // 세 값이 서로 다르다는 것도 확인해 둔다 — 어느 한 fontSize 토큰이 세
+    // 크기 전부를 동시에 대신할 길이 없음을 명시적으로 못 박는다.
+    expect(new Set(widths).size).toBe(3)
   })
 
   it('색은 반대로 부모에 연동한다 — hover·비활성에서 글자와 함께 움직여야 한다', () => {

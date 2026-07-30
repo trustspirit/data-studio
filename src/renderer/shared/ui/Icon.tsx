@@ -27,7 +27,7 @@ const GLYPHS: Record<IconName, ReactElement> = {
   refresh: (
     <>
       <path d="M13.7 10A6 6 0 1 1 12.3 3.8L15.3 6.7" />
-      <path d="M15.3 2.7V6.7H11.3" />
+      <path d="M15.1 2.7V6.7H11.3" />
     </>
   ),
 }

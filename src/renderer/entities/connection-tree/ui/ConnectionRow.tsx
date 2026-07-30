@@ -30,7 +30,7 @@ const Chevron = styled.button`
   align-items: center;
   justify-content: center;
   width: ${({ theme }) => theme.size.icon};
-  padding: 0;
+  padding: ${({ theme }) => theme.space.xs} 0;
   border: none;
   background: transparent;
   color: ${({ theme }) => theme.color.text.faint};

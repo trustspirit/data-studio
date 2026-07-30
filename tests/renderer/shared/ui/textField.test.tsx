@@ -43,4 +43,12 @@ describe('TextField', () => {
     expect(document.activeElement).toBe(field)
     expect(getComputedStyle(field).borderColor).toBe('rgb(10, 132, 255)')
   })
+
+  it('높이가 controlHeight 토큰과 정확히 같다 — 세로 패딩으로 높이를 만들면 옆의 버튼과 줄이 어긋난다', () => {
+    wrap()
+    const style = getComputedStyle(screen.getByLabelText('호스트'))
+    expect(style.height).toBe(darkTheme.density.controlHeight)
+    expect(style.paddingTop).toBe('0px')
+    expect(style.paddingBottom).toBe('0px')
+  })
 })
