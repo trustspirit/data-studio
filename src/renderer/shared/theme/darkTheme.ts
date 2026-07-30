@@ -107,6 +107,15 @@ export const darkTheme = {
   radius: { sm: '4px', md: '6px', lg: '10px' },
   // 레이아웃 치수 — 문자열은 CSS에 그대로 쓰이고, 숫자는 SplitPane의 클램프에 쓰인다.
   size: {
+    /**
+     * 아이콘 치수. **fontSize에서 의도적으로 분리한다** — 앞 시스템에서 아이콘이
+     * 타이포 토큰을 빌려 쓰다 두 번 오배정됐고, 두 번 다 "값이 우연히 맞아서"
+     * 골라진 것이었다. 자기 토큰을 가지면 그 오배정이 구조적으로 불가능해진다.
+     * 색은 반대로 currentColor로 부모에 연동한다 — 크기는 독립, 색은 연동.
+     */
+    icon: '18px',
+    iconSm: '14px',
+    iconLg: '22px',
     rail: '56px',
     sidebar: '240px',
     sidebarDefault: 240,
