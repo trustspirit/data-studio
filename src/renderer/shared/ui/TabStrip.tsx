@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
+import { Icon } from './Icon'
 
 const Strip = styled.div`
   display: flex;
@@ -39,10 +40,10 @@ const Tab = styled.button`
   }
 `
 const Close = styled.button`
-  font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.label};
-  line-height: 1;
-  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
   background: transparent;
   border: 0;
   border-radius: ${({ theme }) => theme.radius.sm};
@@ -120,7 +121,7 @@ export function TabStrip({
               data-testid={`${testIdPrefix}-close-${tab.key}`}
               onClick={() => onClose(tab.key)}
             >
-              ✕
+              <Icon name="close" />
             </Close>
           </Slot>
         )

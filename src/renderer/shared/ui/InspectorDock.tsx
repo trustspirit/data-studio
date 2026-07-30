@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import styled from 'styled-components'
+import { Icon } from './Icon'
 
 const Dock = styled.div`
   display: flex;
@@ -73,7 +74,8 @@ export function InspectorDock({ sections, initiallyOpen = [] }: InspectorDockPro
               data-testid={`inspector-section-${s.id}`}
               onClick={() => setOpen((cur) => ({ ...cur, [s.id]: cur[s.id] !== true }))}
             >
-              {expanded ? '▾' : '▸'} {s.title}
+              <Icon name={expanded ? 'chevronDown' : 'chevronRight'} />
+              {s.title}
             </Header>
             {expanded && (
               <Body $grow={grow} data-testid={`inspector-body-${s.id}`}>
