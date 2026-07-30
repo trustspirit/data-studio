@@ -186,7 +186,7 @@ export function DocumentHost({
         <div data-testid="document-empty" style={{ flex: 1, display: 'flex' }}>
           <EmptyState
             title="열린 문서가 없습니다."
-            hint="사이드바에서 테이블을 두 번 누르거나 ＋로 쿼리를 여세요"
+            hint="사이드바에서 테이블을 두 번 누르거나 탭 줄의 새 쿼리 버튼을 누르세요"
           />
         </div>
       </Host>
