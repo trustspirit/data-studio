@@ -37,14 +37,15 @@ describe('DataGrid', () => {
     expect(screen.getByText('name')).toBeTruthy()
   })
 
-  it('행 높이는 28px로 고정되고 셀의 세로 패딩은 0이다 — density.rowPad가 나중에 올라가도 그리드는 슬롯을 넘지 않는다', () => {
+  it('행 높이가 density.rowHeight와 정확히 같고 셀의 세로 패딩은 0이다 — 가상화 간격과 시각 높이가 어긋나면 행이 겹친다', () => {
     const { container } = wrap(<DataGrid columns={columns} rows={rows(3)} />)
     const cell = container.querySelector('[data-cell]') as HTMLElement
     const row = cell.parentElement as HTMLElement
-    // Row 자체의 높이가 못 박혀 있어야 한다 — 내용이 늘어도 슬롯이 넓어지지 않는다.
-    expect(getComputedStyle(row).height).toBe('28px')
-    // Cell의 세로 패딩이 0이어야 한다 — density.rowPad의 세로 성분이 그리드에 닿지 않는다는
-    // 증거. rowPad를 되살리면(4px든, Task 14의 6px든) 여기서 반드시 깨진다.
+    // DataGrid의 ROW_HEIGHT는 가상화가 숫자를 요구해 별도 상수로 산다. 그 상수가
+    // 토큰과 갈라지는 순간 가상 스크롤이 깨지므로, 리터럴이 아니라 토큰과 비교한다.
+    expect(getComputedStyle(row).height).toBe(darkTheme.density.rowHeight)
+    // Cell의 세로 패딩이 0이어야 한다 — density.rowPad의 세로 성분이 그리드에 닿지
+    // 않는다는 증거. rowPad를 되살리면 여기서 반드시 깨진다.
     const cellStyle = getComputedStyle(cell)
     expect(cellStyle.paddingTop).toBe('0px')
     expect(cellStyle.paddingBottom).toBe('0px')

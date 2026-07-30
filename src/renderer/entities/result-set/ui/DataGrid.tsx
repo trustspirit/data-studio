@@ -7,8 +7,9 @@ import type { BrowseSort } from '@shared/types/operation'
 import { renderCell } from '../renderers'
 
 // theme.density.rowHeight와 같은 값이어야 한다. 가상화가 숫자를 요구하므로
-// 문자열 토큰을 그대로 쓸 수 없어 여기서 한 번 못 박는다.
-const ROW_HEIGHT = 28
+// 문자열 토큰을 그대로 쓸 수 없어 상수로 복제돼 있다 — dataGrid.test가 두 값의
+// 일치를 단언해 이 복제가 조용히 갈라지는 것을 막는다.
+const ROW_HEIGHT = 36
 
 const Scroll = styled.div`
   overflow: auto;

@@ -128,8 +128,8 @@ export const darkTheme = {
    * 높이 고정과 경쟁한다.
    */
   density: {
-    rowPad: '6px 12px',
-    rowHeight: '28px',
+    rowPad: '8px 14px',
+    rowHeight: '36px',
     controlHeight: '44px',
     controlHeightSm: '32px',
     controlPad: '0 16px',
