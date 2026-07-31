@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import type { AuditEntry, OperationGateway } from '../../../gateways/ports/OperationGateway'
-import { Button, EmptyState, ErrorBanner, Notice } from '../../../shared/ui'
+import { Button, EmptyState, ErrorBanner, Icon, Notice } from '../../../shared/ui'
 import { useAuditLog } from '../model/useAuditLog'
 
 const Layout = styled.div`
@@ -119,6 +119,7 @@ export function AuditView({ gateway }: AuditViewProps) {
           disabled={log.loading}
           onClick={log.refresh}
         >
+          <Icon name="refresh" size="sm" />
           Refresh
         </Button>
       </Bar>

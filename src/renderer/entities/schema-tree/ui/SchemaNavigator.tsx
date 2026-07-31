@@ -1,4 +1,5 @@
 import styled, { css } from 'styled-components'
+import { Icon } from '../../../shared/ui'
 import type { SchemaInfo, TableInfo } from '../../../../shared/types/schema'
 import type { TableSelection } from '../model/selection'
 
@@ -41,6 +42,9 @@ const SchemaRow = styled.div`
 `
 const SchemaToggle = styled.button<{ $depth: number }>`
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.xs};
   min-width: 0;
   text-align: left;
   font: inherit;
@@ -124,7 +128,7 @@ export function SchemaNavigator({
               aria-expanded={expanded[s.name] === true}
               onClick={() => onToggle(s.name)}
             >
-              {expanded[s.name] ? '▾ ' : '▸ '}
+              <Icon name={expanded[s.name] === true ? 'chevronDown' : 'chevronRight'} />
               {s.name}
             </SchemaToggle>
             {onOpenSchema !== undefined && (

@@ -35,18 +35,29 @@ const variants = {
   `,
 } as const
 
+/*
+ * 크기는 **높이가 정한다.** 세로 패딩은 두 크기 모두 0이고 가로 패딩은 공유한다 —
+ * 패딩으로 크기를 내면 글자 크기가 바뀔 때마다 높이가 따라 흔들리고, 한 툴바 안의
+ * 컨트롤들이 서로 다른 높이에 선다. 그리드 행에서 이미 검증된 방식이다.
+ */
 const sizes = {
   sm: css`
-    padding: 3px 8px;
+    height: ${({ theme }) => theme.density.controlHeightSm};
     font-size: ${({ theme }) => theme.fontSize.label};
   `,
   md: css`
-    padding: ${({ theme }) => theme.density.controlPad};
+    height: ${({ theme }) => theme.density.controlHeight};
     font-size: ${({ theme }) => theme.fontSize.body};
   `,
 } as const
 
 export const Button = styled.button<{ variant?: Variant; size?: Size }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 아이콘과 라벨을 함께 넣는 버튼(AuditView의 새로고침)이 있다. */
+  gap: ${({ theme }) => theme.space.xs};
+  padding: ${({ theme }) => theme.density.controlPad};
   font-family: ${({ theme }) => theme.font.ui};
   border-radius: ${({ theme }) => theme.radius.md};
   border: 1px solid;

@@ -7,9 +7,12 @@ const Group = styled.div`
   overflow: hidden;
 `
 const Segment = styled.button<{ $active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  height: ${({ theme }) => theme.density.controlHeight};
+  padding: ${({ theme }) => theme.density.controlPad};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.body};
-  padding: ${({ theme }) => theme.density.controlPad};
   border: 0;
   border-right: 1px solid ${({ theme }) => theme.color.border.strong};
   background: ${({ theme, $active }) => ($active ? theme.color.surface.raised : 'transparent')};

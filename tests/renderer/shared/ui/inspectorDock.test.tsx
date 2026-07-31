@@ -64,4 +64,13 @@ describe('InspectorDock', () => {
     fireEvent.click(screen.getByTestId('inspector-section-ai'))
     expect(getComputedStyle(section).flexGrow).toBe('1')
   })
+
+  it('섹션 헤더의 펼침 표시가 아이콘이고 제목 텍스트는 그대로 읽힌다', () => {
+    // 헤더 자체가 aria-expanded를 갖는 버튼이므로 아이콘은 장식이어야 한다.
+    // 제목은 텍스트로 남아야 접근 가능한 이름이 유지된다.
+    renderDock(['columns'])
+    const header = screen.getByTestId('inspector-section-columns')
+    expect(header.textContent).toBe('Columns')
+    expect(header.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+  })
 })

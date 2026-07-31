@@ -94,14 +94,33 @@ export const darkTheme = {
     ui: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
     mono: "ui-monospace, 'SF Mono', Menlo, monospace",
   },
-  // 타이포 스케일 — 컴포넌트별 임의 font-size 대신 이 세 단계만 쓴다.
-  fontSize: { label: '11px', body: '13px', heading: '15px', title: '20px' },
+  // 타이포 스케일 — 컴포넌트별 임의 font-size 대신 이 네 단계만 쓴다.
+  //
+  // 앞 시스템의 11–20px는 구조는 맞았지만 주요 작업 화면(DataView·QueryWorkspace·
+  // ErView) 어디에도 13px을 넘는 글자가 없어 위계가 위계로 읽히지 않았다. 그래서
+  // 14/16/24/32로 한 번 크게 올렸다가, 실물에서 과하다는 판단으로 한 단계 되물렸다.
+  // 지금 값은 그 두 극단 사이다 — 이전 본문(13px)보다는 확실히 크고, 16px만큼
+  // 두껍지는 않다.
+  //
+  // 체감 크기는 label·body가 정한다. heading·title의 사용처는 진짜 제목 다섯 곳
+  // 뿐이라 전체 인상에는 거의 기여하지 않지만, 상단이 상단으로 보이려면 본문과의
+  // 거리가 필요하므로 비례해서 함께 내렸다.
+  fontSize: { label: '13px', body: '15px', heading: '22px', title: '28px' },
   fontWeight: { regular: 400, medium: 500, semibold: 600 },
   // 스페이싱 스케일 — 4px 그리드.
   space: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '24px' },
   radius: { sm: '4px', md: '6px', lg: '10px' },
   // 레이아웃 치수 — 문자열은 CSS에 그대로 쓰이고, 숫자는 SplitPane의 클램프에 쓰인다.
   size: {
+    /**
+     * 아이콘 치수. **fontSize에서 의도적으로 분리한다** — 앞 시스템에서 아이콘이
+     * 타이포 토큰을 빌려 쓰다 두 번 오배정됐고, 두 번 다 "값이 우연히 맞아서"
+     * 골라진 것이었다. 자기 토큰을 가지면 그 오배정이 구조적으로 불가능해진다.
+     * 색은 반대로 currentColor로 부모에 연동한다 — 크기는 독립, 색은 연동.
+     */
+    icon: '18px',
+    iconSm: '14px',
+    iconLg: '22px',
     rail: '56px',
     sidebar: '240px',
     sidebarDefault: 240,
@@ -114,7 +133,21 @@ export const darkTheme = {
     editorMin: 120,
     editorMax: 720,
   },
-  density: { rowPad: '6px 12px', rowHeight: '28px', controlHeight: '28px', controlPad: '5px 10px' },
+  /**
+   * 밀도. `controlHeight`는 **반드시 소비돼야 하는 토큰**이다 — 컨트롤이 높이를
+   * 명시하지 않으면 높이가 패딩과 글자 크기에서 우연히 나오고, 한 툴바 안에서
+   * 두세 가지 높이가 섞인다(이전 상태: sm ≈ 19px, md ≈ 25px).
+   *
+   * `controlPad`가 가로 전용인 것도 같은 이유다. 세로 성분이 남아 있으면
+   * 높이 고정과 경쟁한다.
+   */
+  density: {
+    rowPad: '8px 14px',
+    rowHeight: '36px',
+    controlHeight: '44px',
+    controlHeightSm: '32px',
+    controlPad: '0 16px',
+  },
 } as const
 
 export type AppTheme = typeof darkTheme

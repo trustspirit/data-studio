@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import styled from 'styled-components'
+import { Icon } from './Icon'
 
 /** 트리거와 메뉴 사이, 그리고 화면 가장자리와의 최소 간격. */
 const GAP = 4
 
 const Trigger = styled.button`
   flex: 0 0 auto;
-  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   background: transparent;
   color: ${({ theme }) => theme.color.text.dim};
-  font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.body};
-  line-height: 1;
   cursor: pointer;
   &:hover,
   &[aria-expanded='true'] {
@@ -171,7 +172,7 @@ export function RowMenu({ label, items, testId }: RowMenuProps) {
         data-testid={testId}
         onClick={() => (open ? close(false) : setOpen(true))}
       >
-        ⋯
+        <Icon name="more" />
       </Trigger>
       {open &&
         createPortal(

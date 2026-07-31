@@ -4,7 +4,7 @@ import type { SqlEngineId } from '../../../../shared/types/connection'
 import type { ColumnInfo, IndexInfo } from '../../../../shared/types/schema'
 import type { TableSelection } from '../../../entities/schema-tree'
 import { SqlCode } from '../../../entities/sql-lang'
-import { Button, ErrorBanner, Input, NativeSelect } from '../../../shared/ui'
+import { Button, ErrorBanner, Icon, Input, NativeSelect } from '../../../shared/ui'
 import {
   buildAddColumn,
   buildAddForeignKey,
@@ -482,10 +482,11 @@ export function TableDesigner({
                   type="button"
                   variant="ghost"
                   size="sm"
+                  aria-label={c.name === '' ? `${i + 1}번째 열 삭제` : `${c.name} 열 삭제`}
                   disabled={columns.length === 1}
                   onClick={() => setColumns((cols) => cols.filter((x) => x.key !== c.key))}
                 >
-                  ✕
+                  <Icon name="close" size="sm" />
                 </Button>
               </ColumnRow>
             ))}

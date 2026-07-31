@@ -37,14 +37,15 @@ describe('DataGrid', () => {
     expect(screen.getByText('name')).toBeTruthy()
   })
 
-  it('행 높이는 28px로 고정되고 셀의 세로 패딩은 0이다 — density.rowPad가 나중에 올라가도 그리드는 슬롯을 넘지 않는다', () => {
+  it('행 높이가 density.rowHeight와 정확히 같고 셀의 세로 패딩은 0이다 — 가상화 간격과 시각 높이가 어긋나면 행이 겹친다', () => {
     const { container } = wrap(<DataGrid columns={columns} rows={rows(3)} />)
     const cell = container.querySelector('[data-cell]') as HTMLElement
     const row = cell.parentElement as HTMLElement
-    // Row 자체의 높이가 못 박혀 있어야 한다 — 내용이 늘어도 슬롯이 넓어지지 않는다.
-    expect(getComputedStyle(row).height).toBe('28px')
-    // Cell의 세로 패딩이 0이어야 한다 — density.rowPad의 세로 성분이 그리드에 닿지 않는다는
-    // 증거. rowPad를 되살리면(4px든, Task 14의 6px든) 여기서 반드시 깨진다.
+    // DataGrid의 ROW_HEIGHT는 가상화가 숫자를 요구해 별도 상수로 산다. 그 상수가
+    // 토큰과 갈라지는 순간 가상 스크롤이 깨지므로, 리터럴이 아니라 토큰과 비교한다.
+    expect(getComputedStyle(row).height).toBe(darkTheme.density.rowHeight)
+    // Cell의 세로 패딩이 0이어야 한다 — density.rowPad의 세로 성분이 그리드에 닿지
+    // 않는다는 증거. rowPad를 되살리면 여기서 반드시 깨진다.
     const cellStyle = getComputedStyle(cell)
     expect(cellStyle.paddingTop).toBe('0px')
     expect(cellStyle.paddingBottom).toBe('0px')
@@ -53,8 +54,8 @@ describe('DataGrid', () => {
   it('큰 행 집합에서 전량을 DOM에 만들지 않는다 (가상화)', () => {
     const { container } = wrap(<DataGrid columns={columns} rows={rows(5000)} />)
     // 셀에 data-cell 속성을 달아 렌더된 셀 수를 센다. 5000행 x 2열 = 10000셀이면 가상화 실패.
-    // 목 뷰포트(400px, 행높이 28px, overscan 12)에서 실제로 렌더되는 행은 20~40개
-    // 안팎이다(약 40~80셀). 500은 그 값의 여러 배 여유를 두면서도 전량 렌더(10000)의
+    // 목 뷰포트(400px, 행높이 36px, overscan 12)에서 실제로 렌더되는 행은 15~35개
+    // 안팎이다(약 30~70셀). 500은 그 값의 여러 배 여유를 두면서도 전량 렌더(10000)의
     // 5%에 불과해, "가상화 제거 시 반드시 실패"하는 취지를 유지하면서 환경차 흔들림도
     // 흡수한다 — 2000처럼 총량의 20%를 허용하는 느슨한 값으로 취지를 희석하지 않는다.
     const cells = container.querySelectorAll('[data-cell]')

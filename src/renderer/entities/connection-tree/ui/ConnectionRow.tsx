@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { RowMenu, type RowMenuItem } from '../../../shared/ui'
+import { Icon, RowMenu, type RowMenuItem } from '../../../shared/ui'
 
 /** 트리 행이 그리는 연결의 상태. 셸의 `OpenState`에 '닫힘'을 더한 것. */
 export type ConnectionRowState = 'closed' | 'connecting' | 'ready' | 'error'
@@ -26,18 +26,20 @@ const Row = styled.div<{ $active: boolean }>`
 `
 const Chevron = styled.button`
   flex: 0 0 auto;
-  width: 18px;
-  padding: 4px 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: ${({ theme }) => theme.size.icon};
+  padding: ${({ theme }) => theme.space.xs} 0;
   border: none;
   background: transparent;
   color: ${({ theme }) => theme.color.text.faint};
-  font: inherit;
   cursor: pointer;
 `
-/** 셰브런이 없는 행의 자리. 이름이 위아래로 어긋나지 않게 폭만 채운다. */
+/** 셰브런이 없는 행의 자리. 이름이 좌우로 어긋나지 않게 폭만 채운다. */
 const ChevronSpace = styled.span`
   flex: 0 0 auto;
-  width: 18px;
+  width: ${({ theme }) => theme.size.icon};
 `
 const Label = styled.button`
   flex: 1;
@@ -55,8 +57,8 @@ const Label = styled.button`
 `
 const Dot = styled.span<{ $state: ConnectionRowState }>`
   flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: ${({ theme, $state }) =>
     $state === 'ready'
@@ -180,7 +182,7 @@ export function ConnectionRow({
             data-testid={`chevron-${id}`}
             onClick={onToggle}
           >
-            {expanded ? '▾' : '▸'}
+            <Icon name={expanded ? 'chevronDown' : 'chevronRight'} />
           </Chevron>
         ) : (
           <ChevronSpace aria-hidden />

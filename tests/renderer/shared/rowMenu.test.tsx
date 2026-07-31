@@ -125,4 +125,16 @@ describe('RowMenu', () => {
     fireEvent.scroll(document, {})
     expect(screen.queryByRole('menu')).toBeNull()
   })
+
+  it('트리거는 글리프를 잃어도 이름을 유지하고, 아이콘은 장식으로 남는다', () => {
+    // ⋯ 글자가 사실상 이름 노릇을 하던 자리다. aria-label이 그 몫을 이미 지고
+    // 있었는지 여기서 확인한다 — 아이콘까지 이름을 가지면 두 번 읽힌다.
+    wrap(menu(three()))
+    const el = trigger()
+    expect(el.getAttribute('aria-label')).toBe('prod 더 보기')
+    expect(el.textContent).toBe('')
+    const svg = el.querySelector('svg')
+    expect(svg).not.toBeNull()
+    expect(svg?.getAttribute('aria-hidden')).toBe('true')
+  })
 })

@@ -54,4 +54,15 @@ describe('TabStrip', () => {
     expect(screen.getByTestId('tab-a').getAttribute('aria-selected')).toBe('true')
     expect(screen.getByTestId('tab-b').getAttribute('aria-selected')).toBe('false')
   })
+
+  it('닫기 버튼은 글리프를 잃어도 이름을 유지하고, 아이콘은 장식으로 남는다', () => {
+    // 글자를 지우면서 스크린리더가 읽을 것이 사라지는 회귀를 막는다.
+    wrap()
+    const close = screen.getByTestId('tab-close-a')
+    expect(close.getAttribute('aria-label')).toBe('orders 닫기')
+    expect(close.textContent).toBe('')
+    const svg = close.querySelector('svg')
+    expect(svg).not.toBeNull()
+    expect(svg?.getAttribute('aria-hidden')).toBe('true')
+  })
 })

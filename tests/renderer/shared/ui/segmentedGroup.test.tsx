@@ -48,4 +48,11 @@ describe('SegmentedGroup', () => {
     expect(screen.getByText('A').tagName).toBe('BUTTON')
     expect(screen.getByText('B').tagName).toBe('BUTTON')
   })
+
+  it('세그먼트도 컨트롤 높이를 쓴다 — 한 툴바 안에서 버튼과 같은 줄에 선다', () => {
+    wrap([{ id: 'a', label: 'A', onSelect: noop }])
+    const style = getComputedStyle(screen.getByText('A'))
+    expect(style.height).toBe(darkTheme.density.controlHeight)
+    expect(style.paddingTop).toBe('0px')
+  })
 })

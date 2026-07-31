@@ -4,6 +4,9 @@ import styled, { css } from 'styled-components'
 export const controlCss = css`
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.body};
+  /* 버튼과 같은 줄에 서야 하므로 같은 높이 토큰을 쓴다. 소비자가 전부
+     한 줄짜리 input/select라 세로 중앙 정렬은 브라우저가 해 준다. */
+  height: ${({ theme }) => theme.density.controlHeight};
   padding: ${({ theme }) => theme.density.controlPad};
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.color.surface.base};
