@@ -95,12 +95,17 @@ export const darkTheme = {
     mono: "ui-monospace, 'SF Mono', Menlo, monospace",
   },
   // 타이포 스케일 — 컴포넌트별 임의 font-size 대신 이 네 단계만 쓴다.
-  // 값은 관대한 쪽으로 잡는다: 앞 시스템의 11–20px는 구조는 맞았지만 주요 작업
-  // 화면(DataView·QueryWorkspace·ErView) 어디에도 13px을 넘는 글자가 없어
-  // 위계가 위계로 읽히지 않았다. heading·title의 상향 폭이 큰 것은 의도다 —
-  // 이 둘의 사용처는 진짜 제목 다섯 곳뿐이고, 상단이 상단으로 보이려면
-  // 본문과의 거리가 필요하다.
-  fontSize: { label: '14px', body: '16px', heading: '24px', title: '32px' },
+  //
+  // 앞 시스템의 11–20px는 구조는 맞았지만 주요 작업 화면(DataView·QueryWorkspace·
+  // ErView) 어디에도 13px을 넘는 글자가 없어 위계가 위계로 읽히지 않았다. 그래서
+  // 14/16/24/32로 한 번 크게 올렸다가, 실물에서 과하다는 판단으로 한 단계 되물렸다.
+  // 지금 값은 그 두 극단 사이다 — 이전 본문(13px)보다는 확실히 크고, 16px만큼
+  // 두껍지는 않다.
+  //
+  // 체감 크기는 label·body가 정한다. heading·title의 사용처는 진짜 제목 다섯 곳
+  // 뿐이라 전체 인상에는 거의 기여하지 않지만, 상단이 상단으로 보이려면 본문과의
+  // 거리가 필요하므로 비례해서 함께 내렸다.
+  fontSize: { label: '13px', body: '15px', heading: '22px', title: '28px' },
   fontWeight: { regular: 400, medium: 500, semibold: 600 },
   // 스페이싱 스케일 — 4px 그리드.
   space: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '24px' },

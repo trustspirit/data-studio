@@ -33,7 +33,7 @@ describe('TextField', () => {
 
   it('라벨 캡션은 label 크기다', () => {
     wrap()
-    expect(getComputedStyle(screen.getByText('호스트')).fontSize).toBe('14px')
+    expect(getComputedStyle(screen.getByText('호스트')).fontSize).toBe('13px')
   })
 
   it('포커스에서만 테두리가 accent로 나타난다 — 채움형 필드의 유일한 입력 피드백이다', () => {
