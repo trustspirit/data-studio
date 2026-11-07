@@ -137,6 +137,8 @@ describe('WorkspaceHost', () => {
     const gw = gateway()
     const { rerender } = render(host('a', gw))
 
+    await waitFor(() => expect(EditorView.findFromDOM(screen.getByTestId('workspace-a'))).not.toBeNull())
+    await waitFor(() => expect(EditorView.findFromDOM(screen.getByTestId('workspace-b'))).not.toBeNull())
     typeSqlIn(screen.getByTestId('workspace-a'), 'SELECT 1 FROM only_in_a')
     expect(sqlTextIn(screen.getByTestId('workspace-a'))).toBe('SELECT 1 FROM only_in_a')
     // B의 편집기는 A의 텍스트를 본 적이 없어야 한다.

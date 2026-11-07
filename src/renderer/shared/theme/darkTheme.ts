@@ -4,6 +4,7 @@
  */
 export const darkTheme = {
   color: {
+    grid: { alternate: 'rgba(255, 255, 255, 0.018)' },
     /** 표면 4단 계단. 명도 17.3 → 27.3 → 38.0 → 50.7 (폭 13.1%). */
     surface: {
       bg: '#101014',

@@ -66,6 +66,37 @@ function renderEditor(gw: ConnectionGateway) {
 }
 
 describe('useConnectionEditor', () => {
+  it('설정 저장 실패 후 비밀번호를 저장하거나 편집 상태를 성공으로 바꾸지 않는다', async () => {
+    const gw = fakeGateway()
+    gw.save = vi.fn().mockRejectedValue(new Error('disk full'))
+    const { result } = renderEditor(gw)
+    act(() => {
+      result.current.editor.startNew()
+      result.current.editor.change({ name: 'prod', host: 'db.local', database: 'shop', username: 'admin' })
+      result.current.editor.setPassword('must-stay-local')
+    })
+    await act(async () => { await result.current.editor.save() })
+    expect(result.current.editor.mode).toBe('new')
+    expect(result.current.editor.password).toBe('must-stay-local')
+    expect(result.current.state.error).toBe('disk full')
+    expect(gw.calls).not.toContain('setSecret')
+  })
+
+  it('비밀번호 저장 실패를 표시하고 입력 값을 보존한다', async () => {
+    const gw = fakeGateway()
+    gw.setSecret = vi.fn().mockRejectedValue(new Error('keychain locked'))
+    const { result } = renderEditor(gw)
+    act(() => {
+      result.current.editor.startNew()
+      result.current.editor.change({ name: 'prod', host: 'db.local', database: 'shop', username: 'admin' })
+      result.current.editor.setPassword('retry-me')
+    })
+    await act(async () => { await result.current.editor.save() })
+    expect(result.current.editor.errors['form']).toBe('keychain locked')
+    expect(result.current.editor.password).toBe('retry-me')
+    expect(result.current.editor.saving).toBe(false)
+  })
+
   it('검증에 실패하면 저장하지 않고 필드 오류를 남긴다', async () => {
     const gw = fakeGateway()
     const { result } = renderEditor(gw)

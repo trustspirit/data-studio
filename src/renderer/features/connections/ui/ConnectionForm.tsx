@@ -6,7 +6,7 @@ import {
   type ConnectionConfig,
   type EngineId,
 } from '@shared/types/connection'
-import { Button, Panel, Select, TextField } from '../../../shared/ui'
+import { Button, ErrorBanner, Panel, Select, TextField } from '../../../shared/ui'
 
 const Body = styled(Panel)`
   display: flex;
@@ -62,6 +62,7 @@ const Hint = styled.div`
 `
 
 interface Props {
+  saving?: boolean
   draft: ConnectionConfig
   errors: Readonly<Record<string, string>>
   isNew: boolean
@@ -104,6 +105,7 @@ function errorProp(errors: Readonly<Record<string, string>>, key: string): { err
 }
 
 export function ConnectionForm({
+  saving = false,
   draft,
   errors,
   isNew,
@@ -124,7 +126,8 @@ export function ConnectionForm({
   const fileEngine = isFilePathEngine(draft.engine)
 
   return (
-    <Body>
+    <Body as="fieldset" disabled={saving}>
+      {errors['form'] !== undefined && <ErrorBanner>{errors['form']}</ErrorBanner>}
       <FormTitle>{isNew ? '새 연결' : draft.name || '연결 편집'}</FormTitle>
       <TextField
         label="Name"
@@ -236,7 +239,7 @@ export function ConnectionForm({
         )
       )}
       <Actions>
-        <Button onClick={onSave}>Save</Button>
+        <Button onClick={onSave}>{saving ? '저장 중…' : 'Save'}</Button>
         {!isNew &&
           (confirming ? (
             <>

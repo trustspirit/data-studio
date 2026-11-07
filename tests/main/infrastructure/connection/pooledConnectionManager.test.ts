@@ -134,6 +134,26 @@ afterEach(() => {
 })
 
 describe('PooledConnectionManager', () => {
+  it('단일 SQL 세션은 동시 실행 설정이 커도 트랜잭션을 직렬화한다', async () => {
+    const registry = new DriverRegistry()
+    registry.register('sqlite', (config) => ({
+      id: config.id, engine: config.engine,
+      connect: () => Promise.resolve(), disconnect: () => Promise.resolve(), ping: () => Promise.resolve(0),
+      sql: { execute: () => Promise.reject(new Error('not used')), classify: () => 'read' },
+    }))
+    const manager = new PooledConnectionManager(registry, logger, { maxConcurrent: 4, queueTimeoutMs: 1000 })
+    await manager.open(CONFIG)
+    const first = await manager.acquire(CONFIG.id)
+    let acquired = false
+    const second = manager.acquire(CONFIG.id).then((lease) => { acquired = true; return lease })
+    await Promise.resolve()
+    expect(acquired).toBe(false)
+    first.release()
+    const lease = await second
+    expect(acquired).toBe(true)
+    lease.release()
+    await manager.closeAll()
+  })
   it('열기 전에는 closed다', () => {
     const manager = createManager(2)
 

@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Capability } from '../../../shared/types/capability'
-import { autoDocuments, documentKey, type Document } from '../../entities/document'
+import { autoDocuments, canOpen, documentKey, type Document } from '../../entities/document'
+import type { WorkspaceGateway } from '../../gateways/ports/WorkspaceGateway'
 
 export interface TabSet {
   readonly documents: readonly Document[]
@@ -11,6 +12,7 @@ export const EMPTY_TAB_SET: TabSet = { documents: [], activeKey: null }
 
 export interface DocumentTabsState {
   readonly tabs: Readonly<Record<string, TabSet>>
+  readonly recoveryError: string | null
   open: (connectionId: string, doc: Document) => void
   close: (connectionId: string, key: string) => void
   activate: (connectionId: string, key: string) => void
@@ -44,8 +46,12 @@ function closeIn(set: TabSet, key: string): TabSet {
  * 연결 id로 키잉한 문서 탭 상태. 사이드바 트리(셸)와 워크스페이스가 같은 동작을
  * 공유하므로 소유자는 공통 조상인 셸이다.
  */
-export function useDocumentTabs(): DocumentTabsState {
+export function useDocumentTabs(workspace?: WorkspaceGateway): DocumentTabsState {
   const [tabs, setTabs] = useState<Readonly<Record<string, TabSet>>>({})
+  const [recoveryError, setRecoveryError] = useState<string | null>(null)
+  const restored = useRef(new Set<string>())
+  const persisted = useRef(new Map<string, TabSet>())
+  const generations = useRef(new Map<string, number>())
   /** 자동 열기를 이미 수행한 연결. 상태 반영은 비동기라 ref로만 정확하다. */
   const seeded = useRef<Set<string>>(new Set())
   /** 연결별 쿼리 번호. 탭을 닫아도 번호를 재사용하지 않는다. */
@@ -78,8 +84,11 @@ export function useDocumentTabs(): DocumentTabsState {
   }, [])
 
   const forget = useCallback((connectionId: string) => {
+    generations.current.set(connectionId, (generations.current.get(connectionId) ?? 0) + 1)
     seeded.current.delete(connectionId)
     serials.current.delete(connectionId)
+    restored.current.delete(connectionId)
+    persisted.current.delete(connectionId)
     setTabs((cur) => {
       if (!(connectionId in cur)) return cur
       const rest = { ...cur }
@@ -91,6 +100,23 @@ export function useDocumentTabs(): DocumentTabsState {
   const ensureDefaults = useCallback((connectionId: string, capabilities: readonly Capability[]) => {
     if (seeded.current.has(connectionId)) return
     seeded.current.add(connectionId)
+    const token = generations.current.get(connectionId) ?? 0
+    if (workspace !== undefined) {
+      void workspace.load(connectionId).then(({ workspace: saved }) => {
+        if (!seeded.current.has(connectionId) || (generations.current.get(connectionId) ?? 0) !== token) return
+        const documents = [...new Map(saved.tabs.documents.filter((doc) => canOpen(doc.kind, capabilities)).map((doc) => [documentKey(doc), doc])).values()]
+        const maxSerial = Math.max(0, ...Object.keys(saved.drafts).map(Number), ...documents.filter((doc) => doc.kind === 'query').map((doc) => doc.serial))
+        serials.current.set(connectionId, Math.max(serials.current.get(connectionId) ?? 0, maxSerial))
+        restored.current.add(connectionId)
+        setTabs((cur) => {
+          const existing = cur[connectionId] ?? EMPTY_TAB_SET
+          const activeKey = documents.some((doc) => documentKey(doc) === saved.tabs.activeKey) ? saved.tabs.activeKey : documents[0] === undefined ? null : documentKey(documents[0])
+          const base = { documents, activeKey } as TabSet
+          const next = [...existing.documents, ...autoDocuments(capabilities)].reduce(openIn, base)
+          return { ...cur, [connectionId]: next }
+        })
+      }).catch(() => setRecoveryError('이전 작업을 복구하지 못했습니다. 저장된 데이터는 보존됩니다.'))
+    }
     const defaults = autoDocuments(capabilities)
     if (defaults.length === 0) {
       setTabs((cur) => (connectionId in cur ? cur : { ...cur, [connectionId]: EMPTY_TAB_SET }))
@@ -100,7 +126,17 @@ export function useDocumentTabs(): DocumentTabsState {
       ...cur,
       [connectionId]: defaults.reduce(openIn, cur[connectionId] ?? EMPTY_TAB_SET),
     }))
-  }, [])
+  }, [workspace])
+
+  useEffect(() => {
+    if (workspace === undefined) return
+    for (const [id, set] of Object.entries(tabs)) {
+      if (!restored.current.has(id) || persisted.current.get(id) === set) continue
+      persisted.current.set(id, set)
+      void workspace.saveTabs(id, { documents: [...set.documents], activeKey: set.activeKey })
+        .catch(() => setRecoveryError('열린 탭을 저장하지 못했습니다. 앱을 닫기 전에 SQL을 별도로 보관하세요.'))
+    }
+  }, [tabs, workspace])
 
   const nextQuerySerial = useCallback((connectionId: string) => {
     const next = (serials.current.get(connectionId) ?? 0) + 1
@@ -108,5 +144,5 @@ export function useDocumentTabs(): DocumentTabsState {
     return next
   }, [])
 
-  return { tabs, open, close, activate, forget, ensureDefaults, nextQuerySerial }
+  return { tabs, recoveryError, open, close, activate, forget, ensureDefaults, nextQuerySerial }
 }

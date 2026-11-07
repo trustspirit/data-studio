@@ -64,6 +64,7 @@ const DEFAULT_PAGE: Omit<PageRequest, 'maxRows' | 'maxBytes'> = { cursor: null }
  * 빠뜨려도 AI가 승인 없이 쓰게 된다.
  */
 export class OperationExecutor {
+  cancelAll(): void { for (const controller of this.inFlight.values()) controller.abort() }
   private readonly inFlight = new Map<string, AbortController>()
   private readonly executors: ReadonlyMap<Operation['kind'], CapabilityExecutor>
 

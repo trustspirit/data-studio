@@ -35,5 +35,15 @@ export default defineConfig({
     outDir: fileURLToPath(new URL('./dist/renderer', import.meta.url)),
     emptyOutDir: true,
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('/node_modules/')) return undefined
+          if (/\/node_modules\/(react|react-dom|scheduler|styled-components)\//.test(id)) return 'ui-vendor'
+          if (id.includes('/@codemirror/') || id.includes('/@lezer/')) return 'sql-editor'
+          return undefined
+        },
+      },
+    },
   },
 })

@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDescriptor } from '@shared/types/resultSet'
 import type { WireValue } from '@shared/types/wire'
 import type { BrowseSort } from '@shared/types/operation'
 import { renderCell } from '../renderers'
+import { selectionText, type GridPoint } from '../model/gridSelection'
 
 // theme.density.rowHeight와 같은 값이어야 한다. 가상화가 숫자를 요구하므로
 // 문자열 토큰을 그대로 쓸 수 없어 상수로 복제돼 있다 — dataGrid.test가 두 값의
@@ -13,15 +14,24 @@ const ROW_HEIGHT = 36
 
 const Scroll = styled.div`
   overflow: auto;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
   background: ${({ theme }) => theme.color.surface.bg};
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.body};
+  font-size: ${({ theme }) => theme.fontSize.label};
+  font-variant-numeric: tabular-nums;
+`
+const Sheet = styled.div`
+  width: max-content;
+  min-width: 100%;
 `
 const HeaderRow = styled.div`
   display: flex;
   position: sticky;
   top: 0;
+  z-index: 3;
+  height: 48px;
   background: ${({ theme }) => theme.color.surface.base};
   border-bottom: 1px solid ${({ theme }) => theme.color.border.strong};
   color: ${({ theme }) => theme.color.text.dim};
@@ -29,23 +39,83 @@ const HeaderRow = styled.div`
   letter-spacing: 0.3px;
 `
 const HeaderCell = styled.div`
-  flex: 1 0 120px;
+  position: relative;
+  flex-shrink: 0;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
   padding: 0 ${({ theme }) => theme.space.md};
   font-weight: 600;
+  border-right: 1px solid ${({ theme }) => theme.color.border.soft};
+  &[aria-sort='ascending'], &[aria-sort='descending'] {
+    background: ${({ theme }) => theme.color.intentSoft.accent};
+    color: ${({ theme }) => theme.color.intent.accent};
+  }
+`
+const HeaderLabel = styled.span`
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`
+const TypeLabel = styled.small`
+  color: ${({ theme }) => theme.color.text.faint};
+  font-family: ${({ theme }) => theme.font.mono};
+  font-weight: 400;
+  font-size: 11px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`
+const ResizeHandle = styled.div`
+  position: absolute;
+  right: -3px;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  z-index: 1;
+  cursor: col-resize;
+  touch-action: none;
+  &:hover, &:focus-visible { background: ${({ theme }) => theme.color.intent.accent}; }
+`
+const Gutter = styled.div`
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: 0 0 52px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+  background: ${({ theme }) => theme.color.surface.base};
+  color: ${({ theme }) => theme.color.text.faint};
+  border-right: 1px solid ${({ theme }) => theme.color.border.soft};
+  font-family: ${({ theme }) => theme.font.mono};
+  font-size: 11px;
+  user-select: none;
 `
 // $modified: 아직 적용되지 않은 스테이징 값을 보여주는 셀. 서버 값과 구분되지 않으면
 // 사용자는 무엇을 쓰려는지 검토할 수 없다(= 명시적 apply의 의미가 사라진다).
 // box-shadow(레이아웃에 영향 없음)로 표시해 가상화 행 높이를 흔들지 않는다.
 const Cell = styled.div<{ $modified: boolean; $editable: boolean }>`
-  flex: 1 0 120px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   padding: 0 ${({ theme }) => theme.space.md};
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  border-right: 1px solid ${({ theme }) => theme.color.border.soft};
+  > span { overflow: hidden; text-overflow: ellipsis; }
+  &[data-numeric='true'] { justify-content: flex-end; }
+  &[aria-selected='true'] {
+    background: ${({ theme }) => theme.color.row.selected};
+    outline: 1px solid ${({ theme }) => theme.color.intent.accent};
+    outline-offset: -1px;
+  }
   background: ${({ theme, $modified }) => ($modified ? theme.color.row.staged : 'transparent')};
   box-shadow: ${({ theme, $modified }) => ($modified ? `inset 2px 0 0 ${theme.color.intent.accent}` : 'none')};
   cursor: ${({ $editable }) => ($editable ? 'text' : 'inherit')};
@@ -65,7 +135,10 @@ const CellInput = styled.input`
   font: inherit;
   background: ${({ theme }) => theme.color.surface.bg};
   color: inherit;
-  border: 1px solid ${({ theme }) => theme.color.border.strong};
+  height: 28px;
+  padding: 0 6px;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  border: 1px solid ${({ theme }) => theme.color.intent.accent};
 `
 const NullButton = styled.button`
   flex: 0 0 auto;
@@ -95,13 +168,19 @@ const Row = styled.div`
   display: flex;
   height: ${ROW_HEIGHT}px;
   border-bottom: 1px solid ${({ theme }) => theme.color.row.line};
+  &[data-alternate='true'] { background: ${({ theme }) => theme.color.grid.alternate}; }
 
   &:hover {
     background: ${({ theme }) => theme.color.row.hover};
   }
   &[data-deleted='true'] {
-    opacity: 0.4;
+    background: ${({ theme }) => theme.color.intentSoft.danger};
+    color: ${({ theme }) => theme.color.text.dim};
     text-decoration: line-through;
+  }
+  &[data-new-row] {
+    position: relative;
+    background: ${({ theme }) => theme.color.intentSoft.success};
   }
 `
 
@@ -123,7 +202,7 @@ interface Props {
   hasMore?: boolean
   onLoadMore?: () => void
   sort?: BrowseSort
-  onHeaderClick?: (column: string) => void
+  onHeaderClick?: ((column: string) => void) | undefined
   editing?: EditingProps
 }
 
@@ -146,7 +225,21 @@ export function DataGrid({
   editing,
 }: Props) {
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null)
+  const [selected, setSelected] = useState<GridPoint | null>(null)
+  const anchor = useRef<GridPoint | null>(null)
+  const [copyError, setCopyError] = useState<string | null>(null)
+  const [widths, setWidths] = useState<Readonly<Record<string, number>>>({})
+  const drag = useRef<{ key: string; x: number; width: number } | null>(null)
+  const columnWidth = (index: number) => widths[`${index}:${columns[index]?.name ?? ''}`] ?? 190
   const scrollRef = useRef<HTMLDivElement>(null)
+  const firstRow = rows[0]
+  const columnKey = columns.map((column) => column.name).join('\u0000')
+  useEffect(() => {
+    anchor.current = null
+    setSelected(null)
+    setEditingCell(null)
+    setCopyError(null)
+  }, [firstRow, columnKey])
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
@@ -161,19 +254,68 @@ export function DataGrid({
   }
 
   const items = virtualizer.getVirtualItems()
+  const selectCell = (point: GridPoint, extend: boolean) => {
+    if (!extend || anchor.current === null) anchor.current = point
+    setSelected(point)
+  }
+  const inSelection = (row: number, col: number) => selected !== null && anchor.current !== null
+    && row >= Math.min(selected.row, anchor.current.row) && row <= Math.max(selected.row, anchor.current.row)
+    && col >= Math.min(selected.col, anchor.current.col) && col <= Math.max(selected.col, anchor.current.col)
   return (
-    <Scroll ref={scrollRef} data-grid-scroll onScroll={onScroll}>
-      <HeaderRow>
+    <Scroll ref={scrollRef} data-grid-scroll onScroll={onScroll} role="grid" aria-label="데이터 결과" aria-rowcount={rows.length + 1} aria-colcount={columns.length}
+      onCopy={(event) => {
+        if (selected === null || anchor.current === null || event.target instanceof HTMLInputElement) return
+        try {
+          event.clipboardData.setData('text/plain', selectionText(rows, anchor.current, selected, columns.map((column) => column.name), editing?.edits))
+          event.preventDefault(); setCopyError(null)
+        } catch (error) { event.preventDefault(); setCopyError(error instanceof Error ? error.message : '복사하지 못했습니다.') }
+      }}>
+      {copyError !== null && <div role="alert">{copyError}</div>}
+      <Sheet>
+      <HeaderRow role="row">
+        <Gutter aria-hidden>#</Gutter>
         {editing !== undefined && <DeleteToggleCell aria-hidden />}
         {columns.map((c, i) => {
           const dir = sort?.column === c.name ? (sort.direction === 'desc' ? ' ▼' : ' ▲') : ''
           return (
             <HeaderCell
               key={i}
-              style={onHeaderClick ? { cursor: 'pointer' } : undefined}
+              role="columnheader"
+              aria-sort={sort?.column === c.name ? sort.direction === 'asc' ? 'ascending' : 'descending' : 'none'}
+              style={{ width: columnWidth(i), cursor: onHeaderClick ? 'pointer' : 'default' }}
+              tabIndex={onHeaderClick ? 0 : undefined}
+              onKeyDown={(event) => {
+                if (onHeaderClick && (event.key === 'Enter' || event.key === ' ')) {
+                  event.preventDefault(); onHeaderClick(c.name)
+                }
+              }}
               onClick={onHeaderClick ? () => onHeaderClick(c.name) : undefined}
             >
-              {c.name}{dir}
+              <HeaderLabel title={c.name}>{c.name}{dir}</HeaderLabel>
+              <TypeLabel title={c.type}>{c.type}</TypeLabel>
+              <ResizeHandle role="separator" aria-label={`${c.name} 열 너비`} aria-orientation="vertical"
+                aria-valuemin={100} aria-valuemax={640} aria-valuenow={columnWidth(i)} tabIndex={0}
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => { e.stopPropagation(); setWidths((cur) => ({ ...cur, [`${i}:${c.name}`]: 190 })) }}
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+                  e.preventDefault()
+                  setWidths((cur) => ({ ...cur, [`${i}:${c.name}`]: Math.min(640, Math.max(100, columnWidth(i) + (e.key === 'ArrowRight' ? 20 : -20))) }))
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation(); e.preventDefault()
+                  drag.current = { key: `${i}:${c.name}`, x: e.clientX, width: columnWidth(i) }
+                  e.currentTarget.setPointerCapture?.(e.pointerId)
+                }}
+                onPointerMove={(e) => {
+                  const current = drag.current
+                  if (current === null) return
+                  const width = Math.min(640, Math.max(100, current.width + e.clientX - current.x))
+                  setWidths((cur) => ({ ...cur, [current.key]: width }))
+                }}
+                onPointerUp={() => { drag.current = null }} onPointerCancel={() => { drag.current = null }}
+              />
             </HeaderCell>
           )
         })}
@@ -189,9 +331,13 @@ export function DataGrid({
           return (
             <Row
               key={item.key}
+              role="row"
+              aria-rowindex={rowIndex + 2}
+              data-alternate={rowIndex % 2 === 1}
               data-deleted={deleted}
               style={{ transform: `translateY(${item.start}px)` }}
             >
+              <Gutter aria-hidden>{rowIndex + 1}</Gutter>
               {editing !== undefined && (
                 <DeleteToggleCell>
                   <input
@@ -220,6 +366,8 @@ export function DataGrid({
                     <Cell
                       key={ci}
                       data-cell
+                      role="gridcell"
+                      style={{ width: columnWidth(ci) }}
                       $modified={staged !== undefined}
                       $editable={false}
                     >
@@ -264,24 +412,39 @@ export function DataGrid({
                   <Cell
                     key={ci}
                     data-cell
+                    role="gridcell"
+                    aria-colindex={ci + 1}
+                    aria-selected={inSelection(rowIndex, ci)}
+                    aria-label={`${rowIndex + 1}행 ${columnName ?? ''}`}
+                    data-row-index={rowIndex}
+                    data-col-index={ci}
+                    data-numeric={['int', 'float', 'bigint', 'decimal'].includes(shown.t)}
+                    title={shown.t === 'null' ? 'NULL' : String(shown.v)}
+                    style={{ width: columnWidth(ci) }}
+                    onClick={(event) => { selectCell({ row: rowIndex, col: ci }, event.shiftKey); event.currentTarget.focus() }}
                     data-editable={editing !== undefined ? '' : undefined}
                     data-modified={staged !== undefined ? '' : undefined}
                     $modified={staged !== undefined}
                     $editable={editing !== undefined}
-                    tabIndex={editing !== undefined ? 0 : undefined}
+                    tabIndex={selected === null ? rowIndex === 0 && ci === 0 ? 0 : -1 : selected.row === rowIndex && selected.col === ci ? 0 : -1}
                     onDoubleClick={
                       editing !== undefined ? () => setEditingCell({ row: rowIndex, col: ci }) : undefined
                     }
-                    onKeyDown={
-                      editing !== undefined
-                        ? (e) => {
-                            if (e.key === 'Enter' || e.key === 'F2') {
+                    onKeyDown={(e) => {
+                            if (editing !== undefined && (e.key === 'Enter' || e.key === 'F2')) {
                               e.preventDefault()
                               setEditingCell({ row: rowIndex, col: ci })
+                              return
                             }
-                          }
-                        : undefined
-                    }
+                            if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+                            e.preventDefault()
+                            const row = Math.min(rows.length - 1, Math.max(0, rowIndex + (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0)))
+                            const col = e.key === 'Home' ? 0 : e.key === 'End' ? columns.length - 1 : Math.min(columns.length - 1, Math.max(0, ci + (e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0)))
+                            if (anchor.current === null) anchor.current = { row: rowIndex, col: ci }
+                            selectCell({ row, col }, e.shiftKey)
+                            virtualizer.scrollToIndex(row, { align: 'auto' })
+                            requestAnimationFrame(() => scrollRef.current?.querySelector<HTMLElement>(`[data-row-index="${row}"][data-col-index="${col}"]`)?.focus())
+                          }}
                   >
                     {renderCell(shown)}
                   </Cell>
@@ -294,7 +457,8 @@ export function DataGrid({
       {editing !== undefined && editing.newRows.length > 0 && (
         <div data-new-rows>
           {editing.newRows.map((newRow, i) => (
-            <div key={`new-${i}`} style={{ display: 'flex' }}>
+            <Row key={`new-${i}`} data-new-row>
+              <Gutter aria-hidden>+</Gutter>
               <DeleteToggleCell aria-hidden />
               {columns.map((c, ci) => {
                 const staged = newRow.get(c.name)
@@ -304,6 +468,7 @@ export function DataGrid({
                   <Cell
                     key={ci}
                     data-cell
+                    style={{ width: columnWidth(ci) }}
                     $modified={false}
                     $editable={false}
                   >
@@ -323,10 +488,11 @@ export function DataGrid({
                   </Cell>
                 )
               })}
-            </div>
+            </Row>
           ))}
         </div>
       )}
+      </Sheet>
     </Scroll>
   )
 }

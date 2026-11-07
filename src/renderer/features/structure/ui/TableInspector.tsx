@@ -57,6 +57,7 @@ export function TableInspector({
       content:
         status ?? (
           <ColumnsTable
+            compact
             columns={columns}
             {...(onRenameColumn !== undefined ? { onRename: onRenameColumn } : {})}
             {...(onDropColumn !== undefined ? { onDrop: onDropColumn } : {})}

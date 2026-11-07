@@ -1,4 +1,5 @@
 import type { AppServices } from './compositionRoot'
+import { WorkspaceStore } from '../infrastructure/WorkspaceStore'
 import { aiConnectionIdOf } from '../core/connection/aiConnectionId'
 import type { ContractChannel, ContractInput } from '../../shared/contracts/ipcContract'
 import type { CallerContext } from '../ipc/CallerContext'
@@ -28,7 +29,25 @@ export type ContractRegister = <C extends ContractChannel, O>(
  * 승인 토큰(`proposalId`)이 있으면 `{ type: 'user', grant: { proposalId } }`를,
  * 없으면 `{ type: 'user', grant: null }`를 만든다.
  */
-export function registerIpcRoutes(register: ContractRegister, services: AppServices): void {
+export function registerIpcRoutes(register: ContractRegister, services: AppServices): () => Promise<void> {
+  const workspace = new WorkspaceStore(services.secrets)
+  const requireConnection = async (id: string) => {
+    if (await services.repository.get(id) === null) throw new Error('연결을 찾을 수 없습니다.')
+  }
+  register('workspace:load', async ({ connectionId }) => {
+    await requireConnection(connectionId)
+    return { workspace: await workspace.load(connectionId), persistent: services.secrets.isPersistent() }
+  })
+  register('workspace:saveTabs', async ({ connectionId, tabs }) => {
+    await requireConnection(connectionId)
+    await workspace.saveTabs(connectionId, tabs)
+    return null
+  })
+  register('workspace:saveDraft', async ({ connectionId, serial, sql }) => {
+    await requireConnection(connectionId)
+    await workspace.saveDraft(connectionId, serial, sql)
+    return null
+  })
   register('connection:list', () => services.repository.list())
 
   register('connection:save', async (config) => {
@@ -44,9 +63,11 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
 
   register('connection:delete', async ({ id }) => {
     await services.repository.delete(id)
+    await workspace.flush()
     // 연결이 사라지면 그 비밀도 지운다 — 고아 비밀 방지. AI 계정 비밀도 함께.
     await services.secrets.delete({ kind: 'db-password', ownerId: id })
     await services.secrets.delete({ kind: 'db-password-ai-readonly', ownerId: id })
+    await services.secrets.delete({ kind: 'workspace', ownerId: id })
     return null
   })
 
@@ -183,6 +204,7 @@ export function registerIpcRoutes(register: ContractRegister, services: AppServi
   register('ai:rejectProposal', ({ proposalId, connectionId }) =>
     Promise.resolve({ rejected: services.proposals.reject(proposalId, connectionId) }),
   )
+  return () => workspace.flush()
 }
 
 /**
@@ -220,9 +242,11 @@ function normalizeOperation(operation: ContractInput<'operation:run'>['operation
     if (operation.op === 'apply') {
       return { kind: 'data', op: 'apply', schema: operation.schema, table: operation.table, changes: operation.changes }
     }
-    return operation.sort === undefined
-      ? { kind: 'data', op: 'browse', schema: operation.schema, table: operation.table }
-      : { kind: 'data', op: 'browse', schema: operation.schema, table: operation.table, sort: operation.sort }
+    return {
+      kind: 'data', op: 'browse', schema: operation.schema, table: operation.table,
+      ...(operation.sort === undefined ? {} : { sort: operation.sort }),
+      ...(operation.filters === undefined ? {} : { filters: operation.filters }),
+    }
   }
   if (operation.kind === 'document') {
     if (operation.op === 'find') {

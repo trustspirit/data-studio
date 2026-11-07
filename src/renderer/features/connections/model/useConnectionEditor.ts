@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ConnectionConfig, EngineId } from '@shared/types/connection'
 import type { ConnectionGateway } from '../../../gateways/ports/ConnectionGateway'
 import type { ConnectionsState } from './useConnections'
@@ -14,6 +14,7 @@ export interface ConnectionEditorState {
   readonly aiPassword: string
   readonly hasSavedAiSecret: boolean
   readonly secretsPersistent: boolean
+  readonly saving: boolean
   setPassword: (value: string) => void
   setAiPassword: (value: string) => void
   change: (patch: Partial<ConnectionConfig>) => void
@@ -44,28 +45,37 @@ export function useConnectionEditor(
   const [aiPassword, setAiPassword] = useState('')
   const [hasSavedAiSecret, setHasSavedAiSecret] = useState(false)
   const [secretsPersistent, setSecretsPersistent] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
+  const editingId = useRef<string | null>(null)
 
   useEffect(() => {
-    void gateway.secretsPersistent().then(setSecretsPersistent)
+    void gateway.secretsPersistent().then(setSecretsPersistent).catch(() => setSecretsPersistent(false))
   }, [gateway])
 
   useEffect(() => {
-    if (state.selectedId === null) return
+    if (state.selectedId === null || savingRef.current) return
+    let alive = true
     const found = state.connections.find((c) => c.id === state.selectedId)
     if (found !== undefined) {
+      if (editingId.current === found.id) return
+      editingId.current = found.id
       setDraft(found)
       setErrors({})
       setMode('edit')
       setPassword('')
       setAiPassword('')
-      void gateway.hasSecret(found.id).then(setHasSavedSecret)
-      void gateway.hasSecret(found.id, true).then(setHasSavedAiSecret)
+      void gateway.hasSecret(found.id).then((value) => { if (alive) setHasSavedSecret(value) }).catch(() => { if (alive) setHasSavedSecret(false) })
+      void gateway.hasSecret(found.id, true).then((value) => { if (alive) setHasSavedAiSecret(value) }).catch(() => { if (alive) setHasSavedAiSecret(false) })
     }
+    return () => { alive = false }
   }, [state.selectedId, state.connections, gateway])
 
   const clearSelection = state.clearSelection
   const startNew = useCallback(() => {
-    setDraft(emptyDraft())
+    const next = emptyDraft()
+    editingId.current = next.id
+    setDraft(next)
     setErrors({})
     setMode('new')
     setPassword('')
@@ -76,6 +86,7 @@ export function useConnectionEditor(
   }, [clearSelection])
 
   const close = useCallback(() => {
+    editingId.current = null
     setMode('none')
     setErrors({})
     setPassword('')
@@ -85,13 +96,18 @@ export function useConnectionEditor(
 
   const saveState = state.save
   const save = useCallback(async () => {
+    if (savingRef.current) return
     const result = validateDraft(draft)
     if (!result.ok) {
       setErrors(result.errors)
       return
     }
     setErrors({})
-    await saveState(draft)
+    savingRef.current = true
+    editingId.current = draft.id
+    setSaving(true)
+    try {
+    if (!await saveState(draft)) return
     if (password !== '') {
       await gateway.setSecret(draft.id, password)
       setHasSavedSecret(true)
@@ -108,12 +124,17 @@ export function useConnectionEditor(
     if (!keepsAiAccount) setHasSavedAiSecret(false)
     setAiPassword('')
     setMode('edit')
+    } catch (error) {
+      setErrors({ form: error instanceof Error ? error.message : '자격증명을 저장하지 못했습니다.' })
+    } finally {
+      savingRef.current = false
+      setSaving(false)
+    }
   }, [draft, password, aiPassword, gateway, saveState])
 
   const removeState = state.remove
   const remove = useCallback(async () => {
-    await removeState(draft.id)
-    startNew()
+    if (await removeState(draft.id)) startNew()
   }, [draft.id, removeState, startNew])
 
   const change = useCallback((patch: Partial<ConnectionConfig>) => {
@@ -125,7 +146,7 @@ export function useConnectionEditor(
   const browseFile = useCallback(() => {
     void gateway.openFileDialog().then((path) => {
       if (path !== null) setDraft((d) => ({ ...d, database: path }))
-    })
+    }).catch(() => setErrors({ form: '파일 선택 창을 열지 못했습니다.' }))
   }, [gateway])
 
   return {
@@ -137,6 +158,7 @@ export function useConnectionEditor(
     aiPassword,
     hasSavedAiSecret,
     secretsPersistent,
+    saving,
     setPassword,
     setAiPassword,
     change,

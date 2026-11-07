@@ -8,8 +8,8 @@ import {
 import type { Logger } from '../core/ports/Logger'
 
 export interface Encryptor {
-  encryptString(value: string): Buffer
-  decryptString(payload: Buffer): string
+  encryptString(value: string): Buffer | Promise<Buffer>
+  decryptString(payload: Buffer): string | Promise<string>
 }
 
 type Blobs = Record<string, string>
@@ -21,6 +21,8 @@ type Blobs = Record<string, string>
  */
 export class EncryptedFileSecretStore implements SecretStore {
   private cache: Blobs | null = null
+  private loading: Promise<Blobs> | null = null
+  private writes: Promise<void> = Promise.resolve()
 
   constructor(
     private readonly filePath: string,
@@ -33,35 +35,54 @@ export class EncryptedFileSecretStore implements SecretStore {
   }
 
   async set(ref: SecretRef, value: string): Promise<void> {
-    const blobs = await this.load()
-    blobs[secretKey(ref)] = this.encryptor.encryptString(value).toString('base64')
-    await this.persist(blobs)
+    return this.mutate(async (blobs) => {
+      const encrypted = await this.encryptor.encryptString(value)
+      const next = { ...blobs, [secretKey(ref)]: encrypted.toString('base64') }
+      await this.persist(next)
+    })
   }
 
   async get(ref: SecretRef): Promise<string | null> {
+    await this.writes
     const blobs = await this.load()
     const encoded = blobs[secretKey(ref)]
     if (encoded === undefined) return null
 
     try {
-      return this.encryptor.decryptString(Buffer.from(encoded, 'base64'))
+      return await this.encryptor.decryptString(Buffer.from(encoded, 'base64'))
     } catch {
       this.logger.warn('secrets.decrypt_failed', {
         kind: ref.kind,
         ownerId: ref.ownerId,
       })
+      if (ref.kind === 'workspace') throw new Error('작업 복구 데이터를 복호화하지 못했습니다. 원본은 보존됩니다.')
       return null
     }
   }
 
   async delete(ref: SecretRef): Promise<void> {
-    const blobs = await this.load()
-    delete blobs[secretKey(ref)]
-    await this.persist(blobs)
+    return this.mutate(async (blobs) => {
+      const next = { ...blobs }
+      delete next[secretKey(ref)]
+      await this.persist(next)
+    })
+  }
+
+  private mutate(change: (blobs: Blobs) => Promise<void>): Promise<void> {
+    const next = this.writes.then(async () => change(await this.load()))
+    this.writes = next.catch(() => {})
+    return next
   }
 
   private async load(): Promise<Blobs> {
     if (this.cache !== null) return this.cache
+    if (this.loading !== null) return this.loading
+    this.loading = this.loadFile()
+    try { return await this.loading }
+    finally { this.loading = null }
+  }
+
+  private async loadFile(): Promise<Blobs> {
 
     const result = await readJsonFile<Blobs>(this.filePath, (raw) => {
       if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
@@ -79,7 +100,7 @@ export class EncryptedFileSecretStore implements SecretStore {
   }
 
   private async persist(blobs: Blobs): Promise<void> {
-    this.cache = blobs
     await atomicWriteFile(this.filePath, JSON.stringify(blobs))
+    this.cache = blobs
   }
 }

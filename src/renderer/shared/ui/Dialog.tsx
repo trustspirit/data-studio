@@ -3,18 +3,20 @@ import type { ReactNode, RefObject } from 'react'
 import styled from 'styled-components'
 
 const Backdrop = styled.div`
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 10vh;
+  padding: 8vh 16px 16px;
   background: rgba(0, 0, 0, 0.4);
   z-index: 10;
 `
 const Panel = styled.div`
-  min-width: 320px;
-  max-width: 520px;
+  width: min(680px, 100%);
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
   background: ${({ theme }) => theme.color.surface.raised};
   border: 1px solid ${({ theme }) => theme.color.border.strong};
   border-radius: ${({ theme }) => theme.radius.lg};
@@ -29,6 +31,8 @@ const Head = styled.div`
   color: ${({ theme }) => theme.color.text.primary};
 `
 const Body = styled.div`
+  overflow: auto;
+  min-height: 0;
   padding: ${({ theme }) => `0 ${theme.space.lg} ${theme.space.md}`};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.body};
@@ -71,15 +75,27 @@ export function Dialog({
     // document에 건다. 다이얼로그를 여는 컨트롤(탭의 닫기 버튼 등)은 다이얼로그의
     // **형제**라 포커스가 거기 남으면 컴포넌트 내부 핸들러에는 키가 도달하지 않는다.
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeRef.current()
+      const dialogs = document.querySelectorAll('[role="dialog"]')
+      if (dialogs[dialogs.length - 1] !== panelRef.current || e.defaultPrevented) return
+      if (e.key === 'Escape') { e.preventDefault(); closeRef.current() }
+      if (e.key !== 'Tab') return
+      const controls = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? [])
+        .filter((control) => control.closest('[hidden]') === null)
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (first === undefined || last === undefined) { e.preventDefault(); panelRef.current?.focus(); return }
+      if (!panelRef.current?.contains(document.activeElement) || (e.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current))) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current)) { e.preventDefault(); first.focus() }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [])
 
   useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const target = initialFocusRef?.current ?? panelRef.current
     target?.focus()
+    return () => { if (previous?.isConnected) previous.focus() }
   }, [initialFocusRef])
 
   return (

@@ -114,6 +114,10 @@ export class AiSessionManager {
   cancel(sessionId: string): void {
     this.sessions.get(sessionId)?.controller?.abort()
   }
+  closeAll(): void {
+    for (const session of this.sessions.values()) session.controller?.abort()
+    this.sessions.clear()
+  }
 
   private buildSink(sessionId: string): ChatSink {
     const push = (event: AiStreamEvent): void => this.deps.push(sessionId, event)

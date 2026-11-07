@@ -7,7 +7,7 @@ const Dock = styled.div`
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: ${({ theme }) => theme.color.surface.panel};
+  background: ${({ theme }) => theme.color.surface.base};
   border-left: 1px solid ${({ theme }) => theme.color.border.strong};
   overflow: hidden;
 `
@@ -27,7 +27,8 @@ const Header = styled.button`
   font-size: ${({ theme }) => theme.fontSize.label};
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
+  min-height: 38px;
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
   border: none;
   border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
   background: transparent;

@@ -16,8 +16,8 @@ import { connectionIdSchema } from '../types/connection'
 
 const sqlOperationSchema = z.object({
   kind: z.literal('sql'),
-  sql: z.string(),
-  params: z.array(z.unknown()).optional(),
+  sql: z.string().max(1_048_576),
+  params: z.array(z.unknown()).max(10_000).optional(),
 })
 
 const schemaOperationSchema = z.discriminatedUnion('op', [
@@ -69,11 +69,15 @@ const dataOperationSchema = z.discriminatedUnion('op', [
     kind: z.literal('data'), op: z.literal('browse'),
     schema: z.string(), table: z.string(),
     sort: z.object({ column: z.string(), direction: z.enum(['asc', 'desc']) }).optional(),
+    filters: z.array(z.union([
+      z.object({ column: z.string().min(1).max(512), operator: z.enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains']), value: z.string().max(4096) }),
+      z.object({ column: z.string().min(1).max(512), operator: z.enum(['isNull', 'isNotNull']) }),
+    ])).max(10).optional(),
   }),
   z.object({
     kind: z.literal('data'), op: z.literal('apply'),
     schema: z.string(), table: z.string(),
-    changes: z.array(rowChangeSchema),
+    changes: z.array(rowChangeSchema).max(1000),
   }),
 ])
 

@@ -1,4 +1,5 @@
-import type { BrowseSort, RowChange } from '../../../shared/types/operation'
+import type { BrowseFilter, BrowseSort, RowChange } from '../../../shared/types/operation'
+import { buildBrowseFilters } from '../../core/driver/capabilities/browseFilters'
 import type { WireValue } from '../../../shared/types/wire'
 import type {
   ApplyResult,
@@ -96,13 +97,14 @@ interface RunStmt {
 export class SqliteDataCapability implements DataCapability {
   constructor(private readonly getDb: () => DatabaseInstance) {}
 
-  buildBrowse(schema: string, table: string, sort?: BrowseSort): BuiltStatement {
+  buildBrowse(schema: string, table: string, sort?: BrowseSort, filters: readonly BrowseFilter[] = []): BuiltStatement {
     const target = `${quoteIdent(schema)}.${quoteIdent(table)}`
     const order =
       sort === undefined
         ? ''
         : ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === 'desc' ? 'DESC' : 'ASC'}`
-    return { sql: `SELECT * FROM ${target}${order}`, params: [] }
+    const where = buildBrowseFilters(filters, quoteIdent, 'sqlite')
+    return { sql: `SELECT * FROM ${target}${where.sql}${order}`, params: where.params }
   }
 
   applyChanges(

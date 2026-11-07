@@ -24,11 +24,15 @@ const Note = styled.span`
   margin-left: 6px;
   font-size: ${({ theme }) => theme.fontSize.label};
 `
+const BooleanValue = styled.span<{ $value: boolean }>`
+  color: ${({ theme, $value }) => $value ? theme.color.intent.success : theme.color.text.dim};
+  font-family: ${({ theme }) => theme.font.mono};
+`
 
 /** WireValue.t → 렌더러. 새 타입은 여기 한 줄 등록으로 끝난다(OCP). */
 const CELL_RENDERERS: { [K in WireValue['t']]: (v: Extract<WireValue, { t: K }>) => ReactNode } = {
   null: () => <Null>NULL</Null>,
-  bool: (v) => <span>{String(v.v)}</span>,
+  bool: (v) => <BooleanValue $value={v.v}>{String(v.v)}</BooleanValue>,
   int: (v) => <Mono>{v.v}</Mono>,
   float: (v) => <Mono>{v.v}</Mono>,
   bigint: (v) => <Mono>{v.v}</Mono>,

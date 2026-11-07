@@ -169,6 +169,7 @@ interface TableState {
 class MemoryDriverImpl implements Driver {
   readonly id: string
   readonly engine: EngineId
+  readonly sessionConcurrency = Number.MAX_SAFE_INTEGER
   readonly sql: SqlCapability
   readonly schema: SchemaCapability
 

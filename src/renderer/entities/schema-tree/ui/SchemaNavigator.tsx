@@ -9,7 +9,7 @@ const INDENT = 14
 const Tree = styled.div<{ $inline: boolean }>`
   min-height: 0;
   font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.body};
+  font-size: ${({ theme }) => theme.fontSize.label};
   /* 자기 폭·배경·보더는 "사이드바 그 자체"로 쓰일 때만 갖는다. 다른 트리 안에
      중첩되면 바깥 사이드바가 이미 그것들을 갖고 있다. */
   ${({ $inline, theme }) =>
@@ -72,7 +72,10 @@ const SchemaAction = styled.button`
   }
 `
 const TableRow = styled.button<{ $active: boolean; $depth: number }>`
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.sm};
+  min-height: 32px;
   width: 100%;
   text-align: left;
   font: inherit;
@@ -81,6 +84,8 @@ const TableRow = styled.button<{ $active: boolean; $depth: number }>`
   cursor: pointer;
   color: ${({ theme, $active }) => ($active ? theme.color.text.primary : theme.color.text.dim)};
   background: ${({ theme, $active }) => ($active ? theme.color.row.selected : 'transparent')};
+  box-shadow: ${({ theme, $active }) => $active ? `inset 2px 0 ${theme.color.intent.accent}` : 'none'};
+  > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   &:hover {
     background: ${({ theme, $active }) =>
       $active ? theme.color.row.selected : theme.color.row.hover};
@@ -150,6 +155,7 @@ export function SchemaNavigator({
                 <TableRow
                   key={t.name}
                   type="button"
+                  title={`${s.name}.${t.name}`}
                   $active={active}
                   $depth={depth}
                   // 한 번 클릭은 고르기만 한다 — 스치듯 누른 클릭이 프로덕션
@@ -162,7 +168,7 @@ export function SchemaNavigator({
                     onOpen({ schema: s.name, table: t.name })
                   }}
                 >
-                  {t.name}
+                  <Icon name="table" size="sm" /><span>{t.name}</span>
                 </TableRow>
               )
             })}

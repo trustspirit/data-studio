@@ -38,3 +38,31 @@ export function createSecretStore(deps: CreateSecretStoreDeps): SecretStore {
 
   return new EncryptedFileSecretStore(deps.filePath, deps.safeStorage, deps.logger)
 }
+
+interface AsyncSafeStorageLike {
+  isAsyncEncryptionAvailable(): Promise<boolean>
+  encryptStringAsync(value: string): Promise<Buffer>
+  decryptStringAsync(value: Buffer): Promise<{ result: string; shouldReEncrypt: boolean }>
+  getSelectedStorageBackend?(): string
+}
+
+function bounded<T>(operation: Promise<T>, timeoutMs = 10_000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('암호화 저장소가 잠겨 있거나 응답하지 않습니다.')), timeoutMs)
+    operation.then(resolve, reject).finally(() => clearTimeout(timer)).catch(() => {})
+  })
+}
+
+/** Async keychain access keeps permission prompts from freezing Electron's main thread. */
+export async function createAsyncSecretStore(deps: Omit<CreateSecretStoreDeps, 'safeStorage'> & { safeStorage: AsyncSafeStorageLike }): Promise<SecretStore> {
+  const available = await bounded(deps.safeStorage.isAsyncEncryptionAvailable()).catch(() => false)
+  const backend = deps.platform === 'linux' ? deps.safeStorage.getSelectedStorageBackend?.() ?? 'unknown' : 'os'
+  if (!available || backend === 'basic_text' || backend === 'unknown') {
+    deps.logger.warn('secrets.encryption_unavailable', { platform: deps.platform })
+    return new EphemeralSecretStore()
+  }
+  return new EncryptedFileSecretStore(deps.filePath, {
+    encryptString: (value) => bounded(deps.safeStorage.encryptStringAsync(value)),
+    decryptString: async (value) => (await bounded(deps.safeStorage.decryptStringAsync(value))).result,
+  }, deps.logger)
+}

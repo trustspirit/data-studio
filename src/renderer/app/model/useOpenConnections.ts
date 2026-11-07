@@ -18,7 +18,7 @@ export interface OpenConnectionsState {
   readonly activeId: string | null
   readonly expanded: Readonly<Record<string, boolean>>
   openConnection: (id: string) => Promise<void>
-  closeConnection: (id: string) => Promise<void>
+  closeConnection: (id: string) => Promise<boolean>
   setActive: (id: string) => void
   toggleExpanded: (id: string) => void
   /** 목록에서 사라진 연결(삭제 등)의 셸 상태를 버린다. */
@@ -134,10 +134,11 @@ export function useOpenConnections(gateway: ConnectionGateway): OpenConnectionsS
               }
             : prev,
         )
-        return
+        return false
       }
       opening.current.delete(id)
       setSet((prev) => without(prev, id))
+      return true
     },
     [gateway],
   )

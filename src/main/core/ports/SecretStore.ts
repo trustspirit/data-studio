@@ -4,7 +4,7 @@
  * 별도의 SecretKind가 필요하다 — 그렇지 않으면 ownerId(커넥션 id)가 같아
  * secretKey()가 두 비밀번호를 같은 키로 겹쳐 쓴다.
  */
-export type SecretKind = 'db-password' | 'db-password-ai-readonly' | 'llm-api-key' | 'tls-client-key'
+export type SecretKind = 'db-password' | 'db-password-ai-readonly' | 'llm-api-key' | 'tls-client-key' | 'workspace'
 
 export interface SecretRef {
   readonly kind: SecretKind

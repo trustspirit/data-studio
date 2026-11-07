@@ -13,7 +13,7 @@ import { buildAppMenuTemplate } from './app/appMenu'
 import { consoleLogger } from './infrastructure/consoleLogger'
 import { FileConnectionRepository } from './infrastructure/FileConnectionRepository'
 import { FileOperationLog } from './infrastructure/execution/FileOperationLog'
-import { createSecretStore } from './infrastructure/createSecretStore'
+import { createAsyncSecretStore } from './infrastructure/createSecretStore'
 import { systemClock, systemTimers, randomId, sha256Hex } from './infrastructure/systemClock'
 import { maybeRunSqliteSmoke } from './smoke'
 
@@ -100,6 +100,13 @@ function createWindow(): BrowserWindow {
   })
 
   window.once('ready-to-show', () => window.show())
+  window.webContents.on('will-prevent-unload', (event) => {
+    const choice = dialog.showMessageBoxSync(window, {
+      type: 'question', buttons: ['계속 편집', '변경 버리고 닫기'], defaultId: 0, cancelId: 0,
+      title: '저장하지 않은 작업', message: '저장 중인 SQL 또는 DB에 적용하지 않은 편집이 있습니다.', detail: '계속 편집을 선택하면 저장 상태를 확인할 수 있습니다. 지금 닫으면 저장되지 않은 작업이 사라질 수 있습니다.',
+    })
+    if (choice === 1) event.preventDefault()
+  })
 
   if (isDev) {
     void window.loadURL(DEV_SERVER_URL)
@@ -128,7 +135,7 @@ async function wireServices(): Promise<void> {
     consoleLogger,
   )
 
-  const secrets = createSecretStore({
+  const secrets = await createAsyncSecretStore({
     safeStorage,
     filePath: path.join(userData, 'secrets.json'),
     platform: process.platform,
@@ -183,7 +190,7 @@ async function wireServices(): Promise<void> {
     logger: consoleLogger,
   })
 
-  registerIpcRoutes(register, services)
+  const flushWorkspace = registerIpcRoutes(register, services)
 
   // 만료된 제안서를 주기적으로 버린다. 순수 팩토리는 타이머를 걸지 않으므로
   // electron 진입점인 여기서 건다.
@@ -193,10 +200,16 @@ async function wireServices(): Promise<void> {
   // 종료할 때 그 항목이 파일에 닿지 못한다 — 릴리스 차단 조건을 닫은 바로 그
   // 기능이 정상 종료 창에서 새는 셈이다. 크래시는 여전히 못 막지만(그건
   // append-only의 한계로 문서화됨) 정상 종료는 닫는다.
-  app.on('before-quit', (event) => {
+  app.on('will-quit', (event) => {
     if (auditFlushed) return
     event.preventDefault()
-    void services.streamHub.closeAll().catch(() => {}).finally(() =>
+    if (shuttingDown) return
+    shuttingDown = true
+    services.executor.cancelAll()
+    services.ai.closeAll()
+    void Promise.allSettled([services.streamHub.closeAll(), services.connections.closeAll(), flushWorkspace()]).then((results) => {
+      if (results.some((result) => result.status === 'rejected')) consoleLogger.warn('shutdown.cleanup_failed', {})
+    }).finally(() =>
       log.flush().finally(() => {
         auditFlushed = true
         app.quit()
@@ -207,6 +220,7 @@ async function wireServices(): Promise<void> {
 
 /** before-quit 재진입 가드. flush가 끝난 뒤의 quit만 통과시킨다. */
 let auditFlushed = false
+let shuttingDown = false
 
 void app.whenReady().then(async () => {
   // 창을 만들기 전에 깐다. 메뉴를 직접 깔지 않으면 Electron이 기본 메뉴를
@@ -222,6 +236,9 @@ void app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+}).catch(() => {
+  dialog.showErrorBox('Database Studio 시작 실패', '로컬 설정 또는 암호화 저장소를 열지 못했습니다. 파일 접근 권한을 확인한 뒤 다시 시작하세요. 기존 파일은 삭제하지 않았습니다.')
+  app.exit(1)
 })
 
 app.on('window-all-closed', () => {

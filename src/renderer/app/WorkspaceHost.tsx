@@ -5,6 +5,7 @@ import type { OperationGateway } from '../gateways/ports/OperationGateway'
 import type { AiGateway } from '../gateways/ports/AiGateway'
 import type { Document } from '../entities/document'
 import { ConnectionWorkspace } from './ConnectionWorkspace'
+import type { WorkspaceGateway } from '../gateways/ports/WorkspaceGateway'
 import { EMPTY_TAB_SET, type TabSet } from './model/useDocumentTabs'
 import type { OpenConnection } from './model/useOpenConnections'
 
@@ -24,6 +25,7 @@ const Pane = styled.div`
 `
 
 interface WorkspaceHostProps {
+  workspace?: WorkspaceGateway | undefined
   connections: readonly ConnectionConfig[]
   open: Readonly<Record<string, OpenConnection>>
   activeId: string | null
@@ -63,6 +65,7 @@ interface WorkspaceHostProps {
  * 사라지지 않아 보조 기술과 role 기반 조회가 숨은 워크스페이스까지 본다.
  */
 export function WorkspaceHost({
+  workspace,
   connections,
   open,
   activeId,
@@ -109,6 +112,7 @@ export function WorkspaceHost({
             aria-hidden={inactive}
           >
             <ConnectionWorkspace
+              workspace={workspace}
               key={c.id}
               gateway={gateway}
               ai={ai}

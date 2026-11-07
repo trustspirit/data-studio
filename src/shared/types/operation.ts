@@ -5,6 +5,9 @@ export interface BrowseSort {
   readonly column: string
   readonly direction: 'asc' | 'desc'
 }
+export type BrowseFilter =
+  | { readonly column: string; readonly operator: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains'; readonly value: string }
+  | { readonly column: string; readonly operator: 'isNull' | 'isNotNull' }
 
 /** 편집 한 건. 값은 WireValue라 타입·정밀도를 보존한다. */
 export type RowChange =
@@ -34,7 +37,7 @@ export type SchemaOperationOp =
 export type SchemaOperation = { readonly kind: 'schema' } & SchemaOperationOp
 
 export type DataOperationOp =
-  | { readonly op: 'browse'; readonly schema: string; readonly table: string; readonly sort?: BrowseSort }
+  | { readonly op: 'browse'; readonly schema: string; readonly table: string; readonly sort?: BrowseSort; readonly filters?: readonly BrowseFilter[] }
   | { readonly op: 'apply'; readonly schema: string; readonly table: string; readonly changes: readonly RowChange[] }
 
 export type DataOperation = { readonly kind: 'data' } & DataOperationOp

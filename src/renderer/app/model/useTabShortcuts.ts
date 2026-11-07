@@ -14,7 +14,7 @@ export function useTabShortcuts({ enabled, tabs, onRequestClose, onActivate }: T
   useEffect(() => {
     if (!enabled) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!e.metaKey) return
+      if (!e.metaKey && !e.ctrlKey) return
       const keys = tabs.documents.map(documentKey)
       if (keys.length === 0) return
       const index = tabs.activeKey === null ? -1 : keys.indexOf(tabs.activeKey)

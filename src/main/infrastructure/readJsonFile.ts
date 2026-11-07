@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises'
+import { chmod, copyFile, readFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 
 export type JsonReadResult<T> =
   | { status: 'ok'; value: T }
@@ -19,13 +20,17 @@ export async function readJsonFile<T>(
   let raw: string
   try {
     raw = await readFile(filePath, 'utf8')
-  } catch {
-    return { status: 'missing' }
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return { status: 'missing' }
+    throw error
   }
 
   try {
     return { status: 'ok', value: parse(JSON.parse(raw)) }
   } catch {
+    const backup = `${filePath}.corrupt-${randomUUID()}`
+    await copyFile(filePath, backup)
+    await chmod(backup, 0o600)
     return { status: 'corrupt' }
   }
 }

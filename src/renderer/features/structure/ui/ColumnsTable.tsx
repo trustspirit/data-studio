@@ -1,25 +1,22 @@
 import styled from 'styled-components'
 import type { ColumnInfo } from '../../../../shared/types/schema'
-import { Badge, Button } from '../../../shared/ui'
+import { Badge, Button, DataTable as Table } from '../../../shared/ui'
 
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.body};
-  th, td {
-    text-align: left;
-    padding: 4px 10px;
-    border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
-  }
-  th {
-    color: ${({ theme }) => theme.color.text.dim};
-    font-weight: 600;
-  }
-`
 const RowActions = styled.td`
   white-space: nowrap;
   text-align: right;
+`
+const ColumnList = styled.div`
+  article {
+    padding: 12px 14px;
+    border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
+  }
+  article:hover { background: ${({ theme }) => theme.color.row.hover}; }
+  header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  strong { font-family: ${({ theme }) => theme.font.mono}; font-size: ${({ theme }) => theme.fontSize.label}; overflow-wrap: anywhere; }
+  p { margin: 0; color: ${({ theme }) => theme.color.text.dim}; font-family: ${({ theme }) => theme.font.mono}; font-size: 12px; overflow-wrap: anywhere; line-height: 1.7; }
+  small { color: ${({ theme }) => theme.color.text.faint}; font-family: ${({ theme }) => theme.font.ui}; }
+  .column-actions { display: flex; gap: 4px; margin-top: 6px; }
 `
 
 /**
@@ -32,10 +29,22 @@ interface ColumnsTableProps {
   columns: readonly ColumnInfo[]
   onRename?: (column: string) => void
   onDrop?: (column: string) => void
+  compact?: boolean
 }
 
-export function ColumnsTable({ columns, onRename, onDrop }: ColumnsTableProps) {
+export function ColumnsTable({ columns, onRename, onDrop, compact = false }: ColumnsTableProps) {
   const editable = onRename !== undefined || onDrop !== undefined
+  if (compact) return <ColumnList aria-label="컬럼 목록">
+    {columns.map((column) => <article key={column.name}>
+      <header><strong>{column.name}</strong>{column.primaryKeyOrdinal !== null && <Badge tone="accent">PK{column.primaryKeyOrdinal}</Badge>}</header>
+      <p>{column.type} <small>· {column.nullable ? 'Nullable' : 'NOT NULL'}</small></p>
+      {column.defaultValue !== null && <p title={column.defaultValue}><small>Default </small>{column.defaultValue}</p>}
+      {editable && <div className="column-actions">
+        {onRename !== undefined && <Button variant="ghost" size="sm" data-testid={`col-rename-${column.name}`} onClick={() => onRename(column.name)}>Rename</Button>}
+        {onDrop !== undefined && <Button variant="ghost" size="sm" data-testid={`col-drop-${column.name}`} onClick={() => onDrop(column.name)}>Drop</Button>}
+      </div>}
+    </article>)}
+  </ColumnList>
   return (
     <Table>
       <thead>

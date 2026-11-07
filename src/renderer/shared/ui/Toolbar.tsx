@@ -6,12 +6,14 @@ import styled from 'styled-components'
  */
 export const Toolbar = styled.div`
   display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: ${({ theme }) => theme.space.sm};
-  padding: ${({ theme }) => `${theme.space.xs} ${theme.space.md}`};
-  min-height: 37px;
-  border-bottom: 1px solid ${({ theme }) => theme.color.border.strong};
-  background: ${({ theme }) => theme.color.surface.panel};
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
+  min-height: 48px;
+  border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
+  background: ${({ theme }) => theme.color.surface.base};
   font-family: ${({ theme }) => theme.font.ui};
   font-size: ${({ theme }) => theme.fontSize.label};
   color: ${({ theme }) => theme.color.text.dim};

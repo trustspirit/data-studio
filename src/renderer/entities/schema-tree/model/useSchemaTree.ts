@@ -29,6 +29,7 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
   // StrictMode가 업데이터를 두 번 호출해 listTables가 중복 발사된다 — ref로
   // 업데이터 밖에서 "이미 요청함"을 판정해 정확히 한 번만 fetch한다.
   const requested = useRef<Set<string>>(new Set())
+  const generation = useRef(0)
 
   useEffect(() => {
     mounted.current = true
@@ -41,6 +42,7 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
     // 연결이 바뀌면 이전 연결의 테이블 캐시를 버린다 — 훅 인스턴스가 재사용될 수
     // 있어(연결 전환이 remount를 보장하지 않는다) 스키마명이 겹치면 옛 테이블이 남는다.
     requested.current = new Set()
+    generation.current += 1
     setTablesBySchema({})
     setExpanded({})
     setError(null)
@@ -73,6 +75,7 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
 
   const toggle = useCallback(
     (schema: string) => {
+      const token = generation.current
       setExpanded((prev) => ({ ...prev, [schema]: prev[schema] !== true }))
       if (requested.current.has(schema)) return // 이미 요청함 — 다시 fetch 안 함(캐시)
       requested.current.add(schema)
@@ -83,7 +86,7 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
             connectionId,
             operation: { kind: 'schema', op: 'listTables', schema },
           })
-          if (!mounted.current) return
+          if (!mounted.current || token !== generation.current) return
           if (outcome.ok && outcome.payload.kind === 'tables') {
             const tables = outcome.payload.tables
             setTablesBySchema((cur) => ({ ...cur, [schema]: tables }))
@@ -92,6 +95,7 @@ export function useSchemaTree(gateway: OperationGateway, connectionId: string): 
             setError(failureText(outcome))
           }
         } catch (e) {
+          if (token !== generation.current) return
           requested.current.delete(schema) // 실패 시 재요청 허용
           if (mounted.current) setError(messageOf(e))
         }

@@ -12,6 +12,8 @@ const Wrap = styled.div`
 const Row = styled.div<{ $active: boolean }>`
   display: flex;
   align-items: center;
+  min-height: 38px;
+  font-size: ${({ theme }) => theme.fontSize.label};
   gap: 2px;
   padding-right: ${({ theme }) => theme.space.xs};
   /* 상태색은 표면 계단이 아니라 틴트다 — 사이드바가 이미 surface.base라서

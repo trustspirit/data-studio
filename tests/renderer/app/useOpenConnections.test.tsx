@@ -156,7 +156,7 @@ describe('useOpenConnections', () => {
     })
     gw.close = vi.fn(() => Promise.reject(new Error('ipc connection:close failed')))
     await act(async () => {
-      await result.current.closeConnection('a')
+      expect(await result.current.closeConnection('a')).toBe(false)
     })
     // 조용히 지우면 풀이 살아 있는데 UI만 닫힌 것처럼 보인다.
     expect(result.current.open['a']?.state).toBe('error')

@@ -31,6 +31,35 @@ function wrap(node: React.ReactNode) {
 }
 
 describe('DataGrid', () => {
+  it('키보드로 열 너비를 바꾸면 헤더와 셀에 함께 적용한다', () => {
+    const { container } = wrap(<DataGrid columns={[{ name: 'price', type: 'numeric' }]} rows={[[{ t: 'decimal', v: '12.30' }]]} />)
+    const handle = screen.getByRole('separator', { name: 'price 열 너비' })
+    fireEvent.keyDown(handle, { key: 'ArrowRight' })
+    expect(handle.getAttribute('aria-valuenow')).toBe('210')
+    expect(screen.getByRole('columnheader').style.width).toBe('210px')
+    expect((container.querySelector('[data-cell]') as HTMLElement).style.width).toBe('210px')
+    fireEvent.doubleClick(handle)
+    expect(handle.getAttribute('aria-valuenow')).toBe('190')
+  })
+
+  it('숫자 셀의 정렬과 선택 상태, 전체 값 툴팁을 제공한다', () => {
+    wrap(<DataGrid columns={[{ name: 'price', type: 'numeric' }]} rows={[[{ t: 'decimal', v: '12.30' }]]} />)
+    const cell = screen.getByRole('gridcell')
+    expect(cell.getAttribute('data-numeric')).toBe('true')
+    expect(cell.getAttribute('title')).toBe('12.30')
+    fireEvent.click(cell)
+    expect(cell.getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('열 헤더를 키보드로 정렬하고 현재 방향을 알린다', () => {
+    const onHeaderClick = vi.fn()
+    wrap(<DataGrid columns={[{ name: 'price', type: 'numeric' }]} rows={[]} sort={{ column: 'price', direction: 'asc' }} onHeaderClick={onHeaderClick} />)
+    const header = screen.getByRole('columnheader')
+    expect(header.getAttribute('aria-sort')).toBe('ascending')
+    fireEvent.keyDown(header, { key: 'Enter' })
+    expect(onHeaderClick).toHaveBeenCalledWith('price')
+  })
+
   it('열 헤더를 렌더한다', () => {
     wrap(<DataGrid columns={columns} rows={rows(3)} />)
     expect(screen.getByText('id')).toBeTruthy()
@@ -163,11 +192,11 @@ describe('DataGrid', () => {
     expect(screen.getByDisplayValue('a')).toBeTruthy()
   })
 
-  it('editing 미전달이면 셀은 포커스·키보드 편집 불가(읽기 전용)', () => {
+  it('읽기 전용 셀도 탐색할 수 있지만 Enter로 편집할 수 없다', () => {
     wrap(<DataGrid columns={[{ name: 'name', type: '25' }]} rows={[[{ t: 'str', v: 'a' }]]} />)
     const cell = screen.getByText('a').closest('[data-cell]') as HTMLElement
 
-    expect(cell.tabIndex).toBe(-1)
+    expect(cell.tabIndex).toBe(0)
     expect(cell.hasAttribute('data-editable')).toBe(false)
     fireEvent.keyDown(cell, { key: 'Enter' })
     expect(screen.queryByDisplayValue('a')).toBeNull()

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ColumnDescriptor, ResultSet } from '../../../../shared/types/resultSet'
 import type { WireValue } from '../../../../shared/types/wire'
 import type { OperationGateway } from '../../../gateways/ports/OperationGateway'
@@ -21,6 +21,8 @@ export interface QueryRunnerState {
   readonly hasMore: boolean
   loadMore: () => Promise<void>
   readonly error: string | null
+  readonly durationMs: number | null
+  readonly truncated: boolean
 }
 
 function messageOf(e: unknown): string {
@@ -37,8 +39,31 @@ export function useQueryRunner(gateway: OperationGateway, connectionId: string):
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [durationMs, setDurationMs] = useState<number | null>(null)
+  const [truncated, setTruncated] = useState(false)
+  const executedSql = useRef('')
   const activeRequestId = useRef<string | null>(null)
   const inFlight = useRef(false)
+
+  useEffect(() => {
+    setRunning(false)
+    setColumns([])
+    setRows([])
+    setRowsAffected(null)
+    setNotices([])
+    setCursor(null)
+    setHasMore(false)
+    setError(null)
+    setDurationMs(null)
+    setTruncated(false)
+    executedSql.current = ''
+    return () => {
+      const id = activeRequestId.current
+      activeRequestId.current = null
+      inFlight.current = false
+      if (id !== null) void gateway.cancel(id).catch(() => undefined)
+    }
+  }, [gateway, connectionId])
 
   const apply = useCallback((rs: ResultSet, append: boolean) => {
     setColumns(rs.columns)
@@ -47,6 +72,8 @@ export function useQueryRunner(gateway: OperationGateway, connectionId: string):
     setNotices(rs.meta.notices ?? [])
     setCursor(rs.page.cursor)
     setHasMore(rs.page.hasMore)
+    setDurationMs((prev) => append ? (prev ?? 0) + rs.meta.durationMs : rs.meta.durationMs)
+    setTruncated(rs.meta.truncatedBytes || rs.meta.truncatedRows)
   }, [])
 
   const execute = useCallback(
@@ -56,6 +83,17 @@ export function useQueryRunner(gateway: OperationGateway, connectionId: string):
       // false로 보일 수 있다 — ref만 그 자리에서 즉시 막을 수 있다.
       if (inFlight.current) return
       inFlight.current = true
+      if (!append) {
+        executedSql.current = sql
+        setRows([])
+        setColumns([])
+        setRowsAffected(null)
+        setNotices([])
+        setCursor(null)
+        setHasMore(false)
+        setDurationMs(null)
+        setTruncated(false)
+      }
       const requestId = crypto.randomUUID()
       activeRequestId.current = requestId
       setRunning(true)
@@ -63,34 +101,31 @@ export function useQueryRunner(gateway: OperationGateway, connectionId: string):
       const request: OperationRequestDto = {
         requestId,
         connectionId,
-        operation: { kind: 'sql', sql },
+        operation: { kind: 'sql', sql: executedSql.current },
         page: { cursor: pageCursor, maxRows: MAX_ROWS, maxBytes: MAX_BYTES },
       }
       try {
         const outcome = await gateway.run(request)
+        if (activeRequestId.current !== requestId) return
         if (outcome.ok) {
           if (outcome.payload.kind === 'rows') apply(outcome.payload.rows, append)
         } else {
           setError(failureText(outcome))
         }
       } catch (e) {
-        setError(messageOf(e))
+        if (activeRequestId.current === requestId) setError(messageOf(e))
       } finally {
-        setRunning(false)
-        if (activeRequestId.current === requestId) activeRequestId.current = null
-        inFlight.current = false
+        if (activeRequestId.current === requestId) {
+          activeRequestId.current = null
+          inFlight.current = false
+          setRunning(false)
+        }
       }
     },
     [gateway, connectionId, sql, apply],
   )
 
   const run = useCallback(async () => {
-    setRows([])
-    setColumns([])
-    setRowsAffected(null)
-    setNotices([])
-    setCursor(null)
-    setHasMore(false)
     await execute(null, false)
   }, [execute])
 
@@ -101,11 +136,13 @@ export function useQueryRunner(gateway: OperationGateway, connectionId: string):
 
   const cancel = useCallback(() => {
     const id = activeRequestId.current
-    if (id !== null) void gateway.cancel(id)
+    if (id !== null) void gateway.cancel(id).catch((e: unknown) => {
+      if (activeRequestId.current === id) setError(`취소 실패: ${messageOf(e)}`)
+    })
   }, [gateway])
 
   return {
     sql, setSql, run, cancel, running,
-    columns, rows, rowsAffected, notices, hasMore, loadMore, error,
+    columns, rows, rowsAffected, notices, hasMore, loadMore, error, durationMs, truncated,
   }
 }

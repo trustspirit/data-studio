@@ -34,6 +34,11 @@ afterEach(async () => {
 })
 
 describe('FileConnectionRepository', () => {
+  it('동시에 저장한 연결이 재시작 후에도 모두 남는다', async () => {
+    const repository = new FileConnectionRepository(filePath, logger)
+    await Promise.all(Array.from({ length: 12 }, (_, i) => repository.save({ ...PG, id: `parallel-${i}` })))
+    expect(await new FileConnectionRepository(filePath, logger).list()).toHaveLength(12)
+  })
   it('처음에는 빈 목록을 준다', async () => {
     const repo = new FileConnectionRepository(filePath, logger)
 

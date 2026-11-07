@@ -45,6 +45,9 @@ describe('IPC_CONTRACT', () => {
         'secrets:has',
         'secrets:set',
         'secrets:status',
+        'workspace:load',
+        'workspace:saveDraft',
+        'workspace:saveTabs',
       ].sort(),
     )
   })

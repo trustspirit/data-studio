@@ -305,6 +305,7 @@ describe('registerIpcRoutes', () => {
     expect(h.calls.secretDelete).toEqual([
       { kind: 'db-password', ownerId: 'c1' },
       { kind: 'db-password-ai-readonly', ownerId: 'c1' },
+      { kind: 'workspace', ownerId: 'c1' },
     ])
   })
 

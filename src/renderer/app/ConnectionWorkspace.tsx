@@ -10,6 +10,7 @@ import { ConfirmDialog } from '../shared/ui'
 import type { TabSet } from './model/useDocumentTabs'
 import { useTabShortcuts } from './model/useTabShortcuts'
 import { DocumentHost } from './DocumentHost'
+import type { WorkspaceGateway } from '../gateways/ports/WorkspaceGateway'
 
 const Layout = styled.div`
   display: flex;
@@ -46,6 +47,7 @@ const AiAccountBadge = styled.span<{ $tone: 'ok' | 'warn' }>`
 `
 
 interface ConnectionWorkspaceProps {
+  workspace?: WorkspaceGateway | undefined
   gateway: OperationGateway
   /** 없으면 AI 인스펙터 섹션이 표시되지 않는다(테스트·부분 조립 허용). */
   ai?: AiGateway | undefined
@@ -74,6 +76,7 @@ interface ConnectionWorkspaceProps {
 }
 
 export function ConnectionWorkspace({
+  workspace,
   gateway,
   ai,
   connectionId,
@@ -148,6 +151,7 @@ export function ConnectionWorkspace({
         />
       )}
       <DocumentHost
+        workspace={workspace}
         documents={tabs.documents}
         activeKey={tabs.activeKey}
         gateway={gateway}

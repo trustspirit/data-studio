@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 import styled, { useTheme } from 'styled-components'
 
-export type IconName = 'chevronRight' | 'chevronDown' | 'close' | 'plus' | 'more' | 'refresh'
+export type IconName = 'chevronRight' | 'chevronDown' | 'close' | 'plus' | 'more' | 'refresh' | 'table'
 type IconSize = 'sm' | 'md' | 'lg'
 
 /**
@@ -11,6 +11,7 @@ type IconSize = 'sm' | 'md' | 'lg'
  * 번들에 의존성 하나를 더하는 비용이 그보다 크다. 크게 늘어나면 그때 도입한다.
  */
 const GLYPHS: Record<IconName, ReactElement> = {
+  table: <><rect x="2" y="2.5" width="12" height="11" rx="1.5" /><path d="M2 6h12M6 6v7.5" /></>,
   chevronRight: <path d="M6 12L10 8L6 4" />,
   chevronDown: <path d="M4 6L8 10L12 6" />,
   close: <path d="M12 4L4 12M4 4L12 12" />,

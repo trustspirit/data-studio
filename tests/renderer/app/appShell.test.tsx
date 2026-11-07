@@ -81,6 +81,26 @@ async function goToWorkspace(bridge: DataconBridge): Promise<void> {
 }
 
 describe('AppShell', () => {
+  it('연결 닫기가 실패하면 저장된 연결을 삭제하지 않는다', async () => {
+    const base = bridgeWith([conn('a', 'prod')])
+    const bridge: DataconBridge = {
+      ...base,
+      invoke: vi.fn((channel: Parameters<DataconBridge['invoke']>[0], input: unknown) => channel === 'connection:close'
+        ? Promise.reject(new Error('close failed'))
+        : base.invoke(channel, input)),
+    }
+    wrap(bridge)
+    await waitFor(() => expect(screen.getByTestId('connect-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('connect-a'))
+    await waitFor(() => expect(screen.getByTestId('workspace-a')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('more-a'))
+    fireEvent.click(screen.getByTestId('settings-a'))
+    fireEvent.click(await screen.findByText('Delete'))
+    fireEvent.click(screen.getByText(/Confirm delete/i))
+    await waitFor(() => expect(screen.getByTestId('row-error-a').textContent).toContain('close failed'))
+    expect(channelsOf(bridge)).not.toContain('connection:delete')
+  })
+
   it('워크스페이스 사이드바가 저장된 연결을 모두 트리에 보여 준다', async () => {
     const bridge = bridgeWith([conn('a', 'prod'), conn('b', 'staging')])
     wrap(bridge)
@@ -348,6 +368,8 @@ describe('AppShell', () => {
     wrap(bridge)
     await goToWorkspace(bridge)
     expect(within(screen.getByTestId('connection-tree')).getByText(/\+로 추가하세요/)).toBeTruthy()
-    expect(screen.getByText(/사이드바의 \+ 로 추가하세요/)).toBeTruthy()
+    expect(screen.getByRole('region', { name: '시작하기' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '새 연결 추가' }))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Name' })).toBeTruthy())
   })
 })

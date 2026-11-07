@@ -305,7 +305,7 @@ describe('이름에 공백이 있는 대상', () => {
     // 세 파괴적 모드가 같은 판정을 쓰는지 확인한다.
     const { run } = await mountedPaddedColumn()
     // testid에 공백을 담는 것은 취약하다 — 행을 찾아 그 안의 버튼을 누른다.
-    const row = screen.getByText('pad').closest('tr')
+    const row = screen.getByText('pad').closest('article')
     expect(row).not.toBeNull()
     fireEvent.click(within(row as HTMLElement).getByText('Drop'))
     fireEvent.change(screen.getByTestId('ddl-confirm'), { target: { value: 'wrong' } })

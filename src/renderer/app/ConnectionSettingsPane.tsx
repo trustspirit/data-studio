@@ -69,6 +69,7 @@ export function ConnectionSettingsPane({
       </Header>
       {listError !== null && <ErrorBanner>{listError}</ErrorBanner>}
       <ConnectionForm
+        saving={editor.saving}
         key={editor.draft.id}
         draft={editor.draft}
         errors={editor.errors}

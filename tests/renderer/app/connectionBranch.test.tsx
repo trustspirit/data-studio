@@ -166,11 +166,11 @@ describe('ConnectionBranch', () => {
     fireEvent.click(within(tree()).getByText(/schema_a/))
     await waitFor(() => expect(within(tree()).getByText('table_a')).toBeTruthy())
 
-    const row = within(tree()).getByText('table_a')
+    const row = within(tree()).getByRole('button', { name: 'table_a' })
     const before = getComputedStyle(row).background
     fireEvent.click(row)
 
-    await waitFor(() => expect(getComputedStyle(within(tree()).getByText('table_a')).background).not.toBe(before))
+    await waitFor(() => expect(getComputedStyle(within(tree()).getByRole('button', { name: 'table_a' })).background).not.toBe(before))
   })
 
   it('테이블을 두 번 누르면 그 테이블 문서가 열린다', async () => {

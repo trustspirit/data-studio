@@ -223,7 +223,10 @@ export class PooledConnectionManager implements ConnectionManager {
       return Promise.reject(new ConnectionNotOpenError(connectionId))
     }
 
-    if (entry.inUse < this.options.maxConcurrent) {
+    // SQL drivers currently own one physical session. Concurrent leases could
+    // interleave BEGIN/COMMIT or a read-only scope with another tab's write.
+    const limit = Math.min(this.options.maxConcurrent, entry.driver.sessionConcurrency ?? (entry.driver.sql === undefined ? this.options.maxConcurrent : 1))
+    if (entry.inUse < limit) {
       entry.inUse += 1
       return Promise.resolve(this.makeLease(connectionId, entry))
     }

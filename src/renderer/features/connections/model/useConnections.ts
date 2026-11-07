@@ -8,8 +8,8 @@ export interface ConnectionsState {
   readonly error: string | null
   select: (id: string) => void
   clearSelection: () => void
-  save: (config: ConnectionConfig) => Promise<void>
-  remove: (id: string) => Promise<void>
+  save: (config: ConnectionConfig) => Promise<boolean>
+  remove: (id: string) => Promise<boolean>
   reload: () => Promise<void>
 }
 
@@ -42,8 +42,10 @@ export function useConnections(gateway: ConnectionGateway): ConnectionsState {
         setError(null)
         await reload()
         setSelectedId(config.id)
+        return true
       } catch (e) {
         setError(messageOf(e))
+        return false
       }
     },
     [gateway, reload],
@@ -56,8 +58,10 @@ export function useConnections(gateway: ConnectionGateway): ConnectionsState {
         setError(null)
         await reload()
         setSelectedId((cur) => (cur === id ? null : cur))
+        return true
       } catch (e) {
         setError(messageOf(e))
+        return false
       }
     },
     [gateway, reload],

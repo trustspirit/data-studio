@@ -30,7 +30,7 @@ export class DataCapabilityExecutor implements CapabilityExecutor {
     // browse
     const sql = driver.sql
     if (sql === undefined) throw new Error('driver does not support sql')
-    const built = data.buildBrowse(operation.schema, operation.table, operation.sort)
+    const built = data.buildBrowse(operation.schema, operation.table, operation.sort, operation.filters)
     const rows = await executeRead(sql, ctx, built.sql, page, built.params, input.readOnlyScope)
     return { kind: 'rows', rows }
   }

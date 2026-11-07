@@ -1,0 +1,74 @@
+name: Quality checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-smoke:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run smoke:workflows
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-workflow-screenshots
+          path: .openai/ui-review/production-*.png
+          if-no-files-found: ignore
+
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run audit:security
+      - run: npm run check
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Start disposable test engines
+        run: docker compose -p datacon-ci -f docker-compose.test.yml up -d
+      - name: Wait for all eight servers
+        shell: bash
+        run: |
+          for attempt in {1..10}; do
+            if npm run test:integration -- tests/contract/requiredEngines.test.ts; then
+              exit 0
+            fi
+            sleep 3
+          done
+          exit 1
+      - run: npm run test:integration
+      - name: Engine logs on failure
+        if: failure()
+        run: docker compose -p datacon-ci -f docker-compose.test.yml logs --tail 60
+      - name: Stop test engines
+        if: always()
+        run: docker compose -p datacon-ci -f docker-compose.test.yml down --volumes

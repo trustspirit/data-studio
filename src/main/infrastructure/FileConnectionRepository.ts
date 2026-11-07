@@ -28,6 +28,8 @@ function cloneConfig(config: ConnectionConfig): ConnectionConfig {
  */
 export class FileConnectionRepository implements ConnectionRepository {
   private cache: ConnectionConfig[] | null = null
+  private loading: Promise<ConnectionConfig[]> | null = null
+  private writes: Promise<void> = Promise.resolve()
 
   constructor(
     private readonly filePath: string,
@@ -35,10 +37,12 @@ export class FileConnectionRepository implements ConnectionRepository {
   ) {}
 
   async list(): Promise<ConnectionConfig[]> {
+    await this.writes
     return (await this.load()).map(cloneConfig)
   }
 
   async get(id: string): Promise<ConnectionConfig | null> {
+    await this.writes
     const found = (await this.load()).find((c) => c.id === id)
     return found ? cloneConfig(found) : null
   }
@@ -48,19 +52,35 @@ export class FileConnectionRepository implements ConnectionRepository {
    * 배열 맨 뒤로 이동한다. 순서 보장은 제공하지 않는다.
    */
   async save(config: ConnectionConfig): Promise<void> {
+    const input = cloneConfig(config)
+    return this.mutate(async () => {
     const all = await this.load()
-    const next = all.filter((c) => c.id !== config.id)
-    next.push(cloneConfig(config))
+    const next = all.filter((c) => c.id !== input.id)
+    next.push(input)
     await this.persist(next)
+    })
   }
 
   async delete(id: string): Promise<void> {
+    return this.mutate(async () => {
     const all = await this.load()
     await this.persist(all.filter((c) => c.id !== id))
+    })
+  }
+  private mutate(action: () => Promise<void>): Promise<void> {
+    const next = this.writes.then(action)
+    this.writes = next.catch(() => {})
+    return next
   }
 
   private async load(): Promise<ConnectionConfig[]> {
     if (this.cache !== null) return this.cache
+    if (this.loading !== null) return this.loading
+    this.loading = this.loadFile()
+    try { return await this.loading }
+    finally { this.loading = null }
+  }
+  private async loadFile(): Promise<ConnectionConfig[]> {
 
     const result = await readJsonFile<unknown[]>(this.filePath, (raw) => {
       if (!Array.isArray(raw)) throw new Error('not an array')
@@ -90,7 +110,7 @@ export class FileConnectionRepository implements ConnectionRepository {
   }
 
   private async persist(configs: ConnectionConfig[]): Promise<void> {
-    this.cache = configs
     await atomicWriteFile(this.filePath, JSON.stringify(configs, null, 2))
+    this.cache = configs
   }
 }

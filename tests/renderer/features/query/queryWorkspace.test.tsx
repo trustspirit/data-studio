@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { EditorView } from '@codemirror/view'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ThemeProvider, darkTheme } from '@renderer/shared/theme'
 import { QueryWorkspace } from '@renderer/features/query'
@@ -59,6 +60,15 @@ function gateway(): OperationGateway {
 function wrap(node: React.ReactNode) {
   return render(<ThemeProvider theme={darkTheme}>{node}</ThemeProvider>)
 }
+async function runQuery() {
+  await waitFor(() => expect(document.querySelector('.cm-editor')).not.toBeNull())
+  const element = document.querySelector('.cm-editor')
+  if (!(element instanceof HTMLElement)) throw new Error('editor missing')
+  const view = EditorView.findFromDOM(element)
+  if (view === null) throw new Error('editor missing')
+  act(() => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: 'SELECT 1' } }))
+  fireEvent.click(screen.getByText('Run'))
+}
 
 describe('QueryWorkspace', () => {
   it('Run이 게이트웨이를 부르고 결과 그리드를 보인다', async () => {
@@ -69,7 +79,7 @@ describe('QueryWorkspace', () => {
       onStreamMessage: vi.fn(() => () => {}),
     }
     wrap(<QueryWorkspace gateway={gw} connectionId="c1" />)
-    fireEvent.click(screen.getByText('Run'))
+    await runQuery()
     // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock, no `this` binding involved
     await waitFor(() => expect(gw.run).toHaveBeenCalled())
     await waitFor(() => expect(screen.getByText('7')).toBeTruthy())
@@ -83,7 +93,7 @@ describe('QueryWorkspace', () => {
       onStreamMessage: vi.fn(() => () => {}),
     }
     wrap(<QueryWorkspace gateway={gw} connectionId="c1" />)
-    fireEvent.click(screen.getByText('Run'))
+    await runQuery()
     await waitFor(() => expect(screen.getByText(/syntax error/)).toBeTruthy())
   })
 
@@ -97,11 +107,11 @@ describe('QueryWorkspace', () => {
       onStreamMessage: vi.fn(() => () => {}),
     }
     wrap(<QueryWorkspace gateway={gw} connectionId="c1" />)
-    fireEvent.click(screen.getByText('Run'))
+    await runQuery()
     await waitFor(() => expect(screen.getByText('7')).toBeTruthy())
     expect(screen.getByText('id')).toBeTruthy()
 
-    fireEvent.click(screen.getByText('Run'))
+    await runQuery()
     await waitFor(() => expect(screen.getByText(/syntax error/)).toBeTruthy())
     expect(screen.queryByText('id')).toBeNull()
   })

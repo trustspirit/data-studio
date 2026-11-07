@@ -24,6 +24,8 @@ export type { Capability } from '@shared/types/capability'
 export interface Driver {
   readonly id: string
   readonly engine: EngineId
+  /** Only sessionless drivers may explicitly opt into parallel operations. */
+  readonly sessionConcurrency?: number
 
   /**
    * 커넥션을 연다.

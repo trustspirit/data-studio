@@ -3,7 +3,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { createSecretStore } from '@main/infrastructure/createSecretStore'
+import { createAsyncSecretStore, createSecretStore } from '@main/infrastructure/createSecretStore'
 import type { SafeStorageLike } from '@main/infrastructure/createSecretStore'
 import { EncryptedFileSecretStore } from '@main/infrastructure/EncryptedFileSecretStore'
 import type { SecretRef } from '@main/core/ports/SecretStore'
@@ -45,6 +45,25 @@ afterEach(async () => {
 })
 
 describe('createSecretStore — 암호화 사용 가능', () => {
+  it('비동기 암호화 저장소가 작업 초안을 저장하고 재시작 후 복구한다', async () => {
+    const safeStorage = {
+      isAsyncEncryptionAvailable: () => Promise.resolve(true),
+      encryptStringAsync: (value: string) => Promise.resolve(Buffer.from(`encrypted:${value}`).reverse()),
+      decryptStringAsync: (value: Buffer) => Promise.resolve({ result: Buffer.from(value).reverse().toString().replace(/^encrypted:/, ''), shouldReEncrypt: false }),
+    }
+    const deps = { safeStorage, filePath, platform: 'darwin' as const, logger }
+    const store = await createAsyncSecretStore(deps)
+    await store.set({ kind: 'workspace', ownerId: 'c1' }, 'private SQL')
+    expect(await (await createAsyncSecretStore(deps)).get({ kind: 'workspace', ownerId: 'c1' })).toBe('private SQL')
+    expect(await readFile(filePath, 'utf8')).not.toContain('private SQL')
+  })
+  it('동시 비밀 저장이 재시작 후에도 모두 남는다', async () => {
+    const deps = { safeStorage: workingSafeStorage(), filePath, platform: 'darwin' as const, logger }
+    const store = createSecretStore(deps)
+    await Promise.all(Array.from({ length: 10 }, (_, i) => store.set({ kind: 'workspace', ownerId: `connection-${i}` }, `private-${i}`)))
+    const restored = createSecretStore(deps)
+    for (let i = 0; i < 10; i++) expect(await restored.get({ kind: 'workspace', ownerId: `connection-${i}` })).toBe(`private-${i}`)
+  })
   it('영속 저장소를 만든다', () => {
     const store = createSecretStore({
       safeStorage: workingSafeStorage(),

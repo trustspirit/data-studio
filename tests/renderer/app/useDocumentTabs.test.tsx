@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { act, renderHook } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { useDocumentTabs, EMPTY_TAB_SET } from '@renderer/app/model/useDocumentTabs'
 import { documentKey } from '@renderer/entities/document'
 
@@ -8,6 +8,18 @@ const ORDERS = { kind: 'table', schema: 'public', table: 'orders' } as const
 const USERS = { kind: 'table', schema: 'public', table: 'users' } as const
 
 describe('useDocumentTabs', () => {
+  it('연결을 다시 열면 저장된 탭을 복구하고 쿼리 번호를 재사용하지 않는다', async () => {
+    const workspace = {
+      load: vi.fn().mockResolvedValue({ persistent: true, workspace: { tabs: { documents: [{ kind: 'query', serial: 4 }, ORDERS], activeKey: 'query:4' }, drafts: { 8: 'archived SQL' } } }),
+      saveTabs: vi.fn().mockResolvedValue(undefined), saveDraft: vi.fn().mockResolvedValue(undefined),
+    }
+    const { result } = renderHook(() => useDocumentTabs(workspace))
+    act(() => result.current.ensureDefaults('c1', ['sql', 'data']))
+    await waitFor(() => expect(result.current.tabs['c1']?.documents).toHaveLength(2))
+    expect(result.current.tabs['c1']?.activeKey).toBe('query:4')
+    expect(result.current.nextQuerySerial('c1')).toBe(9)
+    expect(workspace.saveTabs).toHaveBeenCalled()
+  })
   it('처음에는 어느 연결에도 탭이 없다', () => {
     const { result } = renderHook(() => useDocumentTabs())
     expect(result.current.tabs['c1'] ?? EMPTY_TAB_SET).toEqual(EMPTY_TAB_SET)

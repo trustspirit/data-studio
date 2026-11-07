@@ -22,6 +22,16 @@ function wrap(activeKey: string | null = 'a') {
 }
 
 describe('TabStrip', () => {
+  it('방향키와 Home으로 탭을 선택하고 포커스를 옮긴다', () => {
+    const { onActivate } = wrap()
+    fireEvent.keyDown(screen.getByTestId('tab-a'), { key: 'ArrowRight' })
+    expect(onActivate).toHaveBeenCalledWith('b')
+    expect(document.activeElement).toBe(screen.getByTestId('tab-b'))
+    fireEvent.keyDown(screen.getByTestId('tab-b'), { key: 'Home' })
+    expect(onActivate).toHaveBeenLastCalledWith('a')
+    expect(document.activeElement).toBe(screen.getByTestId('tab-a'))
+  })
+
   it('닫기 버튼이 탭 버튼의 자손이 아니다 — button 안의 button은 HTML·ARIA 위반', () => {
     wrap()
     const tab = screen.getByTestId('tab-a')

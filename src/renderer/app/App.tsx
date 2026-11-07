@@ -4,6 +4,7 @@ import { GatewayProvider } from './GatewayProvider'
 import { buildGateways } from './container'
 import { AppShell } from './AppShell'
 import type { DataconBridge } from '../gateways/ipc/ipcInvoke'
+import { AppErrorBoundary } from './AppErrorBoundary'
 
 // preload가 노출한 다리. 없으면(브라우저 미리보기 등) 즉시 실패시켜 원인을 드러낸다.
 function resolveBridge(): DataconBridge {
@@ -14,14 +15,16 @@ function resolveBridge(): DataconBridge {
   return bridge
 }
 
-export function App() {
+function ConnectedApp() {
   const gateways = useMemo(() => buildGateways(resolveBridge()), [])
+  return <GatewayProvider gateways={gateways}><AppShell /></GatewayProvider>
+}
+
+export function App() {
   return (
     <ThemeProvider theme={darkTheme}>
       <GlobalStyle />
-      <GatewayProvider gateways={gateways}>
-        <AppShell />
-      </GatewayProvider>
+      <AppErrorBoundary><ConnectedApp /></AppErrorBoundary>
     </ThemeProvider>
   )
 }

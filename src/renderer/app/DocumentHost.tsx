@@ -24,6 +24,7 @@ import { StreamsView } from '../features/streams'
 import { DynamoView } from '../features/dynamo'
 import { AiChatPanel } from '../features/ai'
 import { darkTheme } from '../shared/theme'
+import type { WorkspaceGateway } from '../gateways/ports/WorkspaceGateway'
 
 const Host = styled.div`
   position: relative;
@@ -57,6 +58,20 @@ const Title = styled.span`
   color: ${({ theme }) => theme.color.text.dim};
   margin-right: auto;
 `
+const ManagementMenu = styled.details`
+  position: relative;
+  font-size: ${({ theme }) => theme.fontSize.label};
+  summary { cursor: pointer; padding: 8px 12px; border-radius: 4px; list-style: none; }
+  summary:hover { background: ${({ theme }) => theme.color.row.hover}; }
+  > div {
+    position: absolute; top: 100%; right: 0; z-index: 6; min-width: 190px;
+    display: flex; flex-direction: column; padding: 6px;
+    border: 1px solid ${({ theme }) => theme.color.border.strong};
+    border-radius: ${({ theme }) => theme.radius.md}; background: ${({ theme }) => theme.color.surface.panel};
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+  button { justify-content: flex-start; }
+`
 
 function sqlDialectOf(engine: EngineId | undefined): SqlEngineId | null {
   if (engine === undefined) return null
@@ -72,6 +87,7 @@ interface StructureSnapshot {
 const EMPTY_STRUCTURE: StructureSnapshot = { columns: [], indexes: [] }
 
 interface DocumentHostProps {
+  workspace?: WorkspaceGateway | undefined
   documents: readonly Document[]
   activeKey: string | null
   gateway: OperationGateway
@@ -93,6 +109,7 @@ interface DocumentHostProps {
  * 오직 탭 닫기와 연결 닫기다.
  */
 export function DocumentHost({
+  workspace,
   documents,
   activeKey,
   gateway,
@@ -217,7 +234,7 @@ export function DocumentHost({
           />
         )
       case 'query':
-        return <QueryWorkspace gateway={gateway} connectionId={connectionId} engine={engine} />
+        return <QueryWorkspace gateway={gateway} connectionId={connectionId} engine={engine} workspace={workspace} serial={doc.serial} />
       case 'er':
         return (
           <ErView
@@ -288,20 +305,22 @@ export function DocumentHost({
             </Title>
             {/* 엔진이 ALTER TABLE로 FK를 못 붙이면 그 버튼은 오류 배너로만 끝난다 —
                 열리지 않는 탭을 권하지 않는 것과 같은 규칙이다. */}
+            <ManagementMenu><summary>테이블 관리</summary><div aria-label="테이블 관리 작업">
             {DESIGNER_TABLE_ACTIONS.filter(
               (a) => a.mode !== 'fk' || supportsAddForeignKey(dialect),
             ).map((a) => (
               <Button
                 key={a.mode}
                 type="button"
-                variant="ghost"
+                variant={a.mode === 'dropTable' ? 'danger' : 'ghost'}
                 size="sm"
                 data-testid={a.testId}
-                onClick={() => setDesigner({ mode: a.mode, target: '' })}
+                onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); setDesigner({ mode: a.mode, target: '' }) }}
               >
                 {a.label}
               </Button>
             ))}
+            </div></ManagementMenu>
           </Toolbar>
         ) : null
       case 'er':

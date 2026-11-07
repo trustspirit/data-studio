@@ -49,6 +49,49 @@ async function usersTableLoaded(): Promise<void> {
 }
 
 describe('DataView', () => {
+  it('서버 필터를 보내고 저장 전에는 변경 전후를 검토한다', async () => {
+    const g = gateway({ pk: true })
+    wrap(<DataView gateway={g} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
+    fireEvent.change(screen.getByLabelText('필터 조건'), { target: { value: 'eq' } })
+    fireEvent.change(screen.getByLabelText('필터 값'), { target: { value: '007' } })
+    fireEvent.click(screen.getByText('필터 적용'))
+    await waitFor(() => {
+      const calls = (g.run as unknown as ReturnType<typeof vi.fn>).mock.calls as [{ operation: { filters?: unknown[] } }][]
+      expect(calls.some(([request]) => request.operation.filters?.length === 1)).toBe(true)
+    })
+    await usersTableLoaded()
+    fireEvent.doubleClick(screen.getByText('7'))
+    fireEvent.change(screen.getByDisplayValue('7'), { target: { value: '8' } })
+    fireEvent.keyDown(screen.getByDisplayValue('8'), { key: 'Enter' })
+    fireEvent.click(screen.getByText('Save'))
+    expect(screen.getByRole('dialog').textContent).toContain('변경 전')
+    const calls = (g.run as unknown as ReturnType<typeof vi.fn>).mock.calls as [{ operation: { op: string } }][]
+    expect(calls.some(([request]) => request.operation.op === 'apply')).toBe(false)
+  })
+  it('정렬 확인을 취소하면 편집한 값과 저장 버튼이 유지된다', async () => {
+    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
+    fireEvent.doubleClick(screen.getByText('7'))
+    fireEvent.change(screen.getByDisplayValue('7'), { target: { value: '9' } })
+    fireEvent.keyDown(screen.getByDisplayValue('9'), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('columnheader', { name: /^id/ }))
+    fireEvent.click(screen.getByText('취소'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByText('9')).toBeTruthy()
+    expect(screen.getByText<HTMLButtonElement>('Save').disabled).toBe(false)
+  })
+
+  it('새로고침도 미저장 편집을 버리기 전에 확인한다', async () => {
+    wrap(<DataView gateway={gateway({ pk: true })} connectionId="c1" selection={USERS} />)
+    await usersTableLoaded()
+    fireEvent.click(screen.getByText('Add row'))
+    fireEvent.click(screen.getByText('새로고침'))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    fireEvent.click(screen.getByText('변경 버리고 계속'))
+    await waitFor(() => expect(screen.queryByLabelText('새 행 0 id')).toBeNull())
+  })
+
   it('셸이 고른 테이블의 행이 그리드에 뜬다', async () => {
     wrap(<DataView gateway={gateway()} connectionId="c1" selection={USERS} />)
     await waitFor(() => expect(screen.getByText('7')).toBeTruthy()) // 셀 값
@@ -80,6 +123,7 @@ describe('DataView', () => {
     await waitFor(() => expect(screen.getByText(/1 changes/)).toBeTruthy())
     const before = (g.run as unknown as ReturnType<typeof vi.fn>).mock.calls.length
     fireEvent.click(screen.getByText('Save'))
+    fireEvent.click(screen.getByText('DB에 변경 적용'))
 
     await waitFor(() => {
       const calls = (g.run as unknown as ReturnType<typeof vi.fn>).mock.calls as [{ operation: { op: string } }][]
@@ -121,6 +165,7 @@ describe('DataView', () => {
     const reopened = screen.getByDisplayValue('9')
     fireEvent.keyDown(reopened, { key: 'Enter' })
     fireEvent.click(screen.getByText('Save'))
+    fireEvent.click(screen.getByText('DB에 변경 적용'))
 
     await waitFor(() => {
       const calls = (g.run as unknown as ReturnType<typeof vi.fn>).mock.calls as [{ operation: { op: string; changes?: unknown[] } }][]
@@ -152,6 +197,7 @@ describe('DataView', () => {
     fireEvent.click(screen.getByLabelText('행 0 삭제'))
     await waitFor(() => expect(screen.getByText(/1 changes/)).toBeTruthy())
     fireEvent.click(screen.getByText('Save'))
+    fireEvent.click(screen.getByText('DB에 변경 적용'))
 
     await waitFor(() => {
       const calls = (g.run as unknown as ReturnType<typeof vi.fn>).mock.calls as [{ operation: { op: string; changes?: unknown[] } }][]
@@ -172,6 +218,7 @@ describe('DataView', () => {
 
     await waitFor(() => expect(screen.getByText(/1 changes/)).toBeTruthy())
     fireEvent.click(screen.getByText('Save'))
+    fireEvent.click(screen.getByText('DB에 변경 적용'))
 
     await waitFor(() => {
       const calls = (g.run as unknown as ReturnType<typeof vi.fn>).mock.calls as [{ operation: { op: string; changes?: unknown[] } }][]
@@ -202,7 +249,10 @@ describe('DataView', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => expect(screen.getByText(/1 changes/)).toBeTruthy())
 
-    fireEvent.click(screen.getByText('id')) // 헤더 클릭 → 정렬 변경 → 스테이징 초기화
-    await waitFor(() => expect(screen.getByText(/0 changes/)).toBeTruthy())
+    fireEvent.click(screen.getByRole('columnheader', { name: /^id/ }))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByText(/1 changes/)).toBeTruthy()
+    fireEvent.click(screen.getByText('변경 버리고 계속'))
+    await waitFor(() => expect(screen.queryByText(/1 changes/)).toBeNull())
   })
 })

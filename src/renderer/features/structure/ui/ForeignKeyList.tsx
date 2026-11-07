@@ -1,21 +1,7 @@
 import styled from 'styled-components'
 import type { ForeignKeyInfo } from '../../../../shared/types/schema'
+import { DataTable as Table } from '../../../shared/ui'
 
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-family: ${({ theme }) => theme.font.ui};
-  font-size: ${({ theme }) => theme.fontSize.body};
-  th, td {
-    text-align: left;
-    padding: 4px 10px;
-    border-bottom: 1px solid ${({ theme }) => theme.color.border.soft};
-  }
-  th {
-    color: ${({ theme }) => theme.color.text.dim};
-    font-weight: 600;
-  }
-`
 const Empty = styled.div`
   padding: 6px 10px;
   color: ${({ theme }) => theme.color.text.faint};

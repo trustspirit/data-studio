@@ -1,6 +1,7 @@
 import { z, type ZodType } from 'zod'
 import { connectionConfigSchema, connectionIdSchema } from '../types/connection'
 import { operationRequestSchema } from './operationDto'
+import { workspaceTabsSchema } from '../types/workspace'
 
 /** renderer가 고를 수 있는 LLM 프로바이더. main의 `ProviderId`와 같은 값 집합. */
 export const llmProviderIdSchema = z.enum(['anthropic', 'openai'])
@@ -17,6 +18,9 @@ export type LlmProviderIdDto = z.infer<typeof llmProviderIdSchema>
  * 않게 한다.
  */
 export const IPC_CONTRACT = {
+  'workspace:load': { input: z.object({ connectionId: connectionIdSchema }) },
+  'workspace:saveTabs': { input: z.object({ connectionId: connectionIdSchema, tabs: workspaceTabsSchema }) },
+  'workspace:saveDraft': { input: z.object({ connectionId: connectionIdSchema, serial: z.number().int().positive(), sql: z.string().max(262_144) }) },
   'connection:list': { input: z.undefined() },
   'connection:save': { input: connectionConfigSchema },
   'connection:delete': { input: z.object({ id: connectionIdSchema }) },

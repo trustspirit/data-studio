@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import type { AuditEntry, OperationGateway } from '../../../gateways/ports/OperationGateway'
-import { Button, EmptyState, ErrorBanner, Icon, Notice } from '../../../shared/ui'
+import { Button, DataTable, EmptyState, ErrorBanner, Icon, Notice } from '../../../shared/ui'
 import { useAuditLog } from '../model/useAuditLog'
 
 const Layout = styled.div`
@@ -37,10 +37,10 @@ const Scroll = styled.div`
   min-height: 0;
   overflow: auto;
 `
-const Table = styled.table`
+const Table = styled(DataTable)`
   width: 100%;
   border-collapse: collapse;
-  font-size: ${({ theme }) => theme.fontSize.body};
+  font-size: ${({ theme }) => theme.fontSize.label};
 `
 const Th = styled.th`
   position: sticky;

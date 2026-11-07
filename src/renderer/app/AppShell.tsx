@@ -9,9 +9,10 @@ import { ConnectionBranch } from './ConnectionBranch'
 import { WorkspaceHost } from './WorkspaceHost'
 import { ConnectionSettingsPane } from './ConnectionSettingsPane'
 import { ConnectionInvite } from './ConnectionInvite'
+import { WelcomePane } from './WelcomePane'
 import { useOpenConnections } from './model/useOpenConnections'
 import { useDocumentTabs } from './model/useDocumentTabs'
-import { ConfirmDialog, EmptyState, SplitPane } from '../shared/ui'
+import { ConfirmDialog, ErrorBanner, SplitPane } from '../shared/ui'
 import { readPanelSize, writePanelSize } from '../shared/lib'
 import { darkTheme } from '../shared/theme'
 
@@ -153,7 +154,7 @@ export function AppShell() {
   const conns = useConnections(gateways.connection)
   const editor = useConnectionEditor(gateways.connection, conns)
   const shell = useOpenConnections(gateways.connection)
-  const tabs = useDocumentTabs()
+  const tabs = useDocumentTabs(gateways.workspace)
   const { forget } = shell
   // 훅이 돌려주는 객체는 매 렌더 새로 만들어진다 — effect deps에는 그 안의
   // 안정된 콜백만 넣는다. 객체를 넣으면 effect가 매 렌더 다시 돈다.
@@ -251,10 +252,19 @@ export function AppShell() {
       return next
     })
   }, [])
+  useEffect(() => {
+    const protect = (event: BeforeUnloadEvent) => {
+      if (dirtyConnections.size === 0) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', protect)
+    return () => window.removeEventListener('beforeunload', protect)
+  }, [dirtyConnections])
   const deleteConnection = async () => {
     const id = editor.draft.id
     // 열려 있는 연결을 그냥 지우면 풀이 남는다. 닫기가 삭제보다 먼저다.
-    if (shell.open[id] !== undefined) await shell.closeConnection(id)
+    if (shell.open[id] !== undefined && !await shell.closeConnection(id)) return
     await editor.remove()
   }
   /** 연결 행의 '연결 끊기' — dirty 문서가 있으면 확인부터 받는다. */
@@ -357,6 +367,7 @@ export function AppShell() {
 
   const content = (
     <Content>
+      {tabs.recoveryError !== null && <ErrorBanner>{tabs.recoveryError}</ErrorBanner>}
       <Layer hidden={mainView !== 'workspace'} aria-hidden={mainView !== 'workspace'}>
         {shell.activeId !== null ? (
           <WorkspaceHost
@@ -366,6 +377,7 @@ export function AppShell() {
             visible={mainView === 'workspace'}
             gateway={gateways.operation}
             ai={gateways.ai}
+            workspace={gateways.workspace}
             tabs={tabSets}
             onOpenDocument={tabs.open}
             onCloseDocument={tabs.close}
@@ -376,13 +388,7 @@ export function AppShell() {
             onConnectionDirtyChange={noteConnectionDirty}
           />
         ) : (
-          <EmptyState
-            title={
-              conns.connections.length === 0
-                ? '연결이 없습니다 — 사이드바의 + 로 추가하세요.'
-                : '사이드바에서 연결을 골라 접속하세요.'
-            }
-          />
+          <WelcomePane hasConnections={conns.connections.length > 0} error={conns.error} onNew={startNew} />
         )}
       </Layer>
       {mainView === 'invite' && inviteConn !== null && (

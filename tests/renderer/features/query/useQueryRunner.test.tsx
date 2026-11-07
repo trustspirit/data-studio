@@ -36,11 +36,93 @@ function deferred<T>(): Deferred<T> {
 }
 
 describe('useQueryRunner', () => {
+  it('연결이 바뀌면 옛 요청을 취소하고 늦게 온 응답을 무시한다', async () => {
+    const pending = deferred<OperationOutcome>()
+    const gw = gatewayReturning({ ok: true, payload: { kind: 'rows', rows: resultSet() } })
+    gw.run.mockReturnValueOnce(pending.promise)
+    const { result, rerender } = renderHook(({ id }) => useQueryRunner(gw, id), { initialProps: { id: 'a' } })
+    let running!: Promise<void>
+    act(() => { running = result.current.run() })
+    rerender({ id: 'b' })
+    expect(result.current.running).toBe(false)
+    await act(async () => {
+      pending.resolve({ ok: true, payload: { kind: 'rows', rows: resultSet() } })
+      await running
+    })
+    expect(result.current.rows).toEqual([])
+    await act(async () => { await result.current.run() })
+    expect(gw.run.mock.calls[1]?.[0]).toMatchObject({ connectionId: 'b' })
+    expect(result.current.rows).toHaveLength(1)
+  })
+
+  it('에디터를 수정해도 다음 페이지는 원래 실행한 SQL을 사용한다', async () => {
+    const gw = gatewayReturning({ ok: true, payload: { kind: 'rows', rows: resultSet({ page: { cursor: 'next', hasMore: true, rowCount: 1, bytes: 10 } }) } })
+    const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
+    act(() => result.current.setSql('SELECT * FROM original'))
+    await act(async () => { await result.current.run() })
+    act(() => result.current.setSql('DELETE FROM original'))
+    await act(async () => { await result.current.loadMore() })
+    expect(gw.run.mock.calls[1]?.[0]).toMatchObject({ operation: { sql: 'SELECT * FROM original' }, page: { cursor: 'next' } })
+    expect(result.current.durationMs).toBe(2)
+  })
+
+  it('페이지 로딩 중 Run을 다시 눌러도 현재 결과를 지우지 않는다', async () => {
+    const pending = deferred<OperationOutcome>()
+    const gw = gatewayReturning({ ok: true, payload: { kind: 'rows', rows: resultSet({ page: { cursor: 'next', hasMore: true, rowCount: 1, bytes: 10 } }) } })
+    gw.run.mockResolvedValueOnce({ ok: true, payload: { kind: 'rows', rows: resultSet({ page: { cursor: 'next', hasMore: true, rowCount: 1, bytes: 10 } }) } })
+      .mockReturnValueOnce(pending.promise)
+    const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
+    await act(async () => { await result.current.run() })
+    let loading!: Promise<void>
+    act(() => { loading = result.current.loadMore() })
+    await act(async () => { await result.current.run() })
+    expect(result.current.rows).toHaveLength(1)
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock
+    expect(gw.run).toHaveBeenCalledTimes(2)
+    await act(async () => {
+      pending.resolve({ ok: true, payload: { kind: 'rows', rows: resultSet() } })
+      await loading
+    })
+    expect(result.current.rows).toHaveLength(2)
+  })
+
+  it('탭을 닫으면 진행 중인 요청을 취소한다', async () => {
+    const pending = deferred<OperationOutcome>()
+    const gw = gatewayReturning({ ok: false, reason: 'unused' })
+    gw.run.mockReturnValue(pending.promise)
+    const { result, unmount } = renderHook(() => useQueryRunner(gw, 'c1'))
+    let running!: Promise<void>
+    act(() => { running = result.current.run() })
+    const request = gw.run.mock.calls[0]?.[0] as { requestId: string }
+    unmount()
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- mock
+    expect(gw.cancel).toHaveBeenCalledWith(request.requestId)
+    pending.resolve({ ok: false, reason: 'cancelled' })
+    await running
+  })
+
+  it('취소 IPC 오류를 처리하고 사용자에게 보여준다', async () => {
+    const pending = deferred<OperationOutcome>()
+    const gw = gatewayReturning({ ok: false, reason: 'unused' })
+    gw.run.mockReturnValue(pending.promise)
+    gw.cancel = vi.fn().mockRejectedValue(new Error('offline'))
+    const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
+    let running!: Promise<void>
+    act(() => { running = result.current.run() })
+    await act(async () => { result.current.cancel(); await Promise.resolve() })
+    expect(result.current.error).toContain('취소 실패: offline')
+    await act(async () => {
+      pending.resolve({ ok: false, reason: 'cancelled' })
+      await running
+    })
+  })
+
   it('run이 게이트웨이를 부르고 결과를 노출한다', async () => {
     const gw = gatewayReturning({ ok: true, payload: { kind: 'rows', rows: resultSet() } })
     const { result } = renderHook(() => useQueryRunner(gw, 'c1'))
     act(() => result.current.setSql('SELECT 1'))
     await act(async () => { await result.current.run() })
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- vi.fn mock
     expect(gw.run).toHaveBeenCalled()
     expect(result.current.rows).toHaveLength(1)
     expect(result.current.columns[0]?.name).toBe('id')
